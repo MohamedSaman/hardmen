@@ -254,7 +254,7 @@ class Products extends Component
             'brand' => 'required|exists:brand_lists,id',
             'category' => 'required|exists:category_lists,id',
             'supplier' => 'nullable|exists:product_suppliers,id',
-            'image' => 'nullable|url',
+            'image' => 'nullable|string|max:10000',
             'description' => 'nullable|string|max:1000',
             'barcode' => 'nullable|string|max:255|unique:product_details,barcode',
             'supplier_price' => 'required|numeric|min:0',
@@ -310,6 +310,11 @@ class Products extends Component
     // 🔹 Create Product
     public function createProduct()
     {
+        // Clean up image field - treat empty strings as null
+        if (empty(trim($this->image ?? ''))) {
+            $this->image = null;
+        }
+
         // Validate the form data
         $validatedData = $this->validate();
 
@@ -488,7 +493,7 @@ class Products extends Component
             'editModel' => 'nullable|string|max:255',
             'editBrand' => 'required|exists:brand_lists,id',
             'editCategory' => 'required|exists:category_lists,id',
-            'editImage' => 'nullable|url',
+            'editImage' => 'nullable|string|max:100000',
             'editDescription' => 'nullable|string|max:1000',
             'editBarcode' => 'nullable|string|max:255|unique:product_details,barcode,' . $this->editId,
             'editStatus' => 'required|in:active,inactive',
@@ -502,6 +507,11 @@ class Products extends Component
     // 🔹 Update Product
     public function updateProduct()
     {
+        // Clean up image field - treat empty strings as null
+        if (empty(trim($this->editImage ?? ''))) {
+            $this->editImage = null;
+        }
+
         // Validate the form data
         $validatedData = $this->validate($this->updateRules());
 
@@ -514,7 +524,7 @@ class Products extends Component
                 'model' => $this->editModel,
                 'brand_id' => $this->editBrand,
                 'category_id' => $this->editCategory,
-                'image' => $this->editImage,
+                'image' => $this->editImage ?: $this->existingImage,
                 'description' => $this->editDescription,
                 'barcode' => $this->editBarcode,
                 'status' => $this->editStatus,

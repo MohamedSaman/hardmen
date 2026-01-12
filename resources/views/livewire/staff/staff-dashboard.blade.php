@@ -88,12 +88,12 @@
             }
 
             .content-tab.active {
-                color: #0d6efd;
-                border-bottom-color: #0d6efd;
+                color: #f58320;
+                border-bottom-color: #f58320;
             }
 
             .content-tab:hover:not(.active) {
-                color: #0d6efd;
+                color: #f58320;
                 border-bottom-color: #dee2e6;
             }
 

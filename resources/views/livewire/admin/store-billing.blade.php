@@ -1,57 +1,35 @@
-<div class="container-fluid py-3" style="background-color:#ffffff;">
+<div class="pos-container">
     {{-- Opening Cash Modal --}}
     @if($showOpeningCashModal)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.8);" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-0 shadow-lg">
-                <div class="modal-header text-white rounded-0" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);">
+            <div class="modal-content rounded-3 border-0 shadow-lg">
+                <div class="modal-header text-white rounded-top" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
                     <h5 class="modal-title fw-bold">
                         <i class="bi bi-cash-stack me-2"></i>Enter Opening Cash Amount
                     </h5>
                 </div>
-
                 <div class="modal-body p-4">
                     <div class="text-center mb-4">
-                        <i class="bi bi-calendar-check" style="font-size: 3rem; color: #2a83df;"></i>
-                        <h5 class="mt-3 mb-1 fw-bold" style="color: #2a83df;">Start New POS Session</h5>
+                        <i class="bi bi-calendar-check" style="font-size: 3rem; color: #f58320;"></i>
+                        <h5 class="mt-3 mb-1 fw-bold" style="color: #f58320;">Start New POS Session</h5>
                         <p class="text-muted">{{ now()->format('l, F d, Y') }}</p>
                     </div>
-
-                    <div class="alert alert-info rounded-0 mb-4">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <small>Please enter the opening cash amount to start today's POS session.</small>
-                    </div>
-
                     <div class="mb-3">
-                        <label for="openingCashAmount" class="form-label fw-semibold" style="color:#2a83df;">
+                        <label for="openingCashAmount" class="form-label fw-semibold" style="color:#f58320;">
                             Opening Cash Amount (Rs.) *
                         </label>
-                        <input type="number"
-                            class="form-control form-control-lg rounded-0 text-center fw-bold"
-                            id="openingCashAmount"
-                            wire:model="openingCashAmount"
-                            step="0.01"
-                            min="0"
-                            placeholder="0.00"
-                            style="font-size: 1.5rem; border: 2px solid #2a83df;"
-                            autofocus>
+                        <input type="number" class="form-control form-control-lg text-center fw-bold"
+                            id="openingCashAmount" wire:model="openingCashAmount" step="0.01" min="0"
+                            placeholder="0.00" style="font-size: 1.5rem; border: 2px solid #f58320;" autofocus>
                         @error('openingCashAmount')
                         <div class="text-danger mt-1 small">{{ $message }}</div>
                         @enderror
                     </div>
-
-                    <div class="bg-light p-3 rounded-0 border">
-                        <small class="text-muted">
-                            <i class="bi bi-lightbulb me-1"></i>
-                            <strong>Note:</strong> This amount will be recorded as your starting cash for today's transactions.
-                        </small>
-                    </div>
                 </div>
-
-                <div class="modal-footer justify-content-center rounded-0 bg-light">
-                    <button type="button"
-                        class="btn btn-lg rounded-0 text-white px-5"
-                        style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); border-color:#2a83df;"
+                <div class="modal-footer justify-content-center bg-light">
+                    <button type="button" class="btn btn-lg text-white px-5"
+                        style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);"
                         wire:click="submitOpeningCash">
                         <i class="bi bi-check-circle me-2"></i>Start POS Session
                     </button>
@@ -61,28 +39,20 @@
     </div>
     @endif
 
-    <!-- Enhanced Header -->
-    <div class="header-section mb-4">
+    {{-- Header Section --}}
+    <div class="header-section mb-3">
         <div class="d-flex justify-content-between align-items-center p-3 bg-white rounded shadow-sm border">
-            <!-- Logo and Company Info -->
             <div class="d-flex align-items-center">
-                <div class="company-logo me-3">
-                    <i class="bi bi-shop fs-3 text-success"></i>
-                </div>
+                <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" style="height:45px;" class="me-3">
                 <div>
-                    <h4 class="mb-0 fw-bold" style="color:#2a83df;">MI-KING</h4>
+                    <h4 class="mb-0 fw-bold" style="color:#f58320;">HARDMEN (PVT) LTD</h4>
                     <small class="text-muted">Point of Sale System</small>
                 </div>
             </div>
-
-            <!-- POS Button -->
-            <div class="d-flex align-items-center">
+            <div class="d-flex align-items-center gap-2">
                 <div class="badge d-flex align-items-center px-3 py-2 rounded-2 shadow-sm"
-                    style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); color:white; border:1px solid #2a83df; cursor: pointer; transition: all 0.2s ease;"
-                    wire:click="viewCloseRegisterReport"
-                    role="button"
-                    onmouseover="this.style.background='linear-gradient(135deg, #1a5fb8 0%, #2a83df 100%)';"
-                    onmouseout="this.style.background='linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%)';">
+                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); color:white; cursor: pointer;"
+                    wire:click="viewCloseRegisterReport" role="button">
                     <i class="bi bi-file-earmark-text me-2"></i>
                     <span class="fw-semibold">View Report</span>
                 </div>
@@ -90,510 +60,334 @@
         </div>
     </div>
 
-    <div class="row">
-        {{-- Customer Information --}}
-        <div class="col-6 mb-4">
-            <div class="card border-2 shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                    <h5 class="card-title mb-0 fw-bold" style="color:#2a83df;">
-                        <i class="bi bi-person me-2" style="color:#2a83df;"></i>Customer Information
-                    </h5>
-                    <button class="btn btn-sm rounded-1 text-white" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); border-color: #2a83df;" wire:click="openCustomerModal">
-                        <i class="bi bi-plus-circle me-1"></i> Add New Customer
+    {{-- Main POS Layout --}}
+    <div class="row g-0" style="min-height: calc(100vh - 95px);">
+        
+        {{-- LEFT SIDEBAR - Customer & Cart --}}
+        <div class="col-md-3 bg-white border-end d-flex flex-column" style="max-height: calc(100vh - 95px);">
+            {{-- Customer Section --}}
+            <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 fw-bold">
+                        <i class="bi bi-person me-2" style="color: #f58320;"></i>Customer
+                    </h6>
+                    <button class="btn btn-link btn-sm p-0 text-decoration-none" style="color: #f58320;" wire:click="openCustomerModal">
+                        <i class="bi bi-plus-circle me-1"></i>Add New
                     </button>
                 </div>
-                <div class="card-body">
-                    {{-- Customer Success Alert --}}
-                    @if(session()->has('customer_success'))
-                    <div class="alert alert-success alert-dismissible fade show rounded-0 mb-3" role="alert">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        <strong>Success!</strong> {{ session('customer_success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                    @endif
+                <select class="form-select form-select-sm" wire:model.live="customerId">
+                    @foreach($customers as $customer)
+                    <option value="{{ $customer->id }}">
+                        {{ $customer->name }}
+                        @if($customer->phone) - {{ $customer->phone }} @endif
+                        @if($customer->name === 'Walking Customer') (Default) @endif
+                    </option>
+                    @endforeach
+                </select>
+            </div>
 
-                    <div class="row g-3">
-                        <div class="col-md-12">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Select Customer *</label>
-                            <select class="form-select rounded-0 border" wire:model.live="customerId">
-                                @foreach($customers as $customer)
-                                <option value="{{ $customer->id }}" {{ $customer->name === 'Walking Customer' ? 'selected' : '' }}>
-                                    {{ $customer->name }}
-                                    @if($customer->phone)
-                                    - {{ $customer->phone }}
-                                    @endif
-                                    @if($customer->name === 'Walking Customer') (Default) @endif
-                                </option>
-                                @endforeach
-                            </select>
-                            <div class="form-text">
-                                @if($selectedCustomer && $selectedCustomer->name === 'Walking Customer')
-                                <span class="text-info">
-                                    <i class="bi bi-info-circle"></i> Using default walking customer
-                                </span>
-                                @else
-                                Select existing customer or add new
-                                @endif
+            {{-- Shopping Cart --}}
+            <div class="p-3 flex-grow-1" style="overflow-y: auto;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-bold">
+                        <i class="bi bi-cart3 me-2" style="color: #f58320;"></i>Shopping Cart
+                    </h6>
+                    <span class="badge text-white" style="background: #f58320;">{{ count($cart) }} Items</span>
+                </div>
+
+                @if(count($cart) > 0)
+                <div class="cart-items">
+                    @foreach($cart as $index => $item)
+                    <div class="cart-item d-flex align-items-center p-2 mb-2 bg-light rounded" wire:key="cart-{{ $item['key'] ?? $index }}">
+                        <div class="cart-item-image me-2">
+                            @if(isset($item['image']) && $item['image'])
+                            <img src="{{ strpos($item['image'], 'http') === 0 || strpos($item['image'], 'data:') === 0 ? $item['image'] : asset('storage/' . $item['image']) }}" alt="{{ $item['name'] }}" 
+                                class="rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                            @else
+                            <img src="{{ asset('images/default-product.png') }}" alt="No Image" 
+                                class="rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                            @endif
+                        </div>
+                        <div class="cart-item-details flex-grow-1" style="min-width: 0;">
+                            <h6 class="mb-0 small fw-semibold text-truncate">{{ $item['name'] }}</h6>
+                            <small class="text-muted">Rs. {{ number_format($item['price'], 0) }}</small>
+                            <div class="d-flex align-items-center mt-1">
+                                <button class="btn btn-sm btn-outline-secondary px-2 py-0" 
+                                    wire:click="decrementQuantity({{ $index }})">-</button>
+                                <span class="mx-2 small fw-bold">{{ $item['quantity'] }}</span>
+                                <button class="btn btn-sm btn-outline-secondary px-2 py-0" 
+                                    wire:click="incrementQuantity({{ $index }})">+</button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Add Products Card --}}
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 shadow-sm border-1">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0 fw-semibold">
-                        <i class="bi bi-search me-2 text-success"></i> Add Products
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <input type="text" class="form-control shadow-sm"
-                            wire:model.live="search"
-                            placeholder="Search by product name, code, or model...">
-                    </div>
-
-                    {{-- Search Results --}}
-                    @if($search && count($searchResults) > 0)
-                    <div class="search-results mt-1 position-absolute w-100 z-10 shadow-lg " style="max-height: 300px; max-width: 96%;">
-                        @foreach($searchResults as $product)
-                        <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white rounded-1"
-                            wire:key="product-{{ $product['id'] }}">
-                            <div>
-                                <h6 class="mb-1 fw-semibold">{{ $product['name'] }}</h6>
-                                <p class="text-muted small mb-0">
-                                    Code: {{ $product['code'] }} | Model: {{ $product['model'] }}
-                                </p>
-                                <p class="text-success small mb-0">
-                                    Rs.{{ number_format($product['price'], 2) }} | Stock: {{ $product['stock'] }}
-                                </p>
-                            </div>
-                            <button class="btn btn-sm btn-outline-primary"
-                                wire:click="addToCart({{ json_encode($product) }})"
-                                {{ $product['stock'] <= 0 ? 'disabled' : '' }}>
-                                <i class="bi bi-plus-lg"></i> Add
+                        <div class="cart-item-price text-end ms-2">
+                            <span class="fw-bold small" style="color: #f58320;">Rs. {{ number_format($item['total'], 0) }}</span>
+                            <button class="btn btn-link btn-sm text-danger p-0 d-block" 
+                                wire:click="removeFromCart({{ $index }})" title="Remove">
+                                <i class="bi bi-trash small"></i>
                             </button>
                         </div>
-                        @endforeach
                     </div>
-                    @elseif($search)
-                    <div class="text-center text-muted p-3">
-                        <i class="bi bi-exclamation-circle me-1"></i> No products found
-                    </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Sale Items Table --}}
-    <div class="col-md-12 mb-4">
-        <div class="card border-2 shadow-sm">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <h5 class="card-title mb-0 fw-bold" style="color:#2a83df;">
-                    <i class="bi bi-cart me-2" style="color:#2a83df;"></i>Sale Items
-                </h5>
-                <span class="badge rounded-1 text-white" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);">{{ count($cart) }} items</span>
-            </div>
-            <div class="card-body p-0">
-                @if(count($cart) > 0)
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="30">#</th>
-                                <th>Product</th>
-                                <th width="120">Unit Price</th>
-                                <th width="150">Quantity</th>
-                                <th width="120">Discount/Unit</th>
-                                <th width="120">Total</th>
-                                <th width="100" class="text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($cart as $index => $item)
-                            <tr wire:key="{{ $item['key'] ?? 'cart_' . $index }}">
-                                <td>{{ $index + 1 }}</td>
-                                <td>
-                                    <div>
-                                        <strong>{{ $item['name'] }}</strong>
-                                        <div class="text-muted small">
-                                            {{ $item['code'] }} | {{ $item['model'] }}
-                                        </div>
-                                        <div class="text-info small">
-                                            Stock: {{ $item['stock'] }}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="fw-bold">
-                                    <input type="number" class="form-control-sm text-primary rounded-0" style="min-width:90px;"
-                                        wire:change="updatePrice({{ $index }}, $event.target.value)"
-                                        value="{{ $item['price'] }}" min="0" step="0.01"
-                                        placeholder="0.00">
-                                </td>
-                                <td>
-                                    <div class="input-group input-group-sm">
-                                        <button class="btn btn-outline-secondary rounded-0" type="button"
-                                            wire:click="decrementQuantity({{ $index }})">-</button>
-                                        <input type="number" class="form-control text-center rounded-0"
-                                            wire:change="updateQuantity({{ $index }}, $event.target.value)"
-                                            value="{{ $item['quantity'] }}" min="1" max="{{ $item['stock'] }}">
-                                        <button class="btn btn-outline-secondary rounded-0" type="button"
-                                            wire:click="incrementQuantity({{ $index }})">+</button>
-                                    </div>
-                                </td>
-                                <td>
-                                    <input type="number" class="form-control-sm text-danger rounded-0"
-                                        wire:change="updateDiscount({{ $index }}, $event.target.value)"
-                                        value="{{ $item['discount'] }}" min="0" step="0.01"
-                                        placeholder="0.00">
-                                </td>
-                                <td class="fw-bold">
-                                    Rs.{{ number_format($item['total'], 2) }}
-                                </td>
-                                <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-danger rounded-0"
-                                        wire:click="removeFromCart({{ $index }})"
-                                        title="Delete">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <td colspan="5" class="text-end fw-bold">Subtotal:</td>
-                                <td class="fw-bold">Rs.{{ number_format($subtotal, 2) }}</td>
-                                <td></td>
-                            </tr>
-
-                            {{-- Additional Discount Section --}}
-                            <tr>
-                                <td colspan="3" class="text-end fw-bold align-middle">
-                                    Additional Discount:
-                                    @if($additionalDiscount > 0)
-                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1"
-                                        wire:click="removeAdditionalDiscount" title="Remove discount">
-                                        <i class="bi bi-x-circle"></i>
-                                    </button>
-                                    @endif
-                                </td>
-                                <td colspan="2">
-                                    <div class="input-group input-group-sm">
-                                        <input type="number"
-                                            class="form-control form-control-sm text-danger rounded-0"
-                                            wire:model.live="additionalDiscount"
-                                            min="0"
-                                            step="{{ $additionalDiscountType === 'percentage' ? '1' : '0.01' }}"
-                                            @if($additionalDiscountType==='percentage' ) max="100" @endif
-                                            placeholder="0{{ $additionalDiscountType === 'percentage' ? '' : '.00' }}">
-
-                                        <span class="input-group-text rounded-0">
-                                            {{ $additionalDiscountType === 'percentage' ? '%' : 'Rs.' }}
-                                        </span>
-
-                                        <button type="button"
-                                            class="btn btn-outline-secondary rounded-0"
-                                            wire:click="toggleDiscountType"
-                                            title="Switch Discount Type">
-                                            <i class="bi bi-arrow-repeat"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                                <td class="fw-bold text-danger">
-                                    @if($additionalDiscount > 0)
-                                    - Rs.{{ number_format($additionalDiscountAmount, 2) }}
-                                    @if($additionalDiscountType === 'percentage')
-                                    <div class="text-muted small">({{ $additionalDiscount }}%)</div>
-                                    @endif
-                                    @else
-                                    <span class="text-muted">-</span>
-                                    @endif
-                                </td>
-                                <td></td>
-                            </tr>
-
-                            {{-- Grand Total --}}
-                            <tr>
-                                <td colspan="5" class="text-end fw-bold fs-5">Grand Total:</td>
-                                <td class="fw-bold fs-5" style="color:#2a83df;">Rs.{{ number_format($grandTotal, 2) }}</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                    @endforeach
                 </div>
                 @else
-                <div class="text-center text-muted py-5">
-                    <i class="bi bi-cart display-4 d-block mb-2 text-muted"></i>
-                    No items added yet
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-cart-x" style="font-size: 2rem;"></i>
+                    <p class="mb-0 mt-2 small">Cart is empty</p>
                 </div>
                 @endif
             </div>
-            @if(count($cart) > 0)
-            <div class="card-footer bg-white">
-                <button class="btn btn-danger rounded-0" wire:click="clearCart">
-                    <i class="bi bi-trash me-2"></i>Clear All Items
-                </button>
-            </div>
-            @endif
-        </div>
-    </div>
 
-    <div class="row">
-        {{-- Payment Information Card --}}
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 border-2 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h5 class="card-title mb-0 fw-bold" style="color:#2a83df;">
-                        <i class="bi bi-credit-card me-2" style="color:#2a83df;"></i>Payment Information
-                    </h5>
+            {{-- Cart Summary & Complete Sale --}}
+            <div class="p-3 border-top bg-light mt-auto">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted small">Subtotal</span>
+                    <span class="fw-semibold small">Rs. {{ number_format($subtotal, 2) }}</span>
                 </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-12">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Payment Method *</label>
-                            <select class="form-select rounded-0 border" wire:model.live="paymentMethod">
-                                <option value="cash">Cash</option>
-                                <option value="cheque">Cheque</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="credit">Credit (Pay Later)</option>
-                            </select>
-                        </div>
-
-                        {{-- Cash Payment Fields --}}
-                        @if($paymentMethod === 'cash')
-                        <div class="col-md-12">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Cash Amount *</label>
-                            <div class="input-group">
-                                <span class="input-group-text rounded-0">Rs.</span>
-                                <input type="number" class="form-control rounded-0"
-                                    wire:model.live="cashAmount"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="0.00">
-                            </div>
-                            <div class="form-text">
-                                Enter the cash amount received
-                            </div>
-                        </div>
-                        @endif
-
-                        {{-- Cheque Payment Fields --}}
-                        @if($paymentMethod === 'cheque')
-                        <div class="col-md-12">
-                            <div class="card bg-light border-0">
-                                <div class="card-header d-flex justify-content-between align-items-center bg-white py-2">
-                                    <h6 class="mb-0 fw-semibold" style="color:#2a83df;">Add Cheque Details</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div class="row g-2">
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-semibold" style="color:#2a83df;">Cheque Number *</label>
-                                            <input type="text" class="form-control form-control-sm rounded-0"
-                                                wire:model="tempChequeNumber"
-                                                placeholder="Enter cheque number">
-                                            @error('tempChequeNumber') <span class="text-danger small">{{ $message }}</span> @enderror
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-semibold" style="color:#2a83df;">Bank Name *</label>
-                                            <input type="text" class="form-control form-control-sm rounded-0"
-                                                wire:model="tempBankName"
-                                                placeholder="Enter bank name">
-                                            @error('tempBankName') <span class="text-danger small">{{ $message }}</span> @enderror
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-semibold" style="color:#2a83df;">Cheque Date *</label>
-                                            <input type="date" class="form-control form-control-sm rounded-0"
-                                                wire:model="tempChequeDate">
-                                            @error('tempChequeDate') <span class="text-danger small">{{ $message }}</span> @enderror
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label small fw-semibold" style="color:#2a83df;">Cheque Amount *</label>
-                                            <input type="number" class="form-control form-control-sm rounded-0"
-                                                wire:model="tempChequeAmount"
-                                                min="0" step="0.01"
-                                                placeholder="0.00">
-                                            @error('tempChequeAmount') <span class="text-danger small">{{ $message }}</span> @enderror
-                                        </div>
-                                        <div class="col-12">
-                                            <button type="button" class="btn btn-sm w-100 rounded-0 text-white" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); border-color:#2a83df;"
-                                                wire:click="addCheque">
-                                                <i class="bi bi-plus-circle me-1"></i> Add Cheque
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Cheques List --}}
-                            @if(count($cheques) > 0)
-                            <div class="mt-3">
-                                <h6 class="mb-2 fw-semibold" style="color:#2a83df;">Added Cheques ({{ count($cheques) }})</h6>
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-bordered">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Cheque No</th>
-                                                <th>Bank</th>
-                                                <th>Date</th>
-                                                <th>Amount</th>
-                                                <th width="50">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach($cheques as $index => $cheque)
-                                            <tr>
-                                                <td>{{ $cheque['number'] }}</td>
-                                                <td>{{ $cheque['bank_name'] }}</td>
-                                                <td>{{ date('d/m/Y', strtotime($cheque['date'])) }}</td>
-                                                <td class="fw-bold">Rs.{{ number_format($cheque['amount'], 2) }}</td>
-                                                <td class="text-center">
-                                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-0"
-                                                        wire:click="removeCheque({{ $index }})">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            @endforeach
-                                        </tbody>
-                                        <tfoot class="table-light">
-                                            <tr>
-                                                <td colspan="3" class="text-end fw-bold">Total:</td>
-                                                <td colspan="2" class="fw-bold text-success">
-                                                    Rs.{{ number_format(collect($cheques)->sum('amount'), 2) }}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            </div>
-                            @endif
-                        </div>
-                        @endif
-
-                        {{-- Bank Transfer Fields --}}
-                        @if($paymentMethod === 'bank_transfer')
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Bank Transfer Amount *</label>
-                            <div class="input-group">
-                                <span class="input-group-text rounded-0">Rs.</span>
-                                <input type="number" class="form-control rounded-0"
-                                    wire:model.live="bankTransferAmount"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="0.00">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Bank Name *</label>
-                            <input type="text" class="form-control rounded-0"
-                                wire:model="bankTransferBankName"
-                                placeholder="Enter bank name (e.g., BOC Bank)">
-                            @error('bankTransferBankName') <span class="text-danger small">{{ $message }}</span> @enderror
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Reference Number (Optional)</label>
-                            <input type="text" class="form-control rounded-0"
-                                wire:model="bankTransferReferenceNumber"
-                                placeholder="Enter transaction reference or receipt number">
-                            <div class="form-text">
-                                Reference number for transfer tracking
-                            </div>
-                        </div>
-                        @endif
-
-                        {{-- Credit Payment Info --}}
-                        @if($paymentMethod === 'credit')
-                        <div class="col-md-12">
-                            <div class="alert alert-warning mb-0 rounded-0">
-                                <i class="bi bi-exclamation-triangle me-2"></i>
-                                <strong>Credit Sale</strong>
-                                <p class="mb-0 mt-2">The full amount of Rs.{{ number_format($grandTotal, 2) }} will be marked as due. Customer can pay later.</p>
-                            </div>
-                        </div>
-                        @endif
-
-                        {{-- Payment Summary --}}
-                        @if($paymentMethod !== 'credit')
-                        <div class="col-md-12">
-                            <div class="border rounded-0 p-3 bg-light">
-                                <h6 class="mb-3 fw-semibold" style="color:#2a83df;">Payment Summary</h6>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span>Grand Total:</span>
-                                    <span class="fw-bold">Rs.{{ number_format($grandTotal, 2) }}</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span>Paid Amount:</span>
-                                    <span class="fw-bold text-success">Rs.{{ number_format($totalPaidAmount, 2) }}</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span>Due Amount:</span>
-                                    <span class="fw-bold {{ $dueAmount > 0 ? 'text-warning' : 'text-success' }}">
-                                        Rs.{{ number_format($dueAmount, 2) }}
-                                    </span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span>Status:</span>
-                                    <span class="badge bg-{{ $paymentStatus === 'paid' ? 'success' : ($paymentStatus === 'partial' ? 'warning' : 'danger') }} rounded-1">
-                                        {{ ucfirst($paymentStatus) }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        @if($totalPaidAmount < $grandTotal && $totalPaidAmount> 0)
-                            <div class="col-md-12">
-                                <div class="alert alert-info small mb-0 rounded-0">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                    Partial payment. Remaining Rs.{{ number_format($dueAmount, 2) }} will be marked as due.
-                                </div>
-                            </div>
-                            @endif
-                            @endif
-                    </div>
+                @if($totalDiscount > 0)
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted small">Discount</span>
+                    <span class="text-danger small">- Rs. {{ number_format($totalDiscount, 2) }}</span>
                 </div>
-            </div>
-        </div>
-
-        {{-- Notes Card --}}
-        <div class="col-md-6 mb-4">
-            <div class="card h-100 border-2 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h5 class="card-title mb-0 fw-bold" style="color:#2a83df;">
-                        <i class="bi bi-chat-text me-2" style="color:#2a83df;"></i>Notes
-                    </h5>
+                @endif
+                <div class="d-flex justify-content-between mb-3 pt-2 border-top">
+                    <span class="fw-bold">Total</span>
+                    <span class="fw-bold fs-5" style="color: #f58320;">Rs. {{ number_format($grandTotal, 2) }}</span>
                 </div>
-                <div class="card-body">
-                    <textarea class="form-control rounded-0" wire:model="notes" rows="8"
-                        placeholder="Add any notes for this sale..."></textarea>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Create Sale Button --}}
-    <div class="col-12">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center bg-light py-4">
-                <button class="btn btn-lg px-5 rounded-0 fw-bold text-white" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); border-color:#2a83df;" wire:click="validateAndCreateSale"
+                <button class="btn w-100 text-white py-2 fw-bold" 
+                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);"
+                    wire:click="validateAndCreateSale"
                     {{ count($cart) == 0 ? 'disabled' : '' }}>
                     <i class="bi bi-cart-check me-2"></i>Complete Sale
                 </button>
             </div>
         </div>
+
+        {{-- CENTER - Search & Products Grid --}}
+        <div class="col-md-7 bg-light d-flex flex-column" style="max-height: calc(100vh - 95px);">
+            {{-- Search Bar --}}
+            <div class="p-3 bg-white border-bottom">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0" 
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="Search by product name, code, or model...">
+                    @if($search)
+                    <button class="btn btn-outline-secondary" type="button" wire:click="$set('search', '')">
+                        <i class="bi bi-x"></i>
+                    </button>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Products Grid --}}
+            <div class="p-3 flex-grow-1" style="overflow-y: auto;">
+                <div class="row g-2">
+                    @forelse($products as $product)
+                    <div class="col-6 col-lg-4 col-xl-3">
+                        <div class="card h-100 product-card border-0 shadow-sm" 
+                            style="cursor: pointer; transition: all 0.2s;"
+                            wire:click="addToCart({{ json_encode($product) }})"
+                            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 4px 15px rgba(245,131,32,0.3)'"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 .125rem .25rem rgba(0,0,0,.075)'">
+                            <div class="card-body p-2 text-center">
+                                @if(isset($product['image']) && $product['image'])
+                                <img src="{{ strpos($product['image'], 'http') === 0 || strpos($product['image'], 'data:') === 0 ? $product['image'] : asset('storage/' . $product['image']) }}" 
+                                    alt="{{ $product['name'] }}"
+                                    class="img-fluid rounded mb-2"
+                                    style="height: 70px; width: 100%; object-fit: cover;">
+                                @else
+                                <div class="bg-light rounded mb-2 d-flex align-items-center justify-content-center"
+                                    style="height: 70px;">
+                                    <i class="bi bi-image text-muted" style="font-size: 1.5rem;"></i>
+                                </div>
+                                @endif
+                                <h6 class="card-title mb-1 small fw-semibold text-truncate" title="{{ $product['name'] }}">{{ $product['name'] }}</h6>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold small" style="color: #f58320;">Rs. {{ number_format($product['price'], 0) }}</span>
+                                    <span class="badge bg-success" style="font-size: 0.65rem;">IN STOCK</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-box-seam" style="font-size: 3rem; color: #ccc;"></i>
+                        <p class="text-muted mt-2">No products found</p>
+                    </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        {{-- RIGHT SIDEBAR - Categories --}}
+        <div class="col-md-2 bg-white border-start d-flex flex-column" style="max-height: calc(100vh - 95px);">
+            {{-- Categories --}}
+            <div class="p-3 flex-grow-1" style="overflow-y: auto;">
+                <h6 class="mb-3 fw-bold">
+                    <i class="bi bi-grid me-2" style="color: #f58320;"></i>Categories
+                </h6>
+                
+                {{-- All Products Button --}}
+                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ !$selectedCategory ? 'text-white' : 'btn-light' }}"
+                    style="{{ !$selectedCategory ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
+                    wire:click="showAllProducts">
+                    <span><i class="bi bi-collection me-2"></i>All Products</span>
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+
+                {{-- Category List --}}
+                @foreach($categories as $category)
+                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ $selectedCategory == $category->id ? 'text-white' : 'btn-light' }}"
+                    style="{{ $selectedCategory == $category->id ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
+                    wire:click="selectCategory({{ $category->id }})">
+                    <span>{{ $category->category_name }}</span>
+                </button>
+                @endforeach
+            </div>
+        </div>
     </div>
 
+    {{-- Payment Modal --}}
+    @if($showPaymentModal)
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.7);" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header text-white border-0" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-credit-card me-2"></i>Payment Details
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closePaymentModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    {{-- Order Summary --}}
+                    <div class="card bg-light border-0 mb-4">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted">Subtotal:</span>
+                                <span class="fw-semibold">Rs. {{ number_format($subtotal, 2) }}</span>
+                            </div>
+                            @if($totalDiscount > 0)
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted">Discount:</span>
+                                <span class="text-danger">- Rs. {{ number_format($totalDiscount, 2) }}</span>
+                            </div>
+                            @endif
+                            <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                                <span class="fw-bold fs-5">Total Amount:</span>
+                                <span class="fw-bold fs-4" style="color: #f58320;">Rs. {{ number_format($grandTotal, 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Payment Method Selection --}}
+                    <div class="mb-4">
+                        <label class="form-label fw-bold mb-3" style="color: #f58320;">
+                            <i class="bi bi-wallet2 me-2"></i>Select Payment Method
+                        </label>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="payment-option {{ $paymentMethod == 'cash' ? 'selected' : '' }}" 
+                                    wire:click="$set('paymentMethod', 'cash')"
+                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'cash' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'cash' ? '#fff5ed' : 'white' }};">
+                                    <div class="text-center">
+                                        <i class="bi bi-cash-stack" style="font-size: 2.5rem; color: {{ $paymentMethod == 'cash' ? '#f58320' : '#6c757d' }};"></i>
+                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'cash' ? '#f58320' : '#495057' }};">Cash</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="payment-option {{ $paymentMethod == 'card' ? 'selected' : '' }}" 
+                                    wire:click="$set('paymentMethod', 'card')"
+                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'card' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'card' ? '#fff5ed' : 'white' }};">
+                                    <div class="text-center">
+                                        <i class="bi bi-credit-card-2-front" style="font-size: 2.5rem; color: {{ $paymentMethod == 'card' ? '#f58320' : '#6c757d' }};"></i>
+                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'card' ? '#f58320' : '#495057' }};">Card</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="payment-option {{ $paymentMethod == 'bank_transfer' ? 'selected' : '' }}" 
+                                    wire:click="$set('paymentMethod', 'bank_transfer')"
+                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'bank_transfer' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'bank_transfer' ? '#fff5ed' : 'white' }};">
+                                    <div class="text-center">
+                                        <i class="bi bi-bank" style="font-size: 2.5rem; color: {{ $paymentMethod == 'bank_transfer' ? '#f58320' : '#6c757d' }};"></i>
+                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'bank_transfer' ? '#f58320' : '#495057' }};">Bank Transfer</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="payment-option {{ $paymentMethod == 'cheque' ? 'selected' : '' }}" 
+                                    wire:click="$set('paymentMethod', 'cheque')"
+                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'cheque' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'cheque' ? '#fff5ed' : 'white' }};">
+                                    <div class="text-center">
+                                        <i class="bi bi-check2-square" style="font-size: 2.5rem; color: {{ $paymentMethod == 'cheque' ? '#f58320' : '#6c757d' }};"></i>
+                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'cheque' ? '#f58320' : '#495057' }};">Cheque</h6>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @error('paymentMethod')
+                        <div class="text-danger mt-2 small">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    {{-- Payment Amount Input (for cash with change calculation) --}}
+                    @if($paymentMethod == 'cash')
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" style="color: #f58320;">Amount Received</label>
+                            <input type="number" class="form-control form-control-lg" 
+                                wire:model.live="amountReceived" 
+                                step="0.01" 
+                                min="{{ $grandTotal }}"
+                                placeholder="Enter amount"
+                                style="border: 2px solid #f58320;">
+                            @error('amountReceived')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-success">Change to Return</label>
+                            <input type="text" class="form-control form-control-lg text-success fw-bold" 
+                                value="Rs. {{ number_format(max(0, ($amountReceived ?? 0) - $grandTotal), 2) }}" 
+                                readonly
+                                style="border: 2px solid #28a745; background-color: #f0fff4;">
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- Payment Notes --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="color: #f58320;">
+                            <i class="bi bi-pencil-square me-1"></i>Payment Notes (Optional)
+                        </label>
+                        <textarea class="form-control" wire:model="paymentNotes" rows="2" 
+                            placeholder="Add any payment notes or reference..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-secondary px-4" wire:click="closePaymentModal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn text-white px-4 py-2 fw-bold" 
+                        style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);"
+                        wire:click="completeSaleWithPayment">
+                        <i class="bi bi-check-circle me-2"></i>Complete Sale
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- Add Customer Modal --}}
     @if($showCustomerModal)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content rounded-0">
-                <div class="modal-header text-white rounded-0" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);">
+            <div class="modal-content">
+                <div class="modal-header text-white" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
                     <h5 class="modal-title fw-bold">
                         <i class="bi bi-person-plus me-2"></i>Add New Customer
                     </h5>
@@ -602,91 +396,38 @@
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Name *</label>
-                            <input type="text" class="form-control rounded-0" wire:model="customerName" placeholder="Enter customer name">
+                            <label class="form-label fw-semibold" style="color:#f58320;">Name *</label>
+                            <input type="text" class="form-control" wire:model="customerName" placeholder="Enter customer name">
                             @error('customerName') <span class="text-danger small">{{ $message }}</span> @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Phone *</label>
-                            <input type="text" class="form-control rounded-0" wire:model="customerPhone" placeholder="Enter phone number">
+                            <label class="form-label fw-semibold" style="color:#f58320;">Phone *</label>
+                            <input type="text" class="form-control" wire:model="customerPhone" placeholder="Enter phone number">
                             @error('customerPhone') <span class="text-danger small">{{ $message }}</span> @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Email</label>
-                            <input type="email" class="form-control rounded-0" wire:model="customerEmail" placeholder="Enter email address">
+                            <label class="form-label fw-semibold" style="color:#f58320;">Email</label>
+                            <input type="email" class="form-control" wire:model="customerEmail" placeholder="Enter email address">
                             @error('customerEmail') <span class="text-danger small">{{ $message }}</span> @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Customer Type *</label>
-                            <select class="form-select rounded-0" wire:model="customerType">
+                            <label class="form-label fw-semibold" style="color:#f58320;">Customer Type *</label>
+                            <select class="form-select" wire:model="customerType">
                                 <option value="retail">Retail</option>
                                 <option value="wholesale">Wholesale</option>
-
                             </select>
-                            @error('customerType') <span class="text-danger small">{{ $message }}</span> @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Business Name</label>
-                            <input type="text" class="form-control rounded-0" wire:model="businessName" placeholder="Enter business name">
                         </div>
                         <div class="col-12">
-                            <label class="form-label fw-semibold" style="color:#2a83df;">Address *</label>
-                            <textarea class="form-control rounded-0" wire:model="customerAddress" rows="3" placeholder="Enter address"></textarea>
+                            <label class="form-label fw-semibold" style="color:#f58320;">Address *</label>
+                            <textarea class="form-control" wire:model="customerAddress" rows="2" placeholder="Enter address"></textarea>
                             @error('customerAddress') <span class="text-danger small">{{ $message }}</span> @enderror
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer rounded-0">
-                    <button type="button" class="btn btn-secondary rounded-0" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);" wire:click="closeCustomerModal">
-                        <i class="bi bi-x-circle me-2"></i>Cancel
-                    </button>
-                    <button type="button" class="btn rounded-0 text-white" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); border-color:#2a83df;" wire:click="createCustomer">
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" wire:click="closeCustomerModal">Cancel</button>
+                    <button type="button" class="btn text-white" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);" wire:click="createCustomer">
                         <i class="bi bi-check-circle me-2"></i>Create Customer
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    {{-- Payment Confirmation Modal --}}
-    @if($showPaymentConfirmModal)
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.7);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0">
-                <div class="modal-header text-white rounded-0" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);">
-                    <h5 class="modal-title fw-bold">
-                        <i class="bi bi-exclamation-triangle me-2"></i>Partial Payment Confirmation
-                    </h5>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-warning mb-3 rounded-0">
-                        <h6 class="alert-heading">Payment Amount Less Than Grand Total</h6>
-                        <hr>
-                        <div class="d-flex justify-content-between mb-2">
-                            <strong>Grand Total:</strong>
-                            <span>Rs.{{ number_format($grandTotal, 2) }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <strong>Paid Amount:</strong>
-                            <span class="text-success">Rs.{{ number_format($totalPaidAmount, 2) }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <strong>Due Amount:</strong>
-                            <span class="text-danger">Rs.{{ number_format($pendingDueAmount, 2) }}</span>
-                        </div>
-                    </div>
-                    <p class="mb-0">
-                        The due amount of <strong class="text-danger">Rs.{{ number_format($pendingDueAmount, 2) }}</strong>
-                        will be added to the customer's account. Do you want to proceed?
-                    </p>
-                </div>
-                <div class="modal-footer rounded-0">
-                    <button type="button" class="btn btn-secondary rounded-0" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);" wire:click="cancelSaleConfirmation">
-                        <i class="bi bi-x-circle me-2"></i>Cancel
-                    </button>
-                    <button type="button" class="btn rounded-0 text-white" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); border-color:#2a83df;" wire:click="confirmSaleWithDue">
-                        <i class="bi bi-check-circle me-2"></i>Yes, Proceed with Due
                     </button>
                 </div>
             </div>
@@ -699,7 +440,7 @@
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
             <div class="modal-content rounded-0">
-                <div class="modal-header text-white rounded-0" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);">
+                <div class="modal-header text-white rounded-0" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
                     <h5 class="modal-title fw-bold">
                         <i class="bi bi-cart-check me-2"></i>
                         Sale Completed Successfully! - {{ $createdSale->invoice_number }}
@@ -711,145 +452,70 @@
                     <div class="sale-preview p-4" id="saleReceiptPrintContent">
                         {{-- Screen Only Header (visible on screen, hidden on print) --}}
                         <div class="screen-only-header mb-4">
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                {{-- Left: Logo --}}
-                                <div style="flex: 0 0 150px;">
-                                    <img src="{{ asset('images/MI-King.png') }}" alt="Logo" class="img-fluid" style="max-height:80px;">
-                                </div>
-
-                                {{-- Center: Company Name --}}
-                                <div class="text-center" style="flex: 1;">
-                                    <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">MI-KING</h2>
-                                    <p class="mb-0 text-muted small">BEST IN BOYS</p>
-                                </div>
-
-                                {{-- Right:  & Invoice --}}
-                                <div class="text-end" style="flex: 0 0 150px;">
-                                    <h5 class="mb-0 fw-bold"></h5>
-                                    <h6 class="mb-0 text-muted">INVOICE</h6>
-                                </div>
+                            <div class="text-center border-bottom pb-3">
+                                <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" style="max-height:50px;" class="mb-2">
+                                <h5 class="fw-bold mb-1">HARDMEN (PVT) LTD</h5>
+                                <p class="text-muted small mb-0">TOOLS WITH POWER</p>
+                                <p class="text-muted small mb-0">421/2, Doolmala, Thihariya, Kalagedihena</p>
                             </div>
-                            <hr class="my-2" style="border-top: 2px solid #000;">
                         </div>
 
-                        {{-- Customer & Sale Details Side by Side --}}
-                        <div class="row mb-3 invoice-info-row">
+                        {{-- Invoice Header --}}
+                        <div class="row mb-4">
                             <div class="col-6">
-                                <p class="mb-1"><strong>Customer :</strong></p>
-                                <p class="mb-0">{{ $createdSale->customer->name }}</p>
-                                <p class="mb-0">{{ $createdSale->customer->address }}</p>
-                                <p class="mb-0"><strong>Tel:</strong> {{ $createdSale->customer->phone }}</p>
+                                <p class="mb-1"><strong>Customer:</strong> {{ $createdSale->customer->name }}</p>
+                                <p class="mb-0 small text-muted">{{ $createdSale->customer->phone ?? 'N/A' }}</p>
                             </div>
-                            <div class="col-6 text">
-                                <table class="table-borderless ms-auto" style="width: auto; display: inline-table;">
-                                    <tr>
-                                        <td class="pe-3"><strong>Invoice #</strong></td>
-                                        <td>{{ $createdSale->invoice_number }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="pe-3"><strong>Sale ID</strong></td>
-                                        <td>{{ $createdSale->sale_id }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="pe-3"><strong>Date</strong></td>
-                                        <td>{{ $createdSale->created_at->format('d/m/Y') }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="pe-3"><strong>Time</strong></td>
-                                        <td>{{ $createdSale->created_at->format('H:i') }}</td>
-                                    </tr>
-                                </table>
+                            <div class="col-6 text-end">
+                                <p class="mb-1"><strong>Invoice #:</strong> {{ $createdSale->invoice_number }}</p>
+                                <p class="mb-0 small text-muted">{{ $createdSale->created_at->format('d/m/Y H:i') }}</p>
                             </div>
                         </div>
 
                         {{-- Items Table --}}
                         <div class="table-responsive mb-3">
-                            <table class="table table-bordered invoice-table">
+                            <table class="table table-sm invoice-table">
                                 <thead>
                                     <tr>
-                                        <th width="40" class="text-center">#</th>
-                                        <th>ITEM CODE</th>
-                                        <th>DESCRIPTION</th>
-                                        <th width="80" class="text-center">QTY</th>
-                                        <th width="120" class="text-end">UNIT PRICE</th>
-                                        <th width="120" class="text-end">UNIT DISCOUNT</th>
-                                        <th width="120" class="text-end">SUBTOTAL</th>
+                                        <th class="text-center" style="width: 5%;">#</th>
+                                        <th style="width: 45%;">Item</th>
+                                        <th class="text-center" style="width: 15%;">Qty</th>
+                                        <th class="text-end" style="width: 18%;">Price</th>
+                                        <th class="text-end" style="width: 17%;">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($createdSale->items as $index => $item)
+                                    @forelse($createdSale->items as $index => $item)
                                     <tr>
                                         <td class="text-center">{{ $index + 1 }}</td>
-                                        <td>{{ $item->product_code }}</td>
                                         <td>{{ $item->product_name }}</td>
                                         <td class="text-center">{{ $item->quantity }}</td>
                                         <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
-                                        <td class="text-end">
-                                            @if($item->discount_per_unit > 0)
-                                                - Rs.{{ number_format($item->discount_per_unit, 2) }}
-                                            @else
-                                                - Rs.0.00
-                                            @endif
-                                        </td>
-                                        <td class="text-end">Rs.{{ number_format(($item->unit_price - $item->discount_per_unit) * $item->quantity, 2) }}</td>
+                                        <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
                                     </tr>
-                                    @endforeach
+                                    @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-3">No items found</td>
+                                    </tr>
+                                    @endforelse
                                 </tbody>
                                 <tfoot>
                                     <tr class="totals-row">
-                                        <td colspan="6" class="text-end"><strong>Subtotal</strong></td>
-                                        <td class="text-end"><strong>Rs.{{ number_format($createdSale->subtotal, 2) }}</strong></td>
+                                        <td colspan="4" class="text-end">Subtotal:</td>
+                                        <td class="text-end">Rs.{{ number_format($createdSale->items->sum('total'), 2) }}</td>
                                     </tr>
-                                    @if($createdSale->discount_amount > 0)
-                                    <tr class="totals-row">
-                                        <td colspan="6" class="text-end"><strong>Discount</strong></td>
-                                        <td class="text-end"><strong>-Rs.{{ number_format($createdSale->discount_amount, 2) }}</strong></td>
+                                    <tr class="grand-total">
+                                        <td colspan="4" class="text-end fw-bold">Grand Total</td>
+                                        <td class="text-end fw-bold">Rs.{{ number_format($createdSale->total_amount, 2) }}</td>
                                     </tr>
-                                    @endif
-                                    <tr class="totals-row grand-total">
-                                        <td colspan="6" class="text-end"><strong>Grand Total</strong></td>
-                                        <td class="text-end"><strong>Rs.{{ number_format($createdSale->total_amount, 2) }}</strong></td>
-                                    </tr>
-                                    @if($createdSale->payments->count() > 0)
-                                    <tr class="totals-row">
-                                        <td colspan="6" class="text-end"><strong>Paid Amount</strong></td>
-                                        <td class="text-end"><strong>Rs.{{ number_format($createdSale->payments->sum('amount'), 2) }}</strong></td>
-                                    </tr>
-                                    @endif
-                                    @if($createdSale->due_amount > 0)
-                                    <tr class="totals-row">
-                                        <td colspan="6" class="text-end"><strong>Due Amount</strong></td>
-                                        <td class="text-end"><strong>Rs.{{ number_format($createdSale->due_amount, 2) }}</strong></td>
-                                    </tr>
-                                    @endif
                                 </tfoot>
                             </table>
                         </div>
 
                         {{-- Footer Note --}}
-                        <div class="invoice-footer mt-4">
-                            <div class="row text-center mb-3">
-                                <div class="col-4">
-                                    <p class=""><strong>.............................</strong></p>
-                                    <p class="mb-2"><strong>Checked By</strong></p>
-                                    
-                                </div>
-                                <div class="col-4">
-                                    <p class=""><strong>.............................</strong></p>
-                                    <p class="mb-2"><strong>Authorized Officer</strong></p>
-                                    
-                                </div>
-                                <div class="col-4">
-                                    <p class=""><strong>.............................</strong></p>
-                                    <p class="mb-2"><strong>Customer Stamp</strong></p>
-                                    
-                                </div>
-                            </div>
-                            <div class="border-top pt-3">
-                                <p class="text-center"><strong>ADDRESS :</strong> 122/10A, Super Paradise Market, Keyzer Street, Colombo 11 .</p>
-                                <p class="text-center"><strong>TEL :</strong> (076) 1234567, <strong>EMAIL :</strong> sample@gmail.com</p>
-                                <p class="text-center mt-2" style="font-size: 11px;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
-                            </div>
+                        <div class="invoice-footer mt-4 border-top pt-3">
+                            <p class="small text-muted mb-1"><strong>Thank you for your purchase!</strong></p>
+                            <p class="small text-muted mb-0">This is a computer generated invoice. No signature required.</p>
                         </div>
                     </div>
                 </div>
@@ -873,149 +539,34 @@
 
     {{-- Close Register Modal --}}
     @if($showCloseRegisterModal)
-    <div class="modal fade show d-block" id="closeRegisterModal" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); color: white;">
-                    <h5 class="modal-title fw-bold" id="closeRegisterModalLabel">
+                <div class="modal-header" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); color: white;">
+                    <h5 class="modal-title fw-bold">
                         <i class="bi bi-x-circle me-2"></i>CLOSE REGISTER ({{ date('d/m/Y H:i') }})
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" wire:click="cancelCloseRegister" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" wire:click="cancelCloseRegister"></button>
                 </div>
-
-                <div class="modal-body" id="closeRegisterPrintContent">
-                    {{-- Print Header (hidden on screen, shown on print) --}}
-                    <div class="print-header text-center mb-4">
-                        <div class="w-100 d-flex justify-content-center">
-                            <img src="{{ asset('images/MI-King.png') }}" alt="Logo" class="img-fluid" style="max-height:100px;">
-                        </div>
-                        <p>122/10A, Super Paradise Market, Keyzer Street, Colombo 11 .</p>
-                        <p><strong>TEL:</strong> (076) 1234567 | <strong>EMAIL:</strong> sample@gmail.com</p>
-
-                    </div>
-
-                    <p class="text-muted mb-3 no-print">Please review the details below as <strong>paid (total)</strong></p>
-
-                    {{-- Summary Table --}}
-                    <table class="table table-sm print-table">
+                <div class="modal-body">
+                    <table class="table table-sm">
                         <tbody>
-                            <tr>
-                                <td>Cash in hand:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['opening_cash'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Cash Sales (POS):</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['pos_cash_sales'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Cheque Payment (POS):</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['pos_cheque_payment'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Bank / Online Transfer (POS):</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['pos_bank_transfer'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr class="table-warning">
-                                <td class="fw-semibold">Admin Payments - Total:</td>
-                                <td class="text-end fw-semibold">Rs.{{ number_format($sessionSummary['total_admin_payment'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td class="ps-4">└ Cash:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['total_admin_cash_payment'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td class="ps-4">└ Cheque:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['total_admin_cheque_payment'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td class="ps-4">└ Bank Transfer:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['total_admin_bank_transfer'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr class="table-info">
-                                <td class="fw-semibold">Total Cash Amount (POS + Admin):</td>
-                                <td class="text-end fw-semibold">Rs.{{ number_format($sessionSummary['total_cash_from_sales'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr class="table-light">
-                                <td class="fw-semibold">Total POS Sales:</td>
-                                <td class="text-end fw-bold">Rs.{{ number_format($sessionSummary['total_pos_sales'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr class="table-light">
-                                <td class="fw-semibold">Total Admin Sales:</td>
-                                <td class="text-end fw-bold">Rs.{{ number_format($sessionSummary['total_admin_sales'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr class="table-primary">
-                                <td class="fw-semibold">Total Cash Payment Today:</td>
-                                <td class="text-end fw-bold">Rs.{{ number_format($sessionSummary['total_cash_payment_today'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Expenses:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['expenses'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Refunds:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['refunds'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Cash Deposit - Bank:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['cash_deposit_bank'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Supplier Payments:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['supplier_payment'] ?? 0, 2) }}</td>
-                            </tr>
-                            <tr>
-                                <td>Supplier Cash Payments:</td>
-                                <td class="text-end">Rs.{{ number_format($sessionSummary['supplier_cash_payment'] ?? 0, 2) }}</td>
-                            </tr>
-
-                            <tr class="table-success">
-                                <td class="fw-bold">Total Cash in Hand:</td>
-                                <td class="text-end fw-bold">Rs.{{ number_format($sessionSummary['expected_cash'] ?? 0, 2) }}</td>
-                            </tr>
+                            <tr><td>Cash in hand:</td><td class="text-end">Rs.{{ number_format($sessionSummary['opening_cash'] ?? 0, 2) }}</td></tr>
+                            <tr><td>Cash Sales (POS):</td><td class="text-end">Rs.{{ number_format($sessionSummary['pos_cash_sales'] ?? 0, 2) }}</td></tr>
+                            <tr><td>Total POS Sales:</td><td class="text-end fw-bold">Rs.{{ number_format($sessionSummary['total_pos_sales'] ?? 0, 2) }}</td></tr>
+                            <tr><td>Expenses:</td><td class="text-end">Rs.{{ number_format($sessionSummary['expenses'] ?? 0, 2) }}</td></tr>
+                            <tr><td>Refunds:</td><td class="text-end">Rs.{{ number_format($sessionSummary['refunds'] ?? 0, 2) }}</td></tr>
+                            <tr class="table-success"><td class="fw-bold">Total Cash in Hand:</td><td class="text-end fw-bold">Rs.{{ number_format($sessionSummary['expected_cash'] ?? 0, 2) }}</td></tr>
                         </tbody>
                     </table>
-
-                    <hr>
-
-                    {{-- Notes --}}
                     <div class="mb-3">
                         <label class="form-label"><strong>Note:</strong></label>
-                        <textarea class="form-control" rows="2" wire:model="closeRegisterNotes" placeholder="Add any notes...">{{ $closeRegisterNotes ?? '' }}</textarea>
-                    </div>
-
-                    {{-- Cash Difference Alert --}}
-                    @if($closeRegisterCash > 0)
-                    @php
-                    $difference = $closeRegisterCash - ($sessionSummary['expected_cash'] ?? 0);
-                    @endphp
-                    @if($difference != 0)
-                    <div class="alert alert-{{ $difference > 0 ? 'warning' : 'danger' }}">
-                        <strong>Cash Difference:</strong> Rs.{{ number_format(abs($difference), 2) }} ({{ $difference > 0 ? 'Excess' : 'Short' }})
-                    </div>
-                    @else
-
-                    @endif
-                    @endif
-
-                    {{-- Print Footer (hidden on screen) --}}
-                    <div class="register-print-footer">
-                        <p><strong>Date:</strong> {{ date('d/m/Y') }} | <strong>Time:</strong> {{ date('H:i') }}</p>
+                        <textarea class="form-control" rows="2" wire:model="closeRegisterNotes" placeholder="Add any notes..."></textarea>
                     </div>
                 </div>
-
                 <div class="modal-footer">
-                    <button type="button"
-                        class="btn btn-secondary"
-                        wire:click="closeRegisterAndRedirect"
-                        wire:loading.attr="disabled"
-                        wire:loading.class="disabled">
-                        <span wire:loading.remove wire:target="closeRegisterAndRedirect">
-                            <i class="bi bi-x-circle me-1"></i>Close Register
-                        </span>
-                        <span wire:loading wire:target="closeRegisterAndRedirect">
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                            Closing Register...
-                        </span>
+                    <button type="button" class="btn btn-secondary" wire:click="closeRegisterAndRedirect">
+                        <i class="bi bi-x-circle me-1"></i>Close Register
                     </button>
                     <button type="button" class="btn btn-info" wire:click="downloadCloseRegisterReport">
                         <i class="bi bi-download me-1"></i>Download
@@ -1029,67 +580,112 @@
 
 @push('styles')
 <style>
-    .container-fluid {
-        background-color: #ffffff !important;
+    .pos-container {
+        background-color: #f8f9fa;
+        padding: 15px;
     }
-
-    .header-section {
-        border-bottom: 1px solid #e9ecef;
+    
+    .cart-items::-webkit-scrollbar,
+    .col-md-3::-webkit-scrollbar,
+    .col-md-6::-webkit-scrollbar {
+        width: 5px;
     }
-
-    .company-logo {
-        width: 50px;
-        height: 50px;
+    
+    .cart-items::-webkit-scrollbar-thumb,
+    .col-md-3::-webkit-scrollbar-thumb,
+    .col-md-6::-webkit-scrollbar-thumb {
+        background: #f58320;
+        border-radius: 5px;
+    }
+    
+    kbd {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        color: #6c757d;
+        font-size: 0.7rem;
+        padding: 2px 5px;
+    }
+    
+    .product-card {
         border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    }
+    
+    .product-card:active {
+        transform: scale(0.98);
+    }
+
+    /* Payment Modal Animations */
+    .payment-option {
+        transition: all 0.3s ease;
+    }
+    
+    .payment-option:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(245, 131, 32, 0.3);
+        border-color: #f58320 !important;
+    }
+    
+    .payment-option.selected {
+        animation: pulse 0.5s ease;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .modal.show {
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
     }
 
     /* Hide print headers on screen */
-    .print-only-header,
-    .print-header,
-    .print-footer,
-    .register-print-footer {
-        display: none;
+    .screen-only-header {
+        display: block;
     }
 
-    .form-control,
-    .form-select,
-    .input-group-text,
-    .btn {
-        border-radius: 0 !important;
+    /* Invoice Table Styles */
+    .invoice-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
     }
 
-    .search-results {
-        max-height: 400px;
-        overflow-y: auto;
-        border: 2px solid #2a83df !important;
-        border-radius: 0;
-        position: relative;
-        z-index: 10;
-        background-color: white;
+    .invoice-table th {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 8px;
+        font-weight: 600;
+        text-align: center;
     }
 
-    .search-results::-webkit-scrollbar {
-        width: 8px;
+    .invoice-table td {
+        border: 1px solid #dee2e6;
+        padding: 6px 8px;
     }
 
-    .search-results::-webkit-scrollbar-track {
-        background: #f1f1f1;
+    .invoice-table .totals-row td {
+        border-top: 2px solid #000;
+        font-weight: 600;
+        padding: 8px;
     }
 
-    .search-results::-webkit-scrollbar-thumb {
-        background: #2a83df;
-        border-radius: 4px;
-    }
-
-    .search-results::-webkit-scrollbar-thumb:hover {
-        background: #2a83df;
-    }
-
-    .search-item:last-child {
-        border-bottom: none !important;
+    .invoice-table .grand-total td {
+        border-top: 3px double #000;
+        font-size: 1.1rem;
+        background-color: #f0f0f0;
+        font-weight: bold;
     }
 
     /* Print styles for sale receipt */
@@ -1118,23 +714,12 @@
         .modal-header,
         .modal-footer,
         .btn,
-        .badge,
-        .screen-only-header {
+        .badge {
             display: none !important;
             visibility: hidden !important;
         }
 
-        /* Show print header */
-        .print-only-header {
-            display: block !important;
-            visibility: visible !important;
-            text-align: center !important;
-            margin-bottom: 20px !important;
-            border-bottom: 2px solid #000 !important;
-            padding-bottom: 10px !important;
-        }
-
-        /* Invoice table styles */
+        /* Invoice table styles for print */
         .invoice-table {
             width: 100% !important;
             border-collapse: collapse !important;
@@ -1190,81 +775,34 @@
 
 @push('scripts')
 <script>
-    // Auto-close alerts after 5 seconds
-    document.addEventListener('livewire:initialized', () => {
-        const alerts = document.querySelectorAll('.alert');
-        alerts.forEach(alert => {
-            setTimeout(() => {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }, 5000);
-        });
-
-        // Listen for modal show event
-        Livewire.on('showModal', (event) => {
-            const modalId = Array.isArray(event) ? event[0] : event;
-            console.log('Show modal event received:', modalId);
-
-            setTimeout(() => {
-                const modalElement = document.getElementById(modalId);
-                if (modalElement) {
-                    const existingModal = bootstrap.Modal.getInstance(modalElement);
-                    if (existingModal) {
-                        existingModal.dispose();
-                    }
-                    const modal = new bootstrap.Modal(modalElement, {
-                        backdrop: 'static',
-                        keyboard: false
-                    });
-                    modal.show();
-                }
-            }, 200);
-        });
-    });
-
-    // Auto-hide success alert after 3 seconds
-    setTimeout(() => {
-        const alert = document.getElementById('successAlert');
-        if (alert) {
-            alert.classList.remove('show');
-            setTimeout(() => alert.remove(), 500);
-        }
-    }, 3000);
-
-    // Prevent form submission on enter key in search
-    document.addEventListener('keydown', function(e) {
-        if (e.target.type === 'text' && e.target.getAttribute('wire:model') === 'search') {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-            }
-        }
-    });
-
-    // Handle modal cleanup when hidden
     document.addEventListener('DOMContentLoaded', function() {
-        const closeRegisterModal = document.getElementById('closeRegisterModal');
-        if (closeRegisterModal) {
-            closeRegisterModal.addEventListener('hidden.bs.modal', function() {
-                const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    backdrop.remove();
-                }
-                document.body.classList.remove('modal-open');
-                document.body.style.overflow = '';
-                document.body.style.paddingRight = '';
-            });
-        }
-
-        // Watch for sale modal changes
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+N - Focus search for new sale
+            if (e.ctrlKey && e.key === 'n') {
+                e.preventDefault();
+                document.querySelector('input[wire\\:model\\.live\\.debounce\\.300ms="search"]')?.focus();
+            }
+            // Ctrl+F - Focus search
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                document.querySelector('input[wire\\:model\\.live\\.debounce\\.300ms="search"]')?.focus();
+            }
+            // F10 - Complete sale
+            if (e.key === 'F10') {
+                e.preventDefault();
+                Livewire.dispatch('validateAndCreateSale');
+            }
+        });
+        
+        // Listen for sale completion
         Livewire.on('saleSaved', function() {
+            // Clean up any modals
             setTimeout(() => {
                 const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    backdrop.remove();
-                }
+                if (backdrop) backdrop.remove();
                 document.body.classList.remove('modal-open');
                 document.body.style.overflow = '';
-                document.body.style.paddingRight = '';
             }, 100);
         });
     });

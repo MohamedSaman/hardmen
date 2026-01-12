@@ -8,6 +8,7 @@ use Livewire\Attributes\Title;
 use Livewire\WithFileUploads;
 use App\Models\Customer;
 use App\Models\ProductDetail;
+use App\Models\CategoryList;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Payment;
@@ -43,6 +44,11 @@ class StoreBilling extends Component
     public $search = '';
     public $searchResults = [];
     public $customerId = '';
+
+    // Categories and Products for Grid
+    public $categories = [];
+    public $selectedCategory = null;
+    public $products = [];
 
     // Cart Items
     public $cart = [];
@@ -89,9 +95,14 @@ class StoreBilling extends Component
     public $showSaleModal = false;
     public $showCustomerModal = false;
     public $showPaymentConfirmModal = false;
+    public $showPaymentModal = false;
     public $lastSaleId = null;
     public $createdSale = null;
     public $pendingDueAmount = 0;
+
+    // Payment Modal Properties
+    public $amountReceived = 0;
+    public $paymentNotes = '';
 
     public function mount()
     {
@@ -190,7 +201,74 @@ class StoreBilling extends Component
 
         $this->loadCustomers();
         $this->setDefaultCustomer();
+        $this->loadCategories();
+        $this->loadProducts();
         $this->tempChequeDate = now()->format('Y-m-d');
+    }
+
+    /**
+     * Load Categories for sidebar
+     */
+    public function loadCategories()
+    {
+        $this->categories = CategoryList::withCount(['products' => function ($query) {
+            $query->whereHas('stock', function ($q) {
+                $q->where('available_stock', '>', 0);
+            });
+        }])->get();
+    }
+
+    /**
+     * Load Products for grid view
+     */
+    public function loadProducts()
+    {
+        $query = ProductDetail::with(['stock', 'price', 'category'])
+            ->whereHas('stock', function ($q) {
+                $q->where('available_stock', '>', 0);
+            });
+
+        if ($this->selectedCategory) {
+            $query->where('category_id', $this->selectedCategory);
+        }
+
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                    ->orWhere('code', 'like', '%' . $this->search . '%')
+                    ->orWhere('model', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        $this->products = $query->take(20)->get()->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'code' => $product->code,
+                'model' => $product->model,
+                'price' => $product->price->selling_price ?? 0,
+                'stock' => $product->stock->available_stock ?? 0,
+                'image' => $product->image
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Select a category
+     */
+    public function selectCategory($categoryId)
+    {
+        $this->selectedCategory = $categoryId;
+        $this->loadProducts();
+    }
+
+    /**
+     * Show all products (clear category filter)
+     */
+    public function showAllProducts()
+    {
+        $this->selectedCategory = null;
+        $this->loadProducts();
     }
 
     /**
@@ -512,28 +590,8 @@ class StoreBilling extends Component
     // Search Products
     public function updatedSearch()
     {
-        if (strlen($this->search) >= 2) {
-            $this->searchResults = ProductDetail::with(['stock', 'price'])
-                ->where('name', 'like', '%' . $this->search . '%')
-                ->orWhere('code', 'like', '%' . $this->search . '%')
-                ->orWhere('model', 'like', '%' . $this->search . '%')
-                ->take(10)
-                ->get()
-                ->map(function ($product) {
-                    return [
-                        'id' => $product->id,
-                        'name' => $product->name,
-                        'code' => $product->code,
-                        'model' => $product->model,
-                        'price' => $product->price->selling_price ?? 0,
-                        'stock' => $product->stock->available_stock ?? 0,
-                        'sold' => $product->stock->sold_count ?? 0,
-                        'image' => $product->image
-                    ];
-                });
-        } else {
-            $this->searchResults = [];
-        }
+        // Load products with search filter for grid view
+        $this->loadProducts();
     }
 
     // Add to Cart
@@ -724,27 +782,44 @@ class StoreBilling extends Component
 
         // If no customer selected, use walking customer
         if (!$this->selectedCustomer && !$this->customerId) {
-            $this->js("Swal.fire('error', 'Please select a customer.', 'error')");
-            return;
             $this->setDefaultCustomer();
+        }
+
+        // Set default amount received for cash
+        if ($this->paymentMethod === 'cash') {
+            $this->amountReceived = $this->grandTotal;
+        }
+
+        // Open payment modal
+        $this->showPaymentModal = true;
+    }
+
+    // Close Payment Modal
+    public function closePaymentModal()
+    {
+        $this->showPaymentModal = false;
+        $this->amountReceived = 0;
+        $this->paymentNotes = '';
+    }
+
+    // Complete Sale with Payment
+    public function completeSaleWithPayment()
+    {
+        // Validate payment method
+        if (empty($this->paymentMethod)) {
+            $this->js("Swal.fire('error', 'Please select a payment method.', 'error')");
+            return;
         }
 
         // Validate payment method specific fields
         if ($this->paymentMethod === 'cash') {
-            if ($this->cashAmount < 0) {
-                $this->js("Swal.fire('error', 'Please enter cash amount.', 'error')");
+            if ($this->amountReceived < $this->grandTotal) {
+                $this->js("Swal.fire('error', 'Amount received cannot be less than total amount.', 'error')");
                 return;
             }
         } elseif ($this->paymentMethod === 'cheque') {
             if (empty($this->cheques)) {
                 $this->js("Swal.fire('error', 'Please add at least one cheque.', 'error')");
-                return;
-            }
-
-            // Validate that total cheque amount does not exceed grand total
-            $totalChequeAmount = collect($this->cheques)->sum('amount');
-            if ($totalChequeAmount > $this->grandTotal) {
-                $this->js("Swal.fire('error', 'Total cheque amount (Rs. " . number_format($totalChequeAmount, 2) . ") cannot be greater than the grand total (Rs. " . number_format($this->grandTotal, 2) . ").', 'error')");
                 return;
             }
         } elseif ($this->paymentMethod === 'bank_transfer') {
@@ -754,17 +829,21 @@ class StoreBilling extends Component
             }
         }
 
-        // Check if payment amount matches grand total (except for credit)
-        if ($this->paymentMethod !== 'credit') {
-            if ((int)$this->totalPaidAmount < $this->grandTotal) {
-                // Show confirmation modal for due amount
-                $this->pendingDueAmount = $this->grandTotal - (int)$this->totalPaidAmount;
-                $this->showPaymentConfirmModal = true;
-                return;
-            }
+        // Set cash amount from amount received for cash payments
+        if ($this->paymentMethod === 'cash') {
+            $this->cashAmount = $this->amountReceived;
         }
 
+        // Add payment notes to sale notes
+        if (!empty($this->paymentNotes)) {
+            $this->notes = $this->paymentNotes;
+        }
+
+        // Close payment modal
+        $this->showPaymentModal = false;
+
         // Proceed to create sale
+        $this->createSale();
         $this->createSale();
     }
 
@@ -1490,7 +1569,8 @@ class StoreBilling extends Component
             'paymentStatus' => $this->paymentStatus,
             'databasePaymentType' => $this->databasePaymentType,
             'totalPaidAmount' => (int)$this->totalPaidAmount,
-            'searchResults' => $this->searchResults, // Explicitly pass search results
+            'products' => $this->products,
+            'categories' => $this->categories,
         ]);
     }
 }

@@ -201,9 +201,9 @@
     <div class="invoice-container">
         
         <div class="header">
-            <h2>MI-KING</h2>
-            <p>122/10A, Super Paradise Market, Keyzer Street, Colombo 11 .</p>
-            <p>Phone: (076) 1234567 | Email: sample@gmail.com</p>
+            <h2>HARDMEN (PVT) LTD</h2>
+            <p>421/2, Doolmala, thihariya, Kalagedihena.</p>
+            <p>Phone: (077) 9752950 | Email: Hardmenlanka@gmail.com</p>
             <div class="quotation-title">QUOTATION</div>
         </div>
 

@@ -138,7 +138,7 @@
         }
 
         .progress-bar {
-            background-color: #2a83df;
+            background-color: #f58320;
             height: 4px;
         }
 

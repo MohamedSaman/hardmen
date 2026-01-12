@@ -281,13 +281,13 @@
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         {{-- Left: Logo --}}
                         <div style="flex: 0 0 150px;">
-                            <img src="{{ asset('images/MI-King.png') }}" alt="Logo" class="img-fluid" style="max-height:80px;">
+                            <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height:80px;">
                         </div>
 
                         {{-- Center: Company Name --}}
                         <div class="text-center" style="flex: 1;">
-                            <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">MI-KING</h2>
-                            <p class="mb-0 text-muted small">BEST IN BOYS</p>
+                            <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">HARDMEN (PVT) LTD</h2>
+                            <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
                         </div>
 
                         {{-- Right:  & Invoice --}}
@@ -502,8 +502,8 @@
                             </div>
                         </div>
                         <div class="border-top pt-3">
-                            <p class="text-center mb-0"><strong>ADDRESS :</strong> 122/10A, Super Paradise Market, Keyzer Street, Colombo 11 .</p>
-                            <p class="text-center mb-0"><strong>TEL :</strong> (076) 1234567, <strong>EMAIL :</strong> sample@gmail.com</p>
+                            <p class="text-center mb-0"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
+                            <p class="text-center mb-0"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
                             <p class="text-center" style="font-size: 11px;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
                         </div>
                     </div>
@@ -587,17 +587,6 @@
     {{-- ==================== STYLES ==================== --}}
     @push('styles')
     <style>
-        .table th {
-            font-weight: 600;
-            border-top: none;
-            color: #ffffff;
-            background: #2a83df;
-            background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
         .closebtn {
             top: 3%;
             right: 3%;

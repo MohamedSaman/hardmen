@@ -661,9 +661,9 @@
                     <div class="receipt-container">
                         <!-- Receipt Header -->
                         <div class="text-center mb-4">
-                            <h3 class="mb-0">MI-KING</h3>
+                            <h3 class="mb-0">HARDMEN (PVT) LTD</h3>
                             <p class="mb-0 text-muted small">103 H,Yatiyanthota Road,Seethawaka,avissawella.</p>
-                            <p class="mb-0 text-muted small">Phone: ( 076) 9085252| Email: sample@gmail.com </p>
+                            <p class="mb-0 text-muted small">Phone: ( 076) 9085252| Email: Hardmenlanka@gmail.com </p>
                             <h4 class="mt-3 border-bottom border-2 pb-2">SALES RECEIPT</h4>
                         </div>
 

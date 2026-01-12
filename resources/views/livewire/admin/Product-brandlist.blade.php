@@ -223,17 +223,6 @@
         padding: 1.25rem 1.5rem;
     }
 
-    .table th {
-        border-top: none;
-        font-weight: 600;
-        color: #ffffff;
-        background: #2a83df;
-        background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
     .table td {
         vertical-align: middle;
         padding: 1rem 0.75rem;

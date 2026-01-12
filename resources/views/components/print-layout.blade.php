@@ -307,12 +307,12 @@
             <div class="d-flex align-items-center justify-content-between mb-3">
                 {{-- Left: Logo --}}
                 <div style="flex: 0 0 120px; margin-right:10px;">
-                    <img src="{{ asset('images/MI-King') }}" alt="Logo" class="img-fluid" style="max-height:40px;">
+                    <img src="{{ url('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height:50px; width:auto;">
                 </div>
                 {{-- Center: Company Name --}}
                 <div class="text-center" style="flex: 1;">
-                    <h2 class="mb-0 fw-bold" style="font-size: 2rem; letter-spacing: 1.5px;">MI-KING</h2>
-                    <p class="mb-0 text-muted small">BEST IN BOYS</p>
+                    <h2 class="mb-0 fw-bold" style="font-size: 2rem; letter-spacing: 1.5px;">HARDMEN (PVT) LTD</h2>
+                    <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
                 </div>
                 {{-- Right:  & Invoice --}}
                 <div class="text-end" style="flex: 0 0 120px;">
@@ -347,8 +347,8 @@
                 </div>
             </div>
             <div class="border-top pt-3">
-                <p class="text-center"><strong>ADDRESS :</strong> 122/10A, Super Paradise Market, Keyzer Street, Colombo 11 .</p>
-                <p class="text-center"><strong>TEL :</strong> (076) 9085252, <strong>EMAIL :</strong> sample@gmail.com</p>
+                <p class="text-center"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
+                <p class="text-center"><strong>TEL :</strong> (076) 9085252, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
                 <p class="text-center mt-2" style="font-size: 9px;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
             </div>
         </div>

@@ -397,9 +397,9 @@
                     <div class="quotation-preview p-4">
                         {{-- Header --}}
                         <div class="header text-center mb-4">
-                            <h2 class="text-success mb-1">MI-KING</h2>
-                            <p class="mb-1">122/10A, Super Paradise Market, Keyzer Street, Colombo 11 .</p>
-                            <p class="mb-1">Phone: (076) 1234567 | Email: sample@gmail.com</p>
+                            <h2 class="text-success mb-1">HARDMEN (PVT) LTD</h2>
+                            <p class="mb-1">421/2, Doolmala, thihariya, Kalagedihena.</p>
+                            <p class="mb-1">Phone: (077) 9752950 | Email: Hardmenlanka@gmail.com</p>
                         </div>
 
                         {{-- Customer & Quotation Details --}}

@@ -131,9 +131,9 @@
                 <!-- Header – logo + company name -->
                 <div class="modal-header text-center border-0" style="background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%); color: #fff;">
                     <div class="w-100">
-                        <img src="{{ asset('images/MI-King.png') }}" alt="Logo"
+                        <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo"
                              class="img-fluid mb-2" style="max-height:60px;">
-                        <h4 class="mb-0 fw-bold">MI-KING</h4>
+                        <h4 class="mb-0 fw-bold">HARDMEN (PVT) LTD</h4>
                         
                     </div>
                     <button type="button" class="btn-close btn-close-white closebtn"
@@ -214,8 +214,8 @@
                     <div class="mt-4 text-center small">
                         
                         <p class="mb-0">
-                            <strong>ADDRESS :</strong> 122/10A, Super Paradise Market, Keyzer Street, Colombo 11 .<br>
-                            <strong>TEL :</strong> (076) 1234567, <strong>EMAIL :</strong> sample@gmail.com
+                            <strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.<br>
+                            <strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com
                         </p>
                         <p class="mt-1 text-muted">
                             Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.
@@ -315,16 +315,6 @@
         font-size: 0.75em;
     }
 
-    .table th {
-            border-top: none;
-            font-weight: 600;
-            color: #ffffff;
-            background: #2a83df;
-            background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
     .table-hover tbody tr:hover {
         background-color: rgba(0, 0, 0, 0.025);
     }

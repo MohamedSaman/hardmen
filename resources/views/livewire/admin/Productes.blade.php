@@ -18,12 +18,12 @@
         }
 
         .content-tab.active {
-            color: #4361ee;
-            border-bottom-color: #4361ee;
+            color: #f58320;
+            border-bottom-color: #f58320;
         }
 
         .content-tab:hover:not(.active) {
-            color: #4361ee;
+            color: #f58320;
             border-bottom-color: #dee2e6;
         }
 
@@ -72,8 +72,8 @@
             border-top: none;
             font-weight: 600;
             color: #ffffff;
-            background: #2a83df;
-            background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
+            background: #f58320;
+            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
             font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -155,8 +155,8 @@
 
         .form-control:focus,
         .form-select:focus {
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
-            border-color: #4361ee;
+            box-shadow: 0 0 0 3px rgba(245, 131, 32, 0.15);
+            border-color: #f58320;
         }
 
         /* Modern button styling */
@@ -168,13 +168,13 @@
         }
 
         .btn-primary {
-            background-color: #4361ee;
-            border-color: #4361ee;
+            background-color: #f58320;
+            border-color: #f58320;
         }
 
         .btn-primary:hover {
-            background-color: #3f37c9;
-            border-color: #3f37c9;
+            background-color: #d16d0e;
+            border-color: #d16d0e;
             transform: translateY(-2px);
         }
 
@@ -213,13 +213,13 @@
         }
 
         .nav-tabs-custom .nav-link.active {
-            color: #4361ee;
-            border-bottom-color: #4361ee;
+            color: #f58320;
+            border-bottom-color: #f58320;
             background-color: transparent;
         }
 
         .nav-tabs-custom .nav-link:hover {
-            color: #4361ee;
+            color: #f58320;
             border-bottom-color: #dee2e6;
         }
 

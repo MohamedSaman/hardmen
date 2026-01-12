@@ -21,9 +21,9 @@
         :root {
             --page-bg: #f7f8fbff;
             --surface: #ffffff;
-            --primary: #2a83df;
-            --primary-600: #1a5fb8;
-            --primary-100: #e3f2fd;
+            --primary: #f58320;
+            --primary-600: #d16d0e;
+            --primary-100: #fff4e6;
             --accent: #198754;
             --muted: #64748b;
             --muted-2: #475569;
@@ -35,10 +35,10 @@
             --warning-text: #664d03;
             --danger-bg: #f8d7da;
             --danger-text: #842029;
-            --sidebar-bg: #2a83df;
+            --sidebar-bg: #ffffff;
             --topbar-bg: #ffffff;
             --text: #1e293b;
-            --avatar-bg: #2a83df;
+            --avatar-bg: #f58320;
             --avatar-text: #ffffff;
         }
 
@@ -53,15 +53,15 @@
         .sidebar {
             width: 265px;
             height: 100vh;
-            background: linear-gradient(180deg, var(--sidebar-bg) 0%, var(--primary-600) 100%);
-            color: #ffffff;
+            background: #ffffff;
+            color: #1e293b;
             padding: 0 0 20px;
             position: fixed;
             transition: all 0.3s ease;
             z-index: 1040;
             overflow-y: auto;
             overflow-x: hidden;
-            box-shadow: 2px 0 8px rgba(42, 131, 223, 0.25);
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
         }
 
         .sidebar.collapsed { width: 70px; }
@@ -69,33 +69,33 @@
         .sidebar .nav { padding-bottom: 50px; }
 
         .sidebar-header { padding: 20px 20px 0; margin-bottom: 5px; }
-        .sidebar-title { font-weight: 600; font-size: 1.2rem; color: #ffffff; }
+        .sidebar-title { font-weight: 600; font-size: 1.2rem; color: #1e293b; }
 
         .nav-item { margin: 2px 0; }
-        .nav-link { color: rgba(255,255,255,0.9); padding: 8px 20px; transition: all 0.2s; }
+        .nav-link { color: #64748b; padding: 8px 20px; transition: all 0.2s; }
         .nav-link i { margin-right: 10px; width: 20px; text-align: center; font-size: 1.1rem; }
 
         /* Match admin navlink hover/focus and active styles */
         .nav-link:focus,
         .nav-link:hover,
         .nav-link:focus-visible {
-            color: #ffffff;
-            background: rgba(255,255,255,0.1);
+            color: #f58320;
+            background: #fff4e6;
             outline: none;
         }
 
         .nav-link.active {
-            background: rgba(255,255,255,0.2);
-            color: #ffffff;
+            background: #fff4e6;
+            color: #f58320;
             font-weight: 500;
-            border-left: 3px solid #ffffff;
+            border-left: 3px solid #f58320;
         }
 
-        .top-bar { height: 60px; background: linear-gradient(135deg, var(--sidebar-bg) 0%, var(--primary-600) 100%); padding: 0 20px; position: fixed; top:0; right:0; left:250px; z-index:1000; display:flex; align-items:center; box-shadow: 0 2px 8px rgba(42,131,223,0.3); }
+        .top-bar { height: 60px; background: #ffffff; padding: 0 20px; position: fixed; top:0; right:0; left:250px; z-index:1000; display:flex; align-items:center; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1); }
         .top-bar.collapsed { left:70px; }
 
-        .admin-info { display:flex; align-items:center; gap:10px; padding:5px; border-radius:5px; color:#ffffff; }
-        .admin-avatar, .staff-avatar, .avatar { width:36px; height:36px; border-radius:50%; background:#ffffff; color:var(--sidebar-bg); display:flex; align-items:center; justify-content:center; font-weight:600; border:2px solid #ffffff; }
+        .admin-info { display:flex; align-items:center; gap:10px; padding:5px; border-radius:5px; color:#1e293b; }
+        .admin-avatar, .staff-avatar, .avatar { width:36px; height:36px; border-radius:50%; background:#f58320; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:600; border:2px solid #f58320; }
 
         .dropdown-menu { position: absolute !important; left:auto !important; right:0 !important; top:30% !important; z-index:9999 !important; background:#fff !important; box-shadow:0 12px 32px rgba(0,0,0,0.22); border-radius:8px !important; border:1px solid var(--muted-3) !important; }
 
@@ -165,7 +165,7 @@
         <div class="sidebar">
             <div class="sidebar-header d-flex justify-content-center">
                 <div class="sidebar-title">
-                    <img src="{{ asset('images/mi-logo.png') }}" alt="Logo" width="200">
+                    <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" width="250">
                     
                     
                 </div>

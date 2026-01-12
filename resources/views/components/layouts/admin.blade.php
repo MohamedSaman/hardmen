@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ $title ?? 'Page Title' }}</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/mikingicon.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/hardmenicon.png') }}">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -21,16 +21,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        /* Theme tokens: Blue & White theme */
+        /* Theme tokens: Orange & White theme */
         :root {
             /* Backgrounds - Page background uses a subtle off-white for theme */
             --page-bg: #f7f8fbff;
             --surface: #ffffff;
 
-            /* Primary / Brand - Blue */
-            --primary: #2a83df;
-            --primary-600: #1a5fb8;
-            --primary-100: #e3f2fd;
+            /* Primary / Brand - Orange */
+            --primary: #f58320;
+            --primary-600: #d16d0e;
+            --primary-100: #fff4e6;
 
             /* Accent - keep for amounts */
             --accent: #198754;
@@ -49,15 +49,15 @@
             --danger-bg: #f8d7da;
             --danger-text: #842029;
 
-            /* Topbar / sidebar - Blue */
-            --sidebar-bg: #2a83df;
+            /* Topbar / sidebar - White */
+            --sidebar-bg: #ffffff;
             --topbar-bg: #ffffff;
 
             /* Text - Dark */
             --text: #1e293b;
 
             /* Avatars */
-            --avatar-bg: #2a83df;
+            --avatar-bg: #f58320;
             --avatar-text: #ffffff;
         }
 
@@ -180,8 +180,8 @@
         .sidebar {
             width: 265px;
             height: 100vh;
-            background: linear-gradient(180deg, #2a83df 0%, #1a5fb8 100%);
-            color: #ffffff;
+            background: #ffffff;
+            color: #1e293b;
 
             padding: 0 0 20px;
             position: fixed;
@@ -191,7 +191,7 @@
             /* Enable vertical scrolling */
             overflow-x: hidden;
             /* Hide horizontal overflow */
-            box-shadow: 2px 0 8px rgba(42, 131, 223, 0.25);
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
         }
 
         /* Add custom scrollbar styling for sidebar */
@@ -245,7 +245,7 @@
         .sidebar-title {
             font-weight: 600;
             font-size: 1.2rem;
-            color: #ffffff;
+            color: #1e293b;
             letter-spacing: -0.02em;
             
         }
@@ -257,25 +257,24 @@
         }
 
         .nav-link {
-            color: rgba(255, 255, 255, 0.9);
+            color: #64748b;
             padding: 8px 20px;
             transition: all 0.2s;
         }
 
 
         .nav-link.active {
-            background: rgba(255, 255, 255, 0.2);
-            background: linear-gradient(90deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%);
-            color: #ffffff;
+            background: #fff4e6;
+            color: #f58320;
             font-weight: 500;
-            border-left: 3px solid #ffffff;
+            border-left: 3px solid #f58320;
         }
 
         .nav-link:focus,
         .nav-link:hover,
         .nav-link:focus-visible {
-            color: #ffffff;
-            background: rgba(255, 255, 255, 0.1);
+            color: #f58320;
+            background: #fff4e6;
             outline: none;
         }
 
@@ -346,7 +345,7 @@
         /* Top bar styles */
         .top-bar {
             height: 60px;
-            background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
+            background: #ffffff;
             border-bottom: none;
             padding: 0 20px;
             position: fixed;
@@ -357,7 +356,7 @@
             display: flex;
             align-items: center;
             transition: left 0.3s ease;
-            box-shadow: 0 2px 8px rgba(42, 131, 223, 0.3);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
         }
 
         .top-bar.collapsed {
@@ -365,7 +364,7 @@
         }
 
         .top-bar .title {
-            color: #ffffff;
+            color: #1e293b;
         }
 
         /* User info styles */
@@ -376,12 +375,12 @@
             padding: 5px;
             border-radius: 5px;
             transition: background-color 0.2s;
-            color: #ffffff;
+            color: #1e293b;
         }
 
         .admin-info:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-            color: #ffffff;
+            background-color: #f7f8fb;
+            color: #1e293b;
         }
 
         .admin-avatar,
@@ -390,14 +389,14 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            background: #ffffff;
-            color: #2a83df;
+            background: #f58320;
+            color: #ffffff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
             letter-spacing: -0.03em;
-            border: 2px solid #ffffff;
+            border: 2px solid #f58320;
         }
 
         .admin-name {
@@ -506,13 +505,13 @@
         }
 
         .content-tab.active {
-            color: #2a83df;
-            border-bottom-color: #2a83df;
+            color: #f58320;
+            border-bottom-color: #f58320;
             font-weight: 600;
         }
 
         .content-tab:hover:not(.active) {
-            color: #2a83df;
+            color: #f58320;
             border-bottom-color: var(--border);
         }
 
@@ -692,27 +691,27 @@
             border-top: none;
             font-weight: 600;
             color: #ffffff;
-            background: #2a83df;
-            background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
+            background: #f58320;
+            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
             font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .btn {
-            background: #2a83df;
+            background: #f58320;
             color: #ffffff;
             border: none;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
+            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
             color: #ffffff;
             border: none;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #1a5fb8 0%, #2a83df 100%);
+            background: linear-gradient(135deg, #d16d0e 0%, #f58320 100%);
         }
 
         .btn-success {
@@ -737,12 +736,12 @@
 
         .btn-outline-primary {
             background: transparent;
-            color: #2a83df;
-            border: 1px solid #2a83df;
+            color: #f58320;
+            border: 1px solid #f58320;
         }
 
         .btn-outline-primary:hover {
-            background: #2a83df;
+            background: #f58320;
             color: #ffffff;
         }
 
@@ -759,7 +758,7 @@
         }
 
         .modal-header {
-            background: linear-gradient(135deg, #2a83df 0%, #1a5fb8 100%);
+            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
             color: #ffffff;
         }
 
@@ -823,7 +822,7 @@
             <div class="sidebar-header d-flex justify-content-center">
                 <div class="sidebar-title">
 
-                    <img src="{{ asset('images/mi-logo.png') }}" alt="Logo" width="200">
+                    <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" width="250">
 
                 </div>
             </div>
@@ -1196,7 +1195,7 @@
 
             <!-- Centered Company Name (hidden on small screens) -->
             <div class="flex-grow-1 d-none d-md-flex justify-content-center">
-                <h5 class="m-0 fw-bold" style="letter-spacing: -0.02em; color: #ffffff;">MI-KING</h5>
+                <h5 class="m-0 fw-bold" style="letter-spacing: -0.02em; color:#f58320;">HARDMEN (PVT) LTD</h5>
             </div>
             @php
             use App\Models\CashInHand as CashModel;
@@ -1205,7 +1204,7 @@
 
             <!-- Editable Cash in Hand Display -->
             <div class="badge  bg-opacity-10 rounded-pill shadow-sm border  border-opacity-25 d-none d-md-flex align-items-center gap-2 me-2"
-                style="background-color: rgba(255,255,255,0.2) !important; color:#ffffff; border-color:rgba(255,255,255,0.5) !important; font-size: 0.9rem; cursor: pointer;"
+                style="background-color: rgba(255,255,255,0.2) !important; color:#f58320; border-color:rgba(255,255,255,0.5) !important; font-size: 0.9rem; cursor: pointer;"
                 onclick="handlePOSClick()"
                 role="button">
                 <div class="d-flex align-items-center gap-1 px-2 py-1 fs-6">
