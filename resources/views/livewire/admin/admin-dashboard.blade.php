@@ -1,263 +1,84 @@
 <div>
     @push('styles')
     <style>
-        /* Base styles */
+        /* Refined Dashboard Styles */
         .stat-card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            height: 100%;
-        }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            color: #6c757d;
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-
-        .stat-change {
-            color: #28a745;
-            font-size: 13px;
-        }
-
-        .stat-change-alert {
-            color: #842029;
-            font-size: 13px;
-        }
-
-        .chart-card {
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-            border-radius: 0.5rem;
-            margin-bottom: 20px;
-            height: 100%;
-        }
-
-        .chart-header {
-            background-color: #f8f9fa;
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid #dee2e6;
-            border-top-left-radius: 0.5rem;
-            border-top-right-radius: 0.5rem;
-        }
-
-        .chart-container {
             position: relative;
-            height: 300px;
-            padding: 1.5rem;
-        }
-
-        .chart-scroll-container {
-            overflow-x: auto;
-        }
-
-        .widget-container {
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            margin-bottom: 20px;
-            height: 100%;
-        }
-
-        .widget-header {
-            margin-bottom: 15px;
-        }
-
-        .widget-header h6 {
-            font-size: 1.25rem;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #212529;
-        }
-
-        .widget-header p {
-            font-size: 0.875rem;
-            color: #6c757d;
-            margin-bottom: 0;
-        }
-
-        .item-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .item-details {
-            flex-grow: 1;
-            margin-right: 10px;
-        }
-
-        .item-details h6 {
-            font-size: 1rem;
-            margin-bottom: 3px;
-            color: #212529;
-        }
-
-        .item-details p {
-            font-size: 0.875rem;
-            color: #6c757d;
-            margin-bottom: 0;
-        }
-
-        .status-badge {
-            padding: 0.25rem 0.5rem;
-            border-radius: 5px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-
-        .in-stock {
-            background-color: #d1e7dd;
-            color: #0f5132;
-        }
-
-        .low-stock {
-            background-color: #fff3cd;
-            color: #664d03;
-        }
-
-        .out-of-stock {
-            background-color: #f8d7da;
-            color: #842029;
-        }
-
-        .progress {
-            height: 0.5rem;
-            margin-top: 5px;
-            background-color: #e9ecef;
-            border-radius: 0.25rem;
             overflow: hidden;
         }
 
-        .progress-bar {
-            background-color: #f58320;
-            height: 4px;
+        .stat-card .icon-bg {
+            position: absolute;
+            right: -20px;
+            bottom: -20px;
+            font-size: 8rem;
+            opacity: 0.05;
+            transform: rotate(-15deg);
+            pointer-events: none;
         }
 
-        /* Stats progress bars */
-        .stat-card .progress {
-            height: 4px;
-            margin-bottom: 5px;
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
         }
 
-        .stat-card .progress-bar {
-            height: 4px;
+        .stat-label {
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
         }
 
-        .stat-info small,
-        .stat-change-alert small {
-            font-size: 12px;
+        .chart-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
         }
 
-        .btn-outline-primary,
-        .btn-outline-secondary {
-            font-size: 0.8rem;
-            font-weight: 500;
+        .chart-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .widget-container {
+            background: white;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            padding: 1.5rem;
+        }
+
+        .inventory-item {
+            padding: 12px;
+            border-radius: 12px;
+            transition: background 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .inventory-item:hover {
+            background: var(--border-light);
+            border-color: var(--border);
+        }
+
+        .status-badge {
+            padding: 4px 10px;
             border-radius: 6px;
-            padding: 0.3rem 0.7rem;
-            transition: all 0.15s ease;
+            font-size: 0.75rem;
+            font-weight: 600;
         }
 
-        .btn-outline-primary:hover,
-        .btn-outline-secondary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
+        .in-stock { background: #ecfdf5; color: #065f46; }
+        .low-stock { background: #fffbeb; color: #92400e; }
+        .out-of-stock { background: #fef2f2; color: #991b1b; }
 
-        /* MOBILE RESPONSIVE STYLES */
-        @media (max-width: 768px) {
-            .stat-card {
-                padding: 12px;
-                margin-bottom: 15px;
-            }
-
-            .stat-value {
-                font-size: 20px !important;
-            }
-
-            .stat-info small,
-            .stat-change-alert small {
-                font-size: 11px !important;
-                white-space: normal !important;
-            }
-
-            .chart-header {
-                padding: 0.75rem !important;
-                flex-direction: column !important;
-                align-items: flex-start !important;
-            }
-
-            .chart-header .btn {
-                margin-top: 0.5rem;
-                font-size: 0.8rem;
-            }
-
-            .chart-header h6 {
-                font-size: 1rem;
-            }
-
-            .chart-header p {
-                font-size: 0.75rem;
-            }
-
-            .widget-container {
-                padding: 15px;
-            }
-
-            .item-row {
-                flex-wrap: wrap;
-            }
-
-            .item-details {
-                width: 100%;
-                margin-bottom: 5px;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .stat-card {
-                padding: 10px;
-            }
-
-            .stat-value {
-                font-size: 18px !important;
-            }
-
-            .status-badge {
-                padding: 0.15rem 0.35rem;
-                font-size: 0.7rem;
-            }
-
-            .widget-header h6 {
-                font-size: 1rem;
-            }
-
-            .widget-header p {
-                font-size: 0.75rem;
-            }
-
-            .item-row {
-                align-items: flex-start;
-            }
-
-            .item-details h6 {
-                font-size: 0.9rem;
-            }
-
-            .text-truncate-mobile {
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-width: 100%;
-            }
+        .progress {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border-light);
         }
     </style>
     @endpush
@@ -265,7 +86,7 @@
     <!-- Overview Content -->
     <div class="container-fluid p-0">
         <!-- Header Section -->
-        <div class="d-flex justify-content-between align-items-center mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-2">
             <div>
                 <h3 class="fw-bold text-dark mb-2">
                     <i class="bi bi-speedometer2 text-success me-2"></i> Overview
@@ -278,31 +99,19 @@
             <!-- Total Sold Stocks Card -->
             <div class="col-sm-6 col-lg-4 mb-3">
                 <div class="stat-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="stat-label">Total Sold Stocks</div>
+                    <i class="bi bi-cart-check icon-bg"></i>
+                    <div class="stat-label mb-2">Total Sold Stocks</div>
+                    <div class="stat-value mb-3">{{ number_format($soldStock) }} <span class="fs-6 text-muted fw-normal">units</span></div>
+                    
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-success" style="width: {{ $soldPercentage }}%;"></div>
                     </div>
-                    <div class="stat-value">{{ number_format($soldStock) }} <span class="fs-6 text-muted">units</span></div>
-                    <div class="stat-info">
-                        <div class="d-flex justify-content-between mb-1">
-                            <small>Sold Percentage</small>
-                            <small>{{ $soldPercentage }}% of total</small>
-                        </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-success" role="progressbar"
-                                style="width: {{ $soldPercentage }}%;" aria-valuenow="{{ $soldPercentage }}"
-                                aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <small class="text-muted text-truncate-mobile">{{ number_format($soldStock) }} of {{ number_format($totalStock) }} units</small>
-                        </div>
-                    </div>
-
-                    <!-- Additional Info -->
-                    <div class="stat-info mt-3 pt-2 border-top">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted"><i class="bi bi-cart-check-fill text-success me-1"></i> Sales Value</small>
-                            <span class="badge bg-success">Rs.{{ number_format($totalSales, 2) }}</span>
-                        </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ $soldPercentage }}% of total stock</small>
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
+                            Rs.{{ number_format($totalSales, 0) }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -310,31 +119,19 @@
             <!-- Total Available Stocks Card -->
             <div class="col-sm-6 col-lg-4 mb-3">
                 <div class="stat-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="stat-label">Total Available Stocks</div>
+                    <i class="bi bi-box-seam icon-bg"></i>
+                    <div class="stat-label mb-2">Total Available Stocks</div>
+                    <div class="stat-value mb-3">{{ number_format($availableStock) }} <span class="fs-6 text-muted fw-normal">units</span></div>
+                    
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-primary" style="width: {{ $availablePercentage }}%;"></div>
                     </div>
-                    <div class="stat-value">{{ number_format($availableStock) }} <span class="fs-6 text-muted">units</span></div>
-                    <div class="stat-info">
-                        <div class="d-flex justify-content-between mb-1">
-                            <small>Available Percentage</small>
-                            <small>{{ $availablePercentage }}% of total</small>
-                        </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-primary" role="progressbar"
-                                style="width: {{ $availablePercentage }}%;" aria-valuenow="{{ $availablePercentage }}"
-                                aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <small class="text-muted text-truncate-mobile">{{ number_format($availableStock) }} of {{ number_format($totalStock) }} units</small>
-                        </div>
-                    </div>
-
-                    <!-- Additional Info -->
-                    <div class="stat-info mt-3 pt-2 border-top">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted"><i class="bi bi-box-seam text-primary me-1"></i> Inventory Value</small>
-                            <span class="badge bg-primary">Rs.{{ number_format($totalAvailableInventory, 2) }}</span>
-                        </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ $availablePercentage }}% of total stock</small>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">
+                            Rs.{{ number_format($totalAvailableInventory, 0) }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -342,30 +139,19 @@
             <!-- Damage Stocks Card -->
             <div class="col-sm-6 col-lg-4 mb-3">
                 <div class="stat-card">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="stat-label">Damage Stocks</div>
+                    <i class="bi bi-exclamation-triangle icon-bg"></i>
+                    <div class="stat-label mb-2">Damage Stocks</div>
+                    <div class="stat-value mb-3">{{ number_format($damagedStock) }} <span class="fs-6 text-muted fw-normal">units</span></div>
+                    
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-danger" style="width: {{ $damagedPercentage }}%;"></div>
                     </div>
-                    <div class="stat-value">{{ number_format($damagedStock) }} <span class="fs-6 text-muted">units</span></div>
-                    <div class="stat-change-alert">
-                        <div class="d-flex justify-content-between mb-1">
-                            <small>Damage Percentage</small>
-                            <small>{{ $damagedPercentage }}% of total</small>
-                        </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-danger" role="progressbar" style="width: {{ $damagedPercentage }}%;"
-                                aria-valuenow="{{ $damagedPercentage }}" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <small class="text-muted text-truncate-mobile">{{ number_format($damagedStock) }} of {{ number_format($totalStock) }} units</small>
-                        </div>
-                    </div>
-
-                    <!-- Additional Info -->
-                    <div class="stat-info mt-3 pt-2 border-top">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted"><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> Damage Value</small>
-                            <span class="badge bg-danger">Rs.{{ number_format($damagedValue, 2) }}</span>
-                        </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ $damagedPercentage }}% of total stock</small>
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">
+                            Rs.{{ number_format($damagedValue, 0) }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -395,49 +181,59 @@
             <!-- Inventory Status Card -->
             <div class="col-lg-6 col-md-12 mb-4">
                 <div class="widget-container">
-                    <div class="widget-header d-flex justify-content-between align-items-start flex-wrap">
-                        <div class="mb-2 mb-md-0">
-                            <h6>Inventory Status</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1">Inventory Status</h6>
                             <p class="text-muted small mb-0">Current stock levels and alerts</p>
                         </div>
-                        <a href="{{ route('admin.Product-stock-details') }}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-box-seam"></i>
+                        <a href="{{ route('admin.Product-stock-details') }}" class="btn btn-sm btn-outline-primary border-0 bg-transparent text-primary">
+                            <i class="bi bi-arrow-right-circle fs-5"></i>
                         </a>
                     </div>
 
                     <!-- Scrollable container -->
-                    <div class="inventory-container" style="max-height: 300px; overflow-y: auto;">
+                    <div class="inventory-container custom-scrollbar" style="max-height: 320px; overflow-y: auto;">
                         @forelse($ProductInventory as $Product)
                         @php
-                        // Calculate stock percentage and status
                         $stockPercentage = $Product->total_stock > 0 ?
                         round(($Product->available_stock / $Product->total_stock) * 100, 2) : 0;
 
-                        // Determine stock status badge
                         if ($Product->available_stock == 0) {
-                        $statusClass = 'out-of-stock';
-                        $statusText = 'Out of Stock';
-                        $progressClass = 'bg-danger';
-                        } elseif ($stockPercentage <= 25) { $statusClass='low-stock' ; $statusText='Low Stock' ;
-                            $progressClass='bg-warning' ; } else { $statusClass='in-stock' ; $statusText='In Stock'
-                            ; $progressClass='' ; } @endphp <div class="item-row @if(!$loop->first) mt-3 @endif">
-                            <div class="item-details">
-                                <h6 class="text-truncate-mobile">{{ $Product->name }} {{ $Product->model }}</h6>
-                                <p class="text-muted small text-truncate-mobile">SKU: {{ $Product->code }}</p>
-                            </div>
-                            <div class="d-flex align-items-center flex-wrap mt-1 mt-md-0">
+                            $statusClass = 'out-of-stock';
+                            $statusText = 'Out of Stock';
+                            $progressClass = 'bg-danger';
+                        } elseif ($stockPercentage <= 25) { 
+                            $statusClass='low-stock'; 
+                            $statusText='Low Stock';
+                            $progressClass='bg-warning'; 
+                        } else { 
+                            $statusClass='in-stock'; 
+                            $statusText='In Stock';
+                            $progressClass='bg-success'; 
+                        } 
+                        @endphp 
+                        <div class="inventory-item mb-2">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <div class="fw-bold text-dark">{{ $Product->name }}</div>
+                                    <div class="text-muted small">SKU: {{ $Product->code }}</div>
+                                </div>
                                 <span class="status-badge {{ $statusClass }}">{{ $statusText }}</span>
-                                <div class="ms-2 text-muted small">{{ $Product->available_stock }}/{{
-                                    $Product->total_stock }}</div>
                             </div>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar {{ $progressClass }}" style="width: {{ $stockPercentage }}%;">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="progress flex-grow-1">
+                                    <div class="progress-bar {{ $progressClass }}" style="width: {{ $stockPercentage }}%;"></div>
+                                </div>
+                                <small class="text-muted fw-500" style="min-width: 45px;">{{ $Product->available_stock }}/{{ $Product->total_stock }}</small>
+                            </div>
                         </div>
+                        @empty
+                        <div class="text-center py-5">
+                            <i class="bi bi-box-seam text-muted fs-1 mb-3 d-block"></i>
+                            <p class="text-muted">No Product inventory data available.</p>
+                        </div>
+                        @endforelse
                     </div>
-                    @empty
-                    <div class="alert alert-info">No Product inventory data available.</div>
-                    @endforelse
                 </div>
             </div>
         </div>
@@ -466,45 +262,58 @@
                 data: {
                     labels: categoryLabels,
                     datasets: [{
-                        label: 'Sales by Category',
-                        backgroundColor: '#2a83df',
-                        borderColor: '#2a83df',
-                        borderWidth: 1,
-                        data: categoryTotals
+                        label: 'Sales (Rs.)',
+                        backgroundColor: '#f58320',
+                        hoverBackgroundColor: '#e07010',
+                        borderRadius: 6,
+                        data: categoryTotals,
+                        barThickness: 30,
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            top: 20
+                        }
+                    },
                     plugins: {
                         legend: { display: false },
                         tooltip: { 
-                            enabled: true,
+                            backgroundColor: '#1f2937',
+                            padding: 12,
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 13 },
                             displayColors: false,
-                            bodyFont: {
-                                size: window.innerWidth < 768 ? 12 : 14
-                            },
-                            titleFont: {
-                                size: window.innerWidth < 768 ? 12 : 14
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Rs. ' + context.parsed.y.toLocaleString();
+                                }
                             }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: { color: '#dee2e6' },
+                            grid: { 
+                                color: '#f3f4f6',
+                                drawBorder: false 
+                            },
                             ticks: {
-                                font: {
-                                    size: window.innerWidth < 768 ? 10 : 12
+                                font: { size: 12 },
+                                color: '#6b7280',
+                                callback: function(value) {
+                                    if (value >= 1000) return 'Rs.' + (value / 1000) + 'k';
+                                    return 'Rs.' + value;
                                 }
                             }
                         },
                         x: {
                             grid: { display: false },
                             ticks: {
-                                font: {
-                                    size: window.innerWidth < 768 ? 10 : 12
-                                }
+                                font: { size: 12, weight: '500' },
+                                color: '#6b7280'
                             }
                         }
                     }

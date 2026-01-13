@@ -49,10 +49,13 @@
                     <small class="text-muted">Point of Sale System</small>
                 </div>
             </div>
-            <div class="d-flex align-items-center gap-2">
-                <div class="badge d-flex align-items-center px-3 py-2 rounded-2 shadow-sm"
-                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); color:white; cursor: pointer;"
-                    wire:click="viewCloseRegisterReport" role="button">
+            <div class="d-flex align-items-center gap-4">
+                <div wire:ignore id="posClock" class="fw-800 font-monospace text-orange px-3 py-2 rounded-3 bg-white border shadow-sm" 
+                    style="font-size: 1.5rem; letter-spacing: 0.1em; border-color: rgba(245, 131, 32, 0.2); min-width: 150px; text-align: center;">
+                    00:00:00
+                </div>
+                <div class="badge d-flex align-items-center px-3 py-2 rounded-2 shadow-sm" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); color:white; cursor: pointer;"
+                wire:click="viewCloseRegisterReport" role="button">
                     <i class="bi bi-file-earmark-text me-2"></i>
                     <span class="fw-semibold">View Report</span>
                 </div>
@@ -98,32 +101,53 @@
                 @if(count($cart) > 0)
                 <div class="cart-items">
                     @foreach($cart as $index => $item)
-                    <div class="cart-item d-flex align-items-center p-2 mb-2 bg-light rounded" wire:key="cart-{{ $item['key'] ?? $index }}">
+                    <div class="cart-item d-flex align-items-center p-2 mb-2 bg-light rounded border-start border-4" 
+                        style="border-left-color: #f58320 !important;"
+                        wire:key="cart-{{ $item['key'] ?? $index }}">
+                        
+                        {{-- Product Image --}}
                         <div class="cart-item-image me-2">
                             @if(isset($item['image']) && $item['image'])
-                            <img src="{{ strpos($item['image'], 'http') === 0 || strpos($item['image'], 'data:') === 0 ? $item['image'] : asset('storage/' . $item['image']) }}" alt="{{ $item['name'] }}" 
-                                class="rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                                <img src="{{ (strpos($item['image'], 'http') === 0 || strpos($item['image'], 'data:') === 0) ? $item['image'] : asset('storage/' . $item['image']) }}" 
+                                    alt="{{ $item['name'] }}" 
+                                    class="rounded shadow-sm" style="width: 45px; height: 45px; object-fit: cover;">
                             @else
-                            <img src="{{ asset('images/default-product.png') }}" alt="No Image" 
-                                class="rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                                <div class="bg-white rounded shadow-sm d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                                    <i class="bi bi-image text-muted" style="font-size: 1.2rem;"></i>
+                                </div>
                             @endif
                         </div>
+
+                        {{-- Product Details --}}
                         <div class="cart-item-details flex-grow-1" style="min-width: 0;">
-                            <h6 class="mb-0 small fw-semibold text-truncate">{{ $item['name'] }}</h6>
-                            <small class="text-muted">Rs. {{ number_format($item['price'], 0) }}</small>
+                            <h6 class="mb-0 small fw-bold text-truncate" title="{{ $item['name'] }}">{{ $item['name'] }}</h6>
                             <div class="d-flex align-items-center mt-1">
-                                <button class="btn btn-sm btn-outline-secondary px-2 py-0" 
-                                    wire:click="decrementQuantity({{ $index }})">-</button>
-                                <span class="mx-2 small fw-bold">{{ $item['quantity'] }}</span>
-                                <button class="btn btn-sm btn-outline-secondary px-2 py-0" 
-                                    wire:click="incrementQuantity({{ $index }})">+</button>
+                                <div class="input-group input-group-sm" style="width: 90px;">
+                                    <span class="input-group-text bg-white border-end-0 px-1 py-0" style="font-size: 0.7rem;">Rs.</span>
+                                    <input type="number" step="0.01" 
+                                        class="form-control border-start-0 px-1 py-0 fw-semibold text-orange" 
+                                        style="font-size: 0.75rem;"
+                                        value="{{ $item['price'] }}"
+                                        wire:change="updatePrice({{ $index }}, $event.target.value)">
+                                </div>
+                                <div class="d-flex align-items-center ms-auto bg-white rounded border px-1">
+                                    <button class="btn btn-sm btn-link text-dark p-0" wire:click="decrementQuantity({{ $index }})">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                    <span class="mx-2 small fw-bold">{{ $item['quantity'] }}</span>
+                                    <button class="btn btn-sm btn-link text-dark p-0" wire:click="incrementQuantity({{ $index }})">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div class="cart-item-price text-end ms-2">
-                            <span class="fw-bold small" style="color: #f58320;">Rs. {{ number_format($item['total'], 0) }}</span>
-                            <button class="btn btn-link btn-sm text-danger p-0 d-block" 
+
+                        {{-- Total & Remove --}}
+                        <div class="cart-item-price text-end ms-2" style="min-width: 70px;">
+                            <div class="fw-bold small text-orange mb-1">Rs. {{ number_format($item['total'], 0) }}</div>
+                            <button class="btn btn-sm btn-light text-danger p-1 rounded-circle border shadow-sm" 
                                 wire:click="removeFromCart({{ $index }})" title="Remove">
-                                <i class="bi bi-trash small"></i>
+                                <i class="bi bi-x" style="font-size: 1rem; line-height: 1;"></i>
                             </button>
                         </div>
                     </div>
@@ -265,130 +289,224 @@
     {{-- Payment Modal --}}
     @if($showPaymentModal)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.7);" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header text-white border-0" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
-                    <h5 class="modal-title fw-bold">
-                        <i class="bi bi-credit-card me-2"></i>Payment Details
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius: 20px;">
+                <div class="modal-header text-white border-0 py-3" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
+                    <h5 class="modal-title fw-800 fs-4">
+                        <i class="bi bi-shield-check me-2"></i>Secure Checkout
                     </h5>
                     <button type="button" class="btn-close btn-close-white" wire:click="closePaymentModal"></button>
                 </div>
-                <div class="modal-body p-4">
-                    {{-- Order Summary --}}
-                    <div class="card bg-light border-0 mb-4">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="text-muted">Subtotal:</span>
-                                <span class="fw-semibold">Rs. {{ number_format($subtotal, 2) }}</span>
-                            </div>
-                            @if($totalDiscount > 0)
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="text-muted">Discount:</span>
-                                <span class="text-danger">- Rs. {{ number_format($totalDiscount, 2) }}</span>
-                            </div>
-                            @endif
-                            <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-                                <span class="fw-bold fs-5">Total Amount:</span>
-                                <span class="fw-bold fs-4" style="color: #f58320;">Rs. {{ number_format($grandTotal, 2) }}</span>
-                            </div>
-                        </div>
-                    </div>
+                <div class="modal-body p-0">
+                    <div class="row g-0">
+                        {{-- Left Side: Payment Methods --}}
+                        <div class="col-md-7 p-4 bg-white">
+                            <h5 class="fw-bold mb-4 border-bottom pb-2">
+                                <i class="bi bi-cash-coin me-2 text-orange"></i>Payment Method
+                            </h5>
+                            
+                            <div class="row g-3 mb-5">
+                                @php
+                                    $methods = [
+                                        ['id' => 'cash', 'icon' => 'bi-cash-stack', 'label' => 'Cash'],
+                                        ['id' => 'card', 'icon' => 'bi-credit-card-2-front', 'label' => 'Card'],
+                                        ['id' => 'bank_transfer', 'icon' => 'bi-bank', 'label' => 'Bank Transfer'],
+                                        ['id' => 'cheque', 'icon' => 'bi-check2-square', 'label' => 'Cheque'],
+                                        ['id' => 'credit', 'icon' => 'bi-calendar-check', 'label' => 'Credit (Due)']
+                                    ];
+                                @endphp
 
-                    {{-- Payment Method Selection --}}
-                    <div class="mb-4">
-                        <label class="form-label fw-bold mb-3" style="color: #f58320;">
-                            <i class="bi bi-wallet2 me-2"></i>Select Payment Method
-                        </label>
-                        <div class="row g-3">
-                            <div class="col-6">
-                                <div class="payment-option {{ $paymentMethod == 'cash' ? 'selected' : '' }}" 
-                                    wire:click="$set('paymentMethod', 'cash')"
-                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'cash' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'cash' ? '#fff5ed' : 'white' }};">
-                                    <div class="text-center">
-                                        <i class="bi bi-cash-stack" style="font-size: 2.5rem; color: {{ $paymentMethod == 'cash' ? '#f58320' : '#6c757d' }};"></i>
-                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'cash' ? '#f58320' : '#495057' }};">Cash</h6>
+                                @foreach($methods as $method)
+                                <div class="col-md-4">
+                                    <div class="payment-option text-center p-3 rounded-4 border-2 shadow-sm {{ $paymentMethod == $method['id'] ? 'selected border-orange bg-orange-light' : 'border-light bg-light' }}" 
+                                        wire:click="updatedPaymentMethod('{{ $method['id'] }}')"
+                                        style="cursor: pointer; transition: all 0.3s; @if($paymentMethod == $method['id']) background-color: #fff7ed !important; border-color: #f58320 !important; @endif">
+                                        <i class="bi {{ $method['icon'] }} fs-1 mb-2 d-block @if($paymentMethod == $method['id']) text-orange @else text-muted @endif"></i>
+                                        <span class="fw-bold @if($paymentMethod == $method['id']) text-orange @else text-dark @endif">{{ $method['label'] }}</span>
                                     </div>
                                 </div>
+                                @endforeach
                             </div>
-                            <div class="col-6">
-                                <div class="payment-option {{ $paymentMethod == 'card' ? 'selected' : '' }}" 
-                                    wire:click="$set('paymentMethod', 'card')"
-                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'card' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'card' ? '#fff5ed' : 'white' }};">
-                                    <div class="text-center">
-                                        <i class="bi bi-credit-card-2-front" style="font-size: 2.5rem; color: {{ $paymentMethod == 'card' ? '#f58320' : '#6c757d' }};"></i>
-                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'card' ? '#f58320' : '#495057' }};">Card</h6>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="payment-option {{ $paymentMethod == 'bank_transfer' ? 'selected' : '' }}" 
-                                    wire:click="$set('paymentMethod', 'bank_transfer')"
-                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'bank_transfer' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'bank_transfer' ? '#fff5ed' : 'white' }};">
-                                    <div class="text-center">
-                                        <i class="bi bi-bank" style="font-size: 2.5rem; color: {{ $paymentMethod == 'bank_transfer' ? '#f58320' : '#6c757d' }};"></i>
-                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'bank_transfer' ? '#f58320' : '#495057' }};">Bank Transfer</h6>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="payment-option {{ $paymentMethod == 'cheque' ? 'selected' : '' }}" 
-                                    wire:click="$set('paymentMethod', 'cheque')"
-                                    style="cursor: pointer; padding: 20px; border: 2px solid {{ $paymentMethod == 'cheque' ? '#f58320' : '#dee2e6' }}; border-radius: 10px; transition: all 0.3s; background: {{ $paymentMethod == 'cheque' ? '#fff5ed' : 'white' }};">
-                                    <div class="text-center">
-                                        <i class="bi bi-check2-square" style="font-size: 2.5rem; color: {{ $paymentMethod == 'cheque' ? '#f58320' : '#6c757d' }};"></i>
-                                        <h6 class="mt-2 mb-0 fw-semibold" style="color: {{ $paymentMethod == 'cheque' ? '#f58320' : '#495057' }};">Cheque</h6>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        @error('paymentMethod')
-                        <div class="text-danger mt-2 small">{{ $message }}</div>
-                        @enderror
-                    </div>
 
-                    {{-- Payment Amount Input (for cash with change calculation) --}}
-                    @if($paymentMethod == 'cash')
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold" style="color: #f58320;">Amount Received</label>
-                            <input type="number" class="form-control form-control-lg" 
-                                wire:model.live="amountReceived" 
-                                step="0.01" 
-                                min="{{ $grandTotal }}"
-                                placeholder="Enter amount"
-                                style="border: 2px solid #f58320;">
-                            @error('amountReceived')
-                            <div class="text-danger small mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-success">Change to Return</label>
-                            <input type="text" class="form-control form-control-lg text-success fw-bold" 
-                                value="Rs. {{ number_format(max(0, ($amountReceived ?? 0) - $grandTotal), 2) }}" 
-                                readonly
-                                style="border: 2px solid #28a745; background-color: #f0fff4;">
-                        </div>
-                    </div>
-                    @endif
+                            {{-- Payment Method Specific Inputs --}}
+                            <div class="payment-details-form p-4 rounded-4 bg-light border">
+                                @if($paymentMethod == 'cash')
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Amount Received (Rs.)</label>
+                                            <div class="input-group input-group-lg shadow-sm">
+                                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-wallet2 text-orange"></i></span>
+                                                <input type="number" class="form-control border-start-0 fw-800 fs-3 text-orange" 
+                                                    wire:model.live="amountReceived" step="0.01" autofocus>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-white rounded shadow-sm text-center border">
+                                                <small class="text-muted d-block fw-bold mb-1">CHANGE TO RETURN</small>
+                                                <h3 class="fw-800 text-success mb-0">Rs. {{ number_format(max(0, ($amountReceived ?? 0) - $grandTotal), 2) }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @elseif($paymentMethod == 'bank_transfer')
+                                    <div class="row g-3">
+                                        <div class="col-md-12">
+                                            <label class="form-label fw-bold">Bank Name</label>
+                                            <input type="text" class="form-control" wire:model="bankTransferBankName" placeholder="Enter Bank Name...">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Reference Number</label>
+                                            <input type="text" class="form-control" wire:model="bankTransferReferenceNumber" placeholder="TXN ID...">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Amount Transfered (Rs.)</label>
+                                            <input type="number" class="form-control fw-bold" wire:model="bankTransferAmount" step="0.01">
+                                        </div>
+                                    </div>
+                                @elseif($paymentMethod == 'cheque')
+                                    {{-- Multi-Cheque Support --}}
+                                    <div class="bg-white p-3 rounded-3 border mb-3 shadow-sm">
+                                        <h6 class="fw-bold text-orange mb-3"><i class="bi bi-plus-circle me-2"></i>Add Cheque Details</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <input type="text" class="form-control form-control-sm" wire:model="tempBankName" placeholder="Bank Name">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <input type="text" class="form-control form-control-sm" wire:model="tempChequeNumber" placeholder="Cheque Number">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="date" class="form-control form-control-sm" wire:model="tempChequeDate">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="number" class="form-control form-control-sm fw-bold" wire:model="tempChequeAmount" placeholder="Amount (Rs.)">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button class="btn btn-orange btn-sm w-100 fw-bold text-white shadow-sm" 
+                                                    style="background: #f58320;"
+                                                    wire:click="addCheque">
+                                                    ADD CHEQUE
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                    {{-- Payment Notes --}}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold" style="color: #f58320;">
-                            <i class="bi bi-pencil-square me-1"></i>Payment Notes (Optional)
-                        </label>
-                        <textarea class="form-control" wire:model="paymentNotes" rows="2" 
-                            placeholder="Add any payment notes or reference..."></textarea>
+                                    @if(!empty($cheques))
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered bg-white rounded overflow-hidden shadow-sm">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th class="small">Bank</th>
+                                                    <th class="small">Cheque #</th>
+                                                    <th class="small text-end">Amount</th>
+                                                    <th class="small"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($cheques as $idx => $chq)
+                                                <tr>
+                                                    <td class="small">{{ $chq['bank_name'] }}</td>
+                                                    <td class="small">{{ $chq['number'] }}</td>
+                                                    <td class="small text-end fw-bold">Rs. {{ number_format($chq['amount'], 2) }}</td>
+                                                    <td class="text-center">
+                                                        <button class="btn btn-sm text-danger p-0" wire:click="removeCheque({{ $idx }})">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot class="table-light">
+                                                <tr>
+                                                    <th colspan="2" class="text-end">Total Cheque Amount:</th>
+                                                    <th class="text-end text-orange fw-800">Rs. {{ number_format(collect($cheques)->sum('amount'), 2) }}</th>
+                                                    <th></th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                    @endif
+                                @elseif($paymentMethod == 'credit')
+                                    <div class="alert alert-warning border-2 border-warning shadow-sm">
+                                        <div class="d-flex">
+                                            <i class="bi bi-exclamation-triangle-fill fs-3 me-3"></i>
+                                            <div>
+                                                <h6 class="fw-bold mb-1 text-dark">Credit Sales Notice</h6>
+                                                <p class="mb-0 small text-muted">A credit sale will mark this transaction as "Pending" or "Partial". The full amount (Rs. {{ number_format($grandTotal, 2) }}) will be added to the customer's due balance.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @elseif($paymentMethod == 'card')
+                                    <div class="alert alert-info border-2 border-info shadow-sm">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-info-circle-fill fs-3 me-3"></i>
+                                            <div>
+                                                <h6 class="fw-bold mb-1 text-dark">Card Payment</h6>
+                                                <p class="mb-0 small text-muted">Please process the payment on the PDQ terminal and enter the reference number in the notes below if needed.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+                                
+                                @error('amountReceived') <div class="text-danger small mt-1 fw-bold">{{ $message }}</div> @enderror
+                                @error('bankTransferAmount') <div class="text-danger small mt-1 fw-bold">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+
+                        {{-- Right Side: Order Summary --}}
+                        <div class="col-md-5 p-4 bg-light border-start">
+                            <h5 class="fw-bold mb-4 border-bottom pb-2">
+                                <i class="bi bi-receipt me-2 text-orange"></i>Order Summary
+                            </h5>
+                            
+                            <div class="mb-4">
+                                <div class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden border">
+                                    <div class="list-group-item d-flex justify-content-between py-3">
+                                        <span class="text-muted">Customer</span>
+                                        <span class="fw-bold">{{ $selectedCustomer->name ?? 'N/A' }}</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between py-3 bg-white">
+                                        <span class="text-muted">Order Date</span>
+                                        <span class="fw-bold">{{ now()->format('d/m/Y') }}</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between py-3 bg-white border-bottom-0">
+                                        <span class="text-muted">Payment Type</span>
+                                        <span class="badge text-white" style="background: #f58320;">{{ ucfirst(str_replace('_', ' ', $paymentMethod)) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-4 shadow-sm mb-4" style="background: #fff5ed; border: 1px dashed #f58320;">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted fs-6">Subtotal</span>
+                                    <span class="fw-bold fs-6">Rs. {{ number_format($subtotal, 2) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3">
+                                    <span class="text-muted fs-6 text-danger">Total Item Discounts</span>
+                                    <span class="fw-bold fs-6 text-danger">- Rs. {{ number_format($totalDiscount, 2) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between pt-3 border-top border-orange border-1 border-opacity-25">
+                                    <h4 class="fw-800 mb-0">TOTAL DUE</h4>
+                                    <h4 class="fw-800 mb-0 text-orange">Rs. {{ number_format($grandTotal, 2) }}</h4>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold"><i class="bi bi-sticky me-1 text-orange"></i>Transaction Notes</label>
+                                <textarea class="form-control rounded-4 shadow-sm" wire:model="paymentNotes" rows="3" 
+                                    placeholder="Add any internal transaction notes here..."></textarea>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-orange text-white py-3 fw-800 shadow-lg rounded-4 fs-5" 
+                                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); letter-spacing: 1px;"
+                                    wire:click="completeSaleWithPayment">
+                                    <i class="bi bi-printer me-2"></i>PROCESS & PRINT
+                                </button>
+                                <button type="button" class="btn btn-light border py-2 rounded-4 fw-bold" wire:click="closePaymentModal">
+                                    CANCEL TRANSACTION
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer border-0 bg-light">
-                    <button type="button" class="btn btn-secondary px-4" wire:click="closePaymentModal">
-                        <i class="bi bi-x-circle me-2"></i>Cancel
-                    </button>
-                    <button type="button" class="btn text-white px-4 py-2 fw-bold" 
-                        style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);"
-                        wire:click="completeSaleWithPayment">
-                        <i class="bi bi-check-circle me-2"></i>Complete Sale
-                    </button>
                 </div>
             </div>
         </div>
@@ -647,14 +765,59 @@
 @push('styles')
 <style>
     .pos-container {
-        background-color: #f8f9fa;
-        padding: 15px;
+        background-color: #f4f6f9;
+        padding: 20px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .fw-800 { font-weight: 800 !important; }
+    .text-orange { color: #f58320 !important; }
+    .bg-orange-light { background-color: #fff7ed !important; }
+    .border-orange { border-color: #f58320 !important; }
+
+    .btn-orange {
+        background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-orange:hover {
+        background: linear-gradient(135deg, #d16d0e 0%, #a8560a 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(245, 131, 32, 0.4);
     }
     
     .cart-items::-webkit-scrollbar,
     .col-md-3::-webkit-scrollbar,
-    .col-md-6::-webkit-scrollbar {
-        width: 5px;
+    .col-md-7::-webkit-scrollbar,
+    .col-md-2::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .cart-items::-webkit-scrollbar-thumb {
+        background: #f58320;
+        border-radius: 10px;
+    }
+    
+    .payment-option {
+        border: 2px solid #f1f1f1;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .payment-option:hover {
+        border-color: #f58320 !important;
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    }
+    
+    .payment-option.selected {
+        background-color: #fff7ed !important;
+        border-color: #f58320 !important;
+        box-shadow: 0 10px 25px rgba(245, 131, 32, 0.15);
+    }
+
+    .payment-details-form {
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
     }
     
     .cart-items::-webkit-scrollbar-thumb,
@@ -841,7 +1004,35 @@
 
 @push('scripts')
 <script>
+    // Digital Clock for POS - Initialize immediately and maintain through Livewire updates
+    function initializePosClock() {
+        function updatePosClock() {
+            const clockEl = document.getElementById('posClock');
+            if (clockEl) {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                clockEl.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+        }
+
+        // Update clock immediately
+        updatePosClock();
+        
+        // Clear any existing interval before setting a new one
+        if (window.posClockInterval) {
+            clearInterval(window.posClockInterval);
+        }
+        
+        // Set new interval
+        window.posClockInterval = setInterval(updatePosClock, 1000);
+    }
+
+    // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
+        initializePosClock();
+
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
             // Ctrl+N - Focus search for new sale
@@ -857,20 +1048,31 @@
             // F10 - Complete sale
             if (e.key === 'F10') {
                 e.preventDefault();
-                Livewire.dispatch('validateAndCreateSale');
+                if (typeof Livewire !== 'undefined') {
+                    Livewire.dispatch('validateAndCreateSale');
+                }
             }
         });
         
         // Listen for sale completion
-        Livewire.on('saleSaved', function() {
-            // Clean up any modals
-            setTimeout(() => {
-                const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) backdrop.remove();
-                document.body.classList.remove('modal-open');
-                document.body.style.overflow = '';
-            }, 100);
-        });
+        if (typeof Livewire !== 'undefined') {
+            Livewire.on('saleSaved', function() {
+                // Clean up any modals
+                setTimeout(() => {
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) backdrop.remove();
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                }, 100);
+            });
+        }
     });
+
+    // Reinitialize clock after Livewire updates
+    if (typeof Livewire !== 'undefined') {
+        Livewire.hook('message.processed', () => {
+            initializePosClock();
+        });
+    }
 </script>
 @endpush

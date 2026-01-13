@@ -451,15 +451,21 @@ class StoreBilling extends Component
     {
         // Reset all payment fields
         $this->cashAmount = 0;
+        $this->amountReceived = 0;
         $this->cheques = [];
         $this->bankTransferAmount = 0;
         $this->bankTransferBankName = '';
         $this->bankTransferReferenceNumber = '';
+        $this->tempChequeDate = now()->format('Y-m-d');
+        $this->tempChequeAmount = 0;
 
         if ($value === 'cash') {
             $this->cashAmount = $this->grandTotal;
+            $this->amountReceived = $this->grandTotal;
         } elseif ($value === 'bank_transfer') {
             $this->bankTransferAmount = $this->grandTotal;
+        } elseif ($value === 'cheque') {
+            $this->tempChequeAmount = $this->grandTotal;
         }
     }
 
@@ -636,7 +642,8 @@ class StoreBilling extends Component
                 'quantity' => 1,
                 'discount' => $discountPrice,
                 'total' => $product['price'] - $discountPrice,
-                'stock' => $product['stock']
+                'stock' => $product['stock'],
+                'image' => $product['image'] ?? null
             ];
 
             // Prepend new item to the beginning of the cart so it appears at the top

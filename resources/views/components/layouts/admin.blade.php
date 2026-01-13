@@ -23,50 +23,49 @@
     <style>
         /* Theme tokens: Orange & White theme */
         :root {
-            /* Backgrounds - Page background uses a subtle off-white for theme */
-            --page-bg: #f7f8fbff;
+            /* Clean Page Background */
+            --page-bg: #f3f4f6;
             --surface: #ffffff;
 
-            /* Primary / Brand - Orange */
+            /* Professional Brand Palette - Vibrant Orange & Neutral Accents */
             --primary: #f58320;
-            --primary-600: #d16d0e;
-            --primary-100: #fff4e6;
+            --primary-600: #e07010;
+            --primary-700: #c66008;
+            --primary-50: #fff7ed;
+            --primary-100: #ffedd5;
 
-            /* Accent - keep for amounts */
-            --accent: #198754;
+            /* Functional Colors */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
 
-            /* Muted / borders / text - Blue-gray tones */
-            --muted: #64748b;
-            --muted-2: #475569;
-            --border: #cbd5e1;
-            --muted-3: #e2e8f0;
+            /* Refined Neutral Palette */
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --text-light: #9ca3af;
+            --border: #e5e7eb;
+            --border-light: #f3f4f6;
 
-            /* Status colors - keep distinct */
-            --success-bg: #d1e7dd;
-            --success-text: #0f5132;
-            --warning-bg: #fff3cd;
-            --warning-text: #664d03;
-            --danger-bg: #f8d7da;
-            --danger-text: #842029;
-
-            /* Topbar / sidebar - White */
-            --sidebar-bg: #ffffff;
-            --topbar-bg: #ffffff;
-
-            /* Text - Dark */
-            --text: #1e293b;
-
-            /* Avatars */
-            --avatar-bg: #f58320;
-            --avatar-text: #ffffff;
+            /* Effects */
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius-md: 10px;
+            --radius-lg: 16px;
         }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--page-bg);
-            color: var(--text);
+            color: var(--text-main);
             letter-spacing: -0.01em;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
+
+        .fw-800 { font-weight: 800 !important; }
+        .text-orange { color: #f58320 !important; }
 
         /* Ensure dropdowns in table are not clipped */
         .table-responsive {
@@ -178,20 +177,17 @@
 
         /* Sidebar styles */
         .sidebar {
-            width: 265px;
+            width: 270px;
             height: 100vh;
             background: #ffffff;
-            color: #1e293b;
-
-            padding: 0 0 20px;
+            color: var(--text-main);
+            padding: 0;
             position: fixed;
-            transition: all 0.3s ease;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1040;
             overflow-y: auto;
-            /* Enable vertical scrolling */
             overflow-x: hidden;
-            /* Hide horizontal overflow */
-            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 1px 0 0 var(--border);
         }
 
         /* Add custom scrollbar styling for sidebar */
@@ -257,44 +253,55 @@
         }
 
         .nav-link {
-            color: #64748b;
-            padding: 8px 20px;
+            color: var(--text-muted);
+            padding: 12px 24px;
+            margin: 4px 12px;
+            border-radius: 8px;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
         }
 
 
         .nav-link.active {
-            background: #fff4e6;
-            color: #f58320;
-            font-weight: 500;
-            border-left: 3px solid #f58320;
+            background: var(--primary-50);
+            color: var(--primary);
+            border-left: none;
         }
 
-        .nav-link:focus,
-        .nav-link:hover,
-        .nav-link:focus-visible {
-            color: #f58320;
-            background: #fff4e6;
+        .nav-link:hover:not(.active) {
+            color: var(--primary);
+            background: var(--border-light);
             outline: none;
         }
 
         .nav-link i {
-            margin-right: 10px;
-            width: 20px;
-            text-align: center;
-            font-size: 1.1rem;
+            margin-right: 12px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            transition: transform 0.2s;
+        }
+
+        .nav-link:hover i {
+            transform: scale(1.1);
         }
 
         .nav-link.dropdown-toggle::after {
-            display: inline-block;
-            margin-left: 0.255em;
-            content: "";
-            border-top: 0.3em solid;
-            border-right: 0.3em solid transparent;
-            border-bottom: 0;
-            border-left: 0.3em solid transparent;
-            float: right;
-            margin-top: 8px;
+            margin-left: auto;
+            border: none;
+            content: "\F282";
+            font-family: "bootstrap-icons";
+            font-size: 0.8rem;
+            transition: transform 0.3s;
+        }
+
+        .nav-link.dropdown-toggle[aria-expanded="true"]::after {
+            transform: rotate(180deg);
         }
 
         #inventorySubmenu .nav-link,
@@ -344,23 +351,23 @@
 
         /* Top bar styles */
         .top-bar {
-            height: 60px;
-            background: #ffffff;
-            border-bottom: none;
-            padding: 0 20px;
+            height: 72px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 0 24px;
             position: fixed;
             top: 0;
             right: 0;
-            left: 250px;
+            left: 270px;
             z-index: 1000;
             display: flex;
             align-items: center;
-            transition: left 0.3s ease;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid var(--border);
         }
 
         .top-bar.collapsed {
-            left: 70px;
+            left: 80px;
         }
 
         .top-bar .title {
@@ -437,31 +444,38 @@
 
         /* Main content styles */
         .main-content {
-            margin-left: 260px;
-            margin-top: 60px;
-            padding: 20px;
+            margin-left: 270px;
+            margin-top: 70px;
+            padding: 32px;
             background-color: var(--page-bg);
-            min-height: calc(100vh - 60px);
-            width: calc(100% - 250px);
-            transition: all 0.3s ease;
+            min-height: calc(100vh - 70px);
+            width: calc(100% - 270px);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
 
 
         .main-content.collapsed {
-            margin-left: 70px;
-            width: calc(100% - 70px);
+            margin-left: 80px;
+            width: calc(100% - 80px);
         }
 
         /* Card styles */
         .stat-card,
         .widget-container {
             background: var(--surface);
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-            border: none;
-            padding: 1.25rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
             height: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover,
+        .widget-container:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
 
         .stat-value {
@@ -690,28 +704,35 @@
         .table th {
             border-top: none;
             font-weight: 600;
-            color: #ffffff;
-            background: #f58320;
-            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
-            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: var(--border-light);
+            font-size: 0.75rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.05em;
+            padding: 12px 16px !important;
         }
 
         .btn {
-            background: #f58320;
-            color: #ffffff;
-            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            padding: 8px 16px !important;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
+            background: var(--primary);
             color: #ffffff;
             border: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #d16d0e 0%, #f58320 100%);
+            background: var(--primary-600);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .btn-success {
@@ -1189,8 +1210,8 @@
         <!-- Top Navigation Bar -->
         <nav class="top-bar d-flex justify-content-between align-items-center">
             <!-- Sidebar toggle button -->
-            <button id="sidebarToggler" class="btn d-flex align-items-center justify-content-center " style="color:#ffffff; border:1px solid#ffffff; width: 44px; height: 44px;">
-                <i class="bi bi-list" style="font-size: 1.5rem;"></i>
+            <button id="sidebarToggler" class="btn btn-light d-flex align-items-center justify-content-center p-0" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border);">
+                <i class="bi bi-text-indent-left fs-4 text-dark" id="togglerIcon"></i>
             </button>
 
             <!-- Centered Company Name (hidden on small screens) -->
@@ -1202,14 +1223,19 @@
             $cashInHand = CashModel::where('key', 'cash in hand')->value('value') ?? 0;
             @endphp
 
-            <!-- Editable Cash in Hand Display -->
-            <div class="badge  bg-opacity-10 rounded-pill shadow-sm border  border-opacity-25 d-none d-md-flex align-items-center gap-2 me-2"
-                style="background-color: rgba(255,255,255,0.2) !important; color:#f58320; border-color:rgba(255,255,255,0.5) !important; font-size: 0.9rem; cursor: pointer;"
-                onclick="handlePOSClick()"
-                role="button">
-                <div class="d-flex align-items-center gap-1 px-2 py-1 fs-6">
-                    <i class="bi bi-plus-circle"></i>
-                    <span class="fw-semibold">POS</span>
+            <!-- Real-time Clock and POS Button -->
+            <div class="d-none d-lg-flex align-items-center gap-4 me-3">
+                <div id="digitalClock" class="fw-800 font-monospace text-orange px-3 py-2 rounded-3 bg-white border shadow-sm" 
+                    style="font-size: 1.5rem; letter-spacing: 0.1em; border-color: rgba(245, 131, 32, 0.2); min-width: 150px; text-align: center;">
+                    00:00:00
+                </div>
+                
+                <div class="btn btn-primary rounded-pill shadow-sm d-flex align-items-center gap-2 px-3 py-2"
+                    onclick="handlePOSClick()"
+                    role="button"
+                    style="background: var(--primary); border: none;">
+                    <i class="bi bi-cart-plus-fill fs-5"></i>
+                    <span class="fw-bold">POS</span>
                 </div>
             </div>
 
@@ -1382,15 +1408,43 @@
             const topBar = document.querySelector('.top-bar');
             const mainContent = document.querySelector('.main-content');
 
+            // Digital Clock
+            function updateClock() {
+                const clockEl = document.getElementById('digitalClock');
+                if (clockEl) {
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const seconds = String(now.getSeconds()).padStart(2, '0');
+                    clockEl.textContent = `${hours}:${minutes}:${seconds}`;
+                }
+            }
+
+            // Update clock every second
+            updateClock();
+            if (window.adminClockInterval) clearInterval(window.adminClockInterval);
+            window.adminClockInterval = setInterval(updateClock, 1000);
+
+            // Livewire hook for clock re-initialization
+            if (typeof Livewire !== 'undefined') {
+                Livewire.hook('message.processed', () => {
+                    updateClock();
+                });
+            }
+
             // Initialize sidebar state
             function initializeSidebar() {
                 // Check if sidebar state is saved in localStorage
                 const sidebarCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+                const togglerIcon = document.getElementById('togglerIcon');
 
                 if (sidebarCollapsed && window.innerWidth >= 768) {
                     sidebar.classList.add('collapsed');
                     topBar.classList.add('collapsed');
                     mainContent.classList.add('collapsed');
+                    if (togglerIcon) {
+                        togglerIcon.classList.replace('bi-text-indent-left', 'bi-text-indent-right');
+                    }
                 }
 
                 // On mobile, always start with sidebar hidden
@@ -1407,6 +1461,8 @@
                     event.stopPropagation();
                 }
 
+                const togglerIcon = document.getElementById('togglerIcon');
+
                 if (window.innerWidth < 768) {
                     // Mobile behavior
                     sidebar.classList.toggle('show');
@@ -1415,6 +1471,15 @@
                     sidebar.classList.toggle('collapsed');
                     topBar.classList.toggle('collapsed');
                     mainContent.classList.toggle('collapsed');
+
+                    // Update toggler icon
+                    if (togglerIcon) {
+                        if (sidebar.classList.contains('collapsed')) {
+                            togglerIcon.classList.replace('bi-text-indent-left', 'bi-text-indent-right');
+                        } else {
+                            togglerIcon.classList.replace('bi-text-indent-right', 'bi-text-indent-left');
+                        }
+                    }
 
                     // Save state to localStorage
                     localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
