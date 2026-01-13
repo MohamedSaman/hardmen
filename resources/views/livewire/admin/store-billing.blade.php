@@ -186,17 +186,26 @@
                 <div class="row g-2">
                     @forelse($products as $product)
                     <div class="col-6 col-lg-4 col-xl-3">
-                        <div class="card h-100 product-card border-0 shadow-sm" 
-                            style="cursor: pointer; transition: all 0.2s;"
-                            wire:click="addToCart({{ json_encode($product) }})"
-                            onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 4px 15px rgba(245,131,32,0.3)'"
-                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 .125rem .25rem rgba(0,0,0,.075)'">
+                        @php
+                            $isOutOfStock = ($product['stock'] ?? 0) <= 0;
+                        @endphp
+                        <div class="card h-100 product-card {{ $isOutOfStock ? 'out-of-stock' : '' }}"
+                            style="cursor: {{ $isOutOfStock ? 'not-allowed' : 'pointer' }}; 
+                                   transition: all 0.2s;
+                                   border: 2px solid {{ $isOutOfStock ? '#dc3545' : 'transparent' }};
+                                   box-shadow: {{ $isOutOfStock ? '0 0 15px rgba(220, 53, 69, 0.4)' : '0 .125rem .25rem rgba(0,0,0,.075)' }};
+                                   opacity: {{ $isOutOfStock ? '0.6' : '1' }};"
+                            @if(!$isOutOfStock)
+                                wire:click="addToCart({{ json_encode($product) }})"
+                                onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 4px 15px rgba(245,131,32,0.3)'"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 .125rem .25rem rgba(0,0,0,.075)'"
+                            @endif>
                             <div class="card-body p-2 text-center">
                                 @if(isset($product['image']) && $product['image'])
                                 <img src="{{ strpos($product['image'], 'http') === 0 || strpos($product['image'], 'data:') === 0 ? $product['image'] : asset('storage/' . $product['image']) }}" 
                                     alt="{{ $product['name'] }}"
                                     class="img-fluid rounded mb-2"
-                                    style="height: 70px; width: 100%; object-fit: cover;">
+                                    style="height: 70px; width: 100%; object-fit: cover; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
                                 @else
                                 <div class="bg-light rounded mb-2 d-flex align-items-center justify-content-center"
                                     style="height: 70px;">
@@ -206,7 +215,11 @@
                                 <h6 class="card-title mb-1 small fw-semibold text-truncate" title="{{ $product['name'] }}">{{ $product['name'] }}</h6>
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="fw-bold small" style="color: #f58320;">Rs. {{ number_format($product['price'], 0) }}</span>
-                                    <span class="badge bg-success" style="font-size: 0.65rem;">IN STOCK</span>
+                                    @if($isOutOfStock)
+                                        <span class="badge bg-danger" style="font-size: 0.65rem;">OUT OF STOCK</span>
+                                    @else
+                                        <span class="badge bg-info" style="font-size: 0.65rem;">Stock: {{ $product['stock'] }}</span>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -439,89 +452,142 @@
     @if($showSaleModal && $createdSale)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content rounded-0">
-                <div class="modal-header text-white rounded-0" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
-                    <h5 class="modal-title fw-bold">
-                        <i class="bi bi-cart-check me-2"></i>
-                        Sale Completed Successfully! - {{ $createdSale->invoice_number }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" wire:click="createNewSale"></button>
+            <div class="modal-content rounded-0" id="printableInvoice">
+                {{-- Screen Only Header (visible on screen, hidden on print) --}}
+                <div class="screen-only-header p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        {{-- Left: Logo --}}
+                        <div style="flex: 0 0 150px;">
+                            <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height:80px;">
+                        </div>
+
+                        {{-- Center: Company Name --}}
+                        <div class="text-center" style="flex: 1;">
+                            <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">HARDMEN (PVT) LTD</h2>
+                            <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
+                        </div>
+
+                        {{-- Right: Invoice Label --}}
+                        <div class="text-end" style="flex: 0 0 150px;">
+                            <h5 class="mb-0 fw-bold"></h5>
+                            <h6 class="mb-0 text-muted">INVOICE</h6>
+                        </div>
+                    </div>
+                    <hr class="my-2" style="border-top: 2px solid #000;">
                 </div>
 
-                <div class="modal-body p-0">
-                    <div class="sale-preview p-4" id="saleReceiptPrintContent">
-                        {{-- Screen Only Header (visible on screen, hidden on print) --}}
-                        <div class="screen-only-header mb-4">
-                            <div class="text-center border-bottom pb-3">
-                                <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" style="max-height:50px;" class="mb-2">
-                                <h5 class="fw-bold mb-1">HARDMEN (PVT) LTD</h5>
-                                <p class="text-muted small mb-0">TOOLS WITH POWER</p>
-                                <p class="text-muted small mb-0">421/2, Doolmala, Thihariya, Kalagedihena</p>
-                            </div>
-                        </div>
-
-                        {{-- Invoice Header --}}
-                        <div class="row mb-4">
+                <div class="modal-body p-4">
+                    <div class="sale-preview" id="saleReceiptPrintContent">
+                        {{-- ==================== CUSTOMER + INVOICE INFO ==================== --}}
+                        <div class="row mb-3">
                             <div class="col-6">
-                                <p class="mb-1"><strong>Customer:</strong> {{ $createdSale->customer->name }}</p>
-                                <p class="mb-0 small text-muted">{{ $createdSale->customer->phone ?? 'N/A' }}</p>
+                                <strong>Customer :</strong><br>
+                                {{ $createdSale->customer->name ?? 'Walk-in Customer' }}<br>
+                                {{ $createdSale->customer->address ?? '' }}<br>
+                                Tel: {{ $createdSale->customer->phone ?? '' }}
                             </div>
                             <div class="col-6 text-end">
-                                <p class="mb-1"><strong>Invoice #:</strong> {{ $createdSale->invoice_number }}</p>
-                                <p class="mb-0 small text-muted">{{ $createdSale->created_at->format('d/m/Y H:i') }}</p>
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td><strong>Invoice #</strong></td>
+                                        <td>{{ $createdSale->invoice_number }}</td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td><strong>Date</strong></td>
+                                        <td>{{ $createdSale->created_at->format('M d, Y h:i A') }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Sale Type</strong></td>
+                                        <td><span class="badge bg-success">POS</span></td>
+                                    </tr>
+                                </table>
                             </div>
                         </div>
 
-                        {{-- Items Table --}}
-                        <div class="table-responsive mb-3">
-                            <table class="table table-sm invoice-table">
-                                <thead>
+                        {{-- ==================== ITEMS TABLE ==================== --}}
+                        <div class="table-responsive mb-3" style="min-height: 10px;">
+                            <table class="table table-bordered table-sm">
+                                <thead class="table-light">
                                     <tr>
-                                        <th class="text-center" style="width: 5%;">#</th>
-                                        <th style="width: 45%;">Item</th>
-                                        <th class="text-center" style="width: 15%;">Qty</th>
-                                        <th class="text-end" style="width: 18%;">Price</th>
-                                        <th class="text-end" style="width: 17%;">Total</th>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th class="text-center">Quantity</th>
+                                        <th class="text-end">Unit Price</th>
+                                        <th class="text-end">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($createdSale->items as $index => $item)
-                                    <tr>
-                                        <td class="text-center">{{ $index + 1 }}</td>
-                                        <td>{{ $item->product_name }}</td>
-                                        <td class="text-center">{{ $item->quantity }}</td>
-                                        <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
-                                        <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
-                                    </tr>
-                                    @empty
+                                    @if($createdSale && $createdSale->items && count($createdSale->items) > 0)
+                                        @foreach($createdSale->items as $i => $item)
+                                        <tr>
+                                            <td>{{ $i + 1 }}</td>
+                                            <td>{{ $item->product_name ?? 'N/A' }}</td>
+                                            <td class="text-center">{{ $item->quantity ?? 0 }}</td>
+                                            <td class="text-end">Rs.{{ number_format($item->unit_price ?? 0, 2) }}</td>
+                                            <td class="text-end">Rs.{{ number_format($item->total ?? 0, 2) }}</td>
+                                        </tr>
+                                        @endforeach
+                                    @else
                                     <tr>
                                         <td colspan="5" class="text-center text-muted py-3">No items found</td>
                                     </tr>
-                                    @endforelse
+                                    @endif
                                 </tbody>
-                                <tfoot>
-                                    <tr class="totals-row">
-                                        <td colspan="4" class="text-end">Subtotal:</td>
-                                        <td class="text-end">Rs.{{ number_format($createdSale->items->sum('total'), 2) }}</td>
-                                    </tr>
-                                    <tr class="grand-total">
-                                        <td colspan="4" class="text-end fw-bold">Grand Total</td>
-                                        <td class="text-end fw-bold">Rs.{{ number_format($createdSale->total_amount, 2) }}</td>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
 
-                        {{-- Footer Note --}}
+                        {{-- ==================== TOTALS (right-aligned) ==================== --}}
+                        <div class="row">
+                            <div class="col-7"></div>
+                            <div class="col-5">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td><strong>Subtotal</strong></td>
+                                        <td class="text-end">Rs.{{ number_format($createdSale && $createdSale->items ? $createdSale->items->sum('total') : 0, 2) }}</td>
+                                    </tr>
+                                    @if($createdSale && $createdSale->discount_amount > 0)
+                                    <tr>
+                                        <td><strong>Discount</strong></td>
+                                        <td class="text-end">- Rs.{{ number_format($createdSale->discount_amount, 2) }}</td>
+                                    </tr>
+                                    @endif
+                                    <tr>
+                                        <td><strong>Grand Total</strong></td>
+                                        <td class="text-end fw-bold">Rs.{{ number_format($createdSale ? $createdSale->total_amount : 0, 2) }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        {{-- ==================== FOOTER ==================== --}}
                         <div class="invoice-footer mt-4 border-top pt-3">
-                            <p class="small text-muted mb-1"><strong>Thank you for your purchase!</strong></p>
-                            <p class="small text-muted mb-0">This is a computer generated invoice. No signature required.</p>
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <small class="text-muted">Prepared by</small><br>
+                                    <small>______________</small>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">Verified by</small><br>
+                                    <small>______________</small>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">Customer Sign</small><br>
+                                    <small>______________</small>
+                                </div>
+                            </div>
+                            <div class="border-top pt-3">
+                                <p class="text-center mb-0"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
+                                <p class="text-center mb-0"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                <p class="text-center" style="font-size: 11px;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
+                                <p class="text-center mb-0 mt-2"><strong>Thank you for your purchase!</strong></p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {{-- Footer Buttons --}}
-                <div class="modal-footer justify-content-center">
+                <div class="modal-footer justify-content-center bg-light">
                     <button type="button" class="btn btn-outline-secondary me-2" wire:click="createNewSale">
                         <i class="bi bi-x-circle me-2"></i>Close
                     </button>

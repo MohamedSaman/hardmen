@@ -844,7 +844,6 @@ class StoreBilling extends Component
 
         // Proceed to create sale
         $this->createSale();
-        $this->createSale();
     }
 
     // Confirm and Create Sale with Due Amount
