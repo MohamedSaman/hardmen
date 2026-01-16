@@ -980,6 +980,11 @@
                                     <i class="bi bi-shop"></i> <span>POS Sales</span>
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2" href="{{ route('admin.quotation-list') }}">
+                                    <i class="bi bi-card-list"></i> <span>Quotation</span>
+                                </a>
+                            </li>
                             {{-- no need him  --}}
                             {{--
                             <li class="nav-item">
@@ -995,33 +1000,6 @@
                             <li class="nav-item">
                                 <a class="nav-link py-2" href="{{ route('admin.return-product') }}">
                                     <i class="bi bi-collection"></i> <span>Return Product</span>
-                                </a>
-                            </li>
-                            --}}
-                        </ul>
-                    </div>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link dropdown-toggle" href="#stockSubmenu" data-bs-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="stockSubmenu">
-                        <i class="bi bi-file-earmark-text"></i> <span>Quotation</span>
-                    </a>
-                    <div class="collapse" id="stockSubmenu">
-                        <ul class="nav flex-column ms-3">
-                            <li class="nav-item">
-                                <a class="nav-link py-2" href="{{ route('admin.quotation-system') }}">
-                                    <i class="bi bi-file-plus"></i> <span>Add Quotation</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link py-2" href="{{ route('admin.quotation-list') }}">
-                                    <i class="bi bi-card-list"></i> <span>List Quotation</span>
-                                </a>
-                            </li>
-                            {{--
-                            <li class="nav-item">
-                                <a class="nav-link py-2" href="{{ route('admin.Product-stock-details') }}">
-                                    <i class="bi bi-shield-lock"></i> <span>Product Stock</span>
                                 </a>
                             </li>
                             --}}
@@ -1065,11 +1043,11 @@
                     </div>
                 </li>
                 
-                {{-- // cheque / banks --}}
+                {{-- // Finance --}}
                 <li class="nav-item">
                     <a class="nav-link dropdown-toggle" href="#banksSubmenu" data-bs-toggle="collapse" role="button"
                         aria-expanded="false" aria-controls="banksSubmenu">
-                        <i class="bi bi-bank"></i> <span>Cheque / Banks</span>
+                        <i class="bi bi-bank"></i> <span>Finance</span>
                     </a>
                     <div class="collapse" id="banksSubmenu">
                         <ul class="nav flex-column ms-3">
@@ -1086,6 +1064,11 @@
                             <li class="nav-item">
                                 <a class="nav-link py-2" href="{{ route('admin.return-cheque') }}">
                                     <i class="bi bi-arrow-left-right"></i> <span>Return Cheque</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2" href="{{ route('admin.expenses') }}">
+                                    <i class="bi bi-wallet2"></i> <span>List Expenses</span>
                                 </a>
                             </li>
                         </ul>
@@ -1117,22 +1100,6 @@
                             <li class="nav-item">
                                 <a class="nav-link py-2" href="{{ route('admin.list-supplier-receipt') }}">
                                     <i class="bi bi-clipboard-data"></i> <span>List Supplier Payment</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </li>
-                {{-- // Expensive  --}}
-                <li class="nav-item">
-                    <a class="nav-link dropdown-toggle" href="#expensesSubmenu" data-bs-toggle="collapse" role="button"
-                        aria-expanded="false" aria-controls="expensesSubmenu">
-                        <i class="bi bi-wallet2"></i> <span>Expenses</span>
-                    </a>
-                    <div class="collapse" id="expensesSubmenu">
-                        <ul class="nav flex-column ms-3">
-                            <li class="nav-item">
-                                <a class="nav-link py-2" href="{{ route('admin.expenses') }}">
-                                    <i class="bi bi-wallet2"></i> <span>List Expenses</span>
                                 </a>
                             </li>
                         </ul>
@@ -1741,6 +1708,25 @@
                             staffSubmenu.classList.add('show');
                             staffParentToggle.classList.add('active');
                             staffParentToggle.setAttribute('aria-expanded', 'true');
+                        }
+                    }
+                }
+
+                // Special handling for Quotation related routes
+                // If current path is quotation-system or quotation-list, activate the quotation link and expand Sales menu
+                if (currentPath.includes('/quotation-system') || currentPath.includes('/quotation-list')) {
+                    const quotationLink = document.querySelector('a[href*="/quotation-list"]');
+                    if (quotationLink) {
+                        quotationLink.classList.add('active');
+                        
+                        // Also activate and expand the parent Sales menu
+                        const salesSubmenu = document.querySelector('#salesSubmenu');
+                        const salesParentToggle = document.querySelector('a[href="#salesSubmenu"]');
+                        
+                        if (salesSubmenu && salesParentToggle) {
+                            salesSubmenu.classList.add('show');
+                            salesParentToggle.classList.add('active');
+                            salesParentToggle.setAttribute('aria-expanded', 'true');
                         }
                     }
                 }

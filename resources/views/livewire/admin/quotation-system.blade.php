@@ -9,6 +9,11 @@
                     </h3>
                     <p class="text-muted">Quickly create professional quotations for customers</p>
                 </div>
+                <div>
+                    <a href="{{ route('admin.quotation-list') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i> Back to List
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -150,7 +155,7 @@
                     @if(count($cart) > 0)
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
-                            <thead class="table-light">
+                            <thead class="table">
                                 <tr>
                                     <th width="30">#</th>
                                     <th>Product</th>
@@ -208,7 +213,7 @@
                                 </tr>
                                 @endforeach
                             </tbody>
-                            <tfoot class="table-light">
+                            <tfoot class="table">
                                 <tr>
                                     <td colspan="5" class="text-end fw-bold">Subtotal:</td>
                                     <td class="fw-bold">Rs.{{ number_format($subtotal, 2) }}</td>
@@ -385,136 +390,147 @@
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title">
-                        <i class="bi bi-file-earmark-text me-2"></i>
-                        Quotation Preview - {{ $createdQuotation->quotation_number }}
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" wire:click="createNewQuotation"></button>
+                <div class="modal-header border-0 py-4 px-4" 
+                     style="background: white; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd;">
+                    <div style="flex: 0 0 auto;">
+                        <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height: 55px;">
+                    </div>
+                    <div style="flex: 1; text-align: center;">
+                        <h3 class="mb-0 fw-bold" style="color: #333; font-size: 1.4rem; letter-spacing: 0.5px;">HARDMEN (PVT) LTD</h3>
+                        <p class="text-muted small mb-0" style="font-size: 0.85rem; margin-top: 2px;">TOOLS WITH POWER</p>
+                    </div>
+                    <div style="flex: 0 0 auto; text-align: right;">
+                        <h3 class="mb-0 fw-normal" style="color: #666; font-size: 1.2rem; letter-spacing: 1px;">QUOTATION</h3>
+                    </div>
                 </div>
                 <div class="modal-body p-0">
                     {{-- Quotation Preview --}}
-                    <div class="quotation-preview p-4">
-                        {{-- Header --}}
-                        <div class="header text-center mb-4">
-                            <h2 class="text-success mb-1">HARDMEN (PVT) LTD</h2>
-                            <p class="mb-1">421/2, Doolmala, thihariya, Kalagedihena.</p>
-                            <p class="mb-1">Phone: (077) 9752950 | Email: Hardmenlanka@gmail.com</p>
-                        </div>
+                    <div class="quotation-preview p-0">
+                        
+                        
 
-                        {{-- Customer & Quotation Details --}}
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">Customer Information</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="mb-1"><strong>{{ $createdQuotation->customer_name }}</strong></p>
-                                        <p class="mb-1">{{ $createdQuotation->customer_address }}</p>
-                                        <p class="mb-1">Tel: {{ $createdQuotation->customer_phone }}</p>
-                                        @if($createdQuotation->customer_email)
-                                        <p class="mb-0">Email: {{ $createdQuotation->customer_email }}</p>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">Quotation Details</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="mb-1"><strong>Quotation No:</strong> {{ $createdQuotation->quotation_number }}</p>
-                                        <p class="mb-1"><strong>Date:</strong> {{ $createdQuotation->quotation_date->format('d/m/Y') }}</p>
-                                        <p class="mb-1"><strong>Valid Until:</strong> {{ \Carbon\Carbon::parse($createdQuotation->valid_until)->format('d/m/Y') }}</p>
-
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Items Table --}}
-                        <div class="table-responsive mb-4 overflow-auto">
-                            <table class="table table-bordered">
-                                <thead class="table-primary">
-                                    <tr>
-                                        <th width="40">#</th>
-                                        <th>Item Code</th>
-                                        <th>Description</th>
-                                        <th width="80">Qty</th>
-                                        <th width="120">Unit Price (LKR)</th>
-                                        <th width="120">Discount (LKR)</th>
-                                        <th width="120">Subtotal (LKR)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($createdQuotation->items as $index => $item)
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>{{ $item['product_code'] }}</td>
-                                        <td>{{ $item['product_name'] }}</td>
-                                        <td class="text-center">{{ $item['quantity'] }}</td>
-                                        <td class="text-end">{{ number_format($item['unit_price'], 2) }}</td>
-                                        <td class="text-end">{{ number_format($item['discount_per_unit'] ?? 0, 2) }}</td>
-                                        <td class="text-end">{{ number_format($item['total'], 2) }}</td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-
-                                {{-- Totals Section --}}
-                                <tfoot class="table-light">
-                                    <tr>
-                                        <td colspan="6" class="text-end fw-bold">Subtotal:</td>
-                                        <td class="text-end fw-bold">{{ number_format($createdQuotation->subtotal, 2) }}</td>
-                                    </tr>
-
-                                    @php
-                                        $totalDiscount = $createdQuotation->discount_amount + $createdQuotation->additional_discount;
-                                    @endphp
-
-                                    @if($totalDiscount > 0)
-                                    <tr>
-                                        <td colspan="6" class="text-end fw-bold text-danger">Total Discount:</td>
-                                        <td class="text-end fw-bold text-danger">- {{ number_format($totalDiscount, 2) }}</td>
-                                    </tr>
+                        {{-- Customer and Quotation Details --}}
+                        <div class="p-4">
+                            <div class="row mb-4">
+                                {{-- Customer Information --}}
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold text-dark mb-2">BILL TO:</h6>
+                                    <p class="mb-1"><strong>{{ $createdQuotation->customer_name }}</strong></p>
+                                    <p class="mb-1 text-muted">{{ $createdQuotation->customer_address ?? 'N/A' }}</p>
+                                    <p class="mb-1 text-muted">Tel: {{ $createdQuotation->customer_phone }}</p>
+                                    @if($createdQuotation->customer_email)
+                                    <p class="mb-0 text-muted">Email: {{ $createdQuotation->customer_email }}</p>
                                     @endif
+                                </div>
 
-                                    <tr>
-                                        <td colspan="6" class="text-end fw-bold fs-5">Grand Total:</td>
-                                        <td class="text-end fw-bold fs-5 text-primary">
-                                            {{ number_format($createdQuotation->total_amount, 2) }}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        {{-- Terms & Conditions --}}
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">Terms & Conditions</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="mb-0">{!! nl2br(e($createdQuotation->terms_conditions)) !!}</p>
-                                    </div>
+                                {{-- Quotation Information --}}
+                                <div class="col-md-6 text-end">
+                                    <table class="table table-sm table-borderless ms-auto" style="width: auto;">
+                                        <tr>
+                                            <td class="text-muted"><strong>Quotation No:</strong></td>
+                                            <td class="fw-bold">{{ $createdQuotation->quotation_number }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted"><strong>Date:</strong></td>
+                                            <td>{{ $createdQuotation->quotation_date->format('d/m/Y') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="text-muted"><strong>Valid Until:</strong></td>
+                                            <td>{{ \Carbon\Carbon::parse($createdQuotation->valid_until)->format('d/m/Y') }}</td>
+                                        </tr>
+                                    </table>
                                 </div>
                             </div>
+
+                            {{-- Items Table --}}
+                            <div class="table-responsive mb-4" style="min-height: 100px">
+                                <table class="table table-bordered table-hover mb-0">
+                                    <thead class="table">
+                                        <tr>
+                                            <th style="width: 5%;" class="text-center">#</th>
+                                            <th style="width: 20%;">Item Code</th>
+                                            <th>Product Name</th>
+                                            <th style="width: 12%;" class="text-center">Qty</th>
+                                            <th style="width: 15%;" class="text-end">Unit Price</th>
+                                            <th style="width: 15%;" class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($createdQuotation->items as $index => $item)
+                                        <tr>
+                                            <td class="text-center">{{ $index + 1 }}</td>
+                                            <td>{{ $item['product_code'] ?? 'N/A' }}</td>
+                                            <td>
+                                                <strong>{{ $item['product_name'] ?? $item['name'] ?? 'N/A' }}</strong>
+                                            </td>
+                                            <td class="text-center">{{ $item['quantity'] }}</td>
+                                            <td class="text-end">Rs.{{ number_format($item['unit_price'], 2) }}</td>
+                                            <td class="text-end">Rs.{{ number_format($item['total'], 2) }}</td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {{-- Totals Section --}}
+                            <div class="row mb-4">
+                                <div class="col-md-7"></div>
+                                <div class="col-md-5">
+                                    <table class="table table-sm table-borderless">
+                                        <tr>
+                                            <td class="text-end"><strong>Subtotal:</strong></td>
+                                            <td class="text-end fw-bold">Rs.{{ number_format($createdQuotation->subtotal, 2) }}</td>
+                                        </tr>
+                                        @php
+                                            $totalDiscount = $createdQuotation->discount_amount + $createdQuotation->additional_discount;
+                                        @endphp
+                                        @if($totalDiscount > 0)
+                                        <tr class="text-danger">
+                                            <td class="text-end"><strong>Discount:</strong></td>
+                                            <td class="text-end fw-bold">- Rs.{{ number_format($totalDiscount, 2) }}</td>
+                                        </tr>
+                                        @endif
+                                        <tr class="border-top border-2" style="border-color: #f58320 !important;">
+                                            <td class="text-end"><strong>Grand Total:</strong></td>
+                                            <td class="text-end fw-bold" style="color: #f58320; font-size: 1.1rem;">Rs.{{ number_format($createdQuotation->total_amount, 2) }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {{-- Terms & Conditions --}}
+                            @if($createdQuotation->terms_conditions)
+                            <div class="mt-3 p-3 bg-light rounded border">
+                                <h6 class="fw-bold mb-2">Terms & Conditions:</h6>
+                                <p class="small mb-0 text-muted">{!! nl2br(e($createdQuotation->terms_conditions)) !!}</p>
+                            </div>
+                            @endif
+
+                            {{-- Footer Note --}}
+                            <div class="text-center small text-muted mt-4 pt-3 border-top">
+                                <p class="text-center mb-0"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
+                                <p class="text-center mb-0"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                <p class="mb-0 mt-2"><i class="bi bi-info-circle me-1"></i> Thank you for your business!</p>
+                            </div>
+
                         </div>
+
                     </div>
                 </div>
 
                 {{-- Footer Buttons --}}
-                <div class="modal-footer justify-content-center">
+                <div class="modal-footer bg-light border-top">
                     <button type="button" class="btn btn-outline-secondary me-2" wire:click="createNewQuotation">
                         <i class="bi bi-plus-circle me-2"></i>Create New Quotation
                     </button>
-                    <button type="button" class="btn btn-success me-2" wire:click="downloadQuotation">
-                        <i class="bi bi-download me-2"></i>Download Quotation
-                    </button>
+                    @if($createdQuotation)
+                    <a href="{{ route('admin.quotation.print', $createdQuotation->id) }}" target="_blank" class="btn btn-success me-2">
+                        <i class="bi bi-printer me-2"></i>Print Quotation
+                    </a>
+                    @endif
+                    <a href="{{ route('admin.quotation-list') }}" class="btn btn-primary">
+                        <i class="bi bi-list-check me-2"></i>Go to Quotation List
+                    </a>
                 </div>
             </div>
         </div>

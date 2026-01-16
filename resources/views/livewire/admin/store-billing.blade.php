@@ -874,16 +874,16 @@
                         <div class="invoice-footer mt-4 border-top pt-4">
                             <div class="row text-center mb-3">
                                 <div class="col-4">
-                                    <small>______________</small><br>
+                                    <small>.............................</small><br>
                                     <small class="text-muted">Prepared by</small>
                                     
                                 </div>
                                 <div class="col-4">
-                                    <small>______________</small><br>
+                                    <small>.............................</small><br>
                                     <small class="text-muted">Verified by</small>
                                 </div>
                                 <div class="col-4">
-                                    <small>______________</small><br>
+                                    <small>.............................</small><br>
                                     <small class="text-muted">Customer Sign</small>
                                 </div>
                             </div>

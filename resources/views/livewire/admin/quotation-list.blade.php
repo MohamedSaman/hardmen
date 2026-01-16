@@ -7,6 +7,11 @@
             </h3>
             <p class="text-muted mb-0">Review, manage and track all quotations efficiently</p>
         </div>
+        <div>
+            <a href="{{ route('admin.quotation-system') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i> Create Quotation
+            </a>
+        </div>
     </div>
 
     <!-- Message -->
@@ -187,7 +192,7 @@
                                 @endforeach
                                 @else
                                 <tr>
-                                    <td colspan="7" class="text-center py-5">
+                                    <td colspan="10" class="text-center py-5">
                                         <div class="alert alert-primary bg-opacity-10">
                                             <i class="bi bi-info-circle me-2"></i> No quotations found.
                                         </div>
@@ -274,7 +279,6 @@
                                                     @if($item['product_name'])
                                                     <div class="mb-2">
                                                         <small class="text-success fw-bold d-block">{{ $item['product_name'] }}</small>
-                                                        <small class="text-muted">Code: {{ $item['product_code'] }} | Model: {{ $item['product_model'] }} | Stock: {{ $item['current_stock'] }}</small>
                                                     </div>
                                                     @else
                                                     <input type="text"
@@ -477,148 +481,157 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content" id="printableQuotation">
 
-            {{-- Header – logo + company name --}}
-            <div class="modal-header text-center border-0 position-relative">
-                <div class="w-100">
-                    <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo"
-                         class="img-fluid mb-2" style="max-height:60px;">
-                    <h4 class="mb-0 fw-bold">HARDMEN (PVT) LTD</h4>
+            {{-- Header with Quotation Title --}}
+            <div class="modal-header border-0 py-4 px-4" 
+                 style="background: white; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd;">
+                <div style="flex: 0 0 auto;">
+                    <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height: 55px;">
                 </div>
-                {{-- Close button positioned absolutely in top-right corner --}}
-                <button type="button" class="btn-close btn-close-white position-absolute" 
-                        style="top: 1rem; right: 1rem;"
-                        data-bs-dismiss="modal" aria-label="Close"></button>
+                <div style="flex: 1; text-align: center;">
+                    <h3 class="mb-0 fw-bold" style="color: #333; font-size: 1.4rem; letter-spacing: 0.5px;">HARDMEN (PVT) LTD</h3>
+                    <p class="text-muted small mb-0" style="font-size: 0.85rem; margin-top: 2px;">TOOLS WITH POWER</p>
+                </div>
+                <div style="flex: 0 0 auto; text-align: right;">
+                    <h3 class="mb-0 fw-normal" style="color: #666; font-size: 1.2rem; letter-spacing: 1px;">QUOTATION</h3>
+                </div>
             </div>
 
             @if($selectedQuotation)
-            <div class="modal-body">
+            <div class="modal-body p-0">
 
-                {{-- Quotation + Customer info (two columns) --}}
-                <div class="row mb-3">
-                    <div class="col-6">
-                        <strong>Customer :</strong><br>
-                        {{ $selectedQuotation->customer_name }}<br>
-                        {{ $selectedQuotation->customer_address ?? '' }}<br>
-                        Tel: {{ $selectedQuotation->customer_phone }}<br>
-                        @if($selectedQuotation->customer_email)
-                        Email: {{ $selectedQuotation->customer_email }}
-                        @endif
-                    </div>
-                    <div class="col-6 text-end">
-                        <table class="table table-sm table-borderless">
-                            <tr><td><strong>Quotation No :</strong></td><td>{{ $selectedQuotation->quotation_number }}</td></tr>
-                            <tr><td><strong>Quotation Date :</strong></td><td>{{ $selectedQuotation->quotation_date->format('d/m/Y') }}</td></tr>
-                            @if($selectedQuotation->valid_until)
-                            <tr><td><strong>Valid Until :</strong></td><td>{{ \Carbon\Carbon::parse($selectedQuotation->valid_until)->format('d/m/Y') }}</td></tr>
+                {{-- Customer and Quotation Details --}}
+                <div class="p-4">
+                    <div class="row mb-4">
+                        {{-- Customer Information --}}
+                        <div class="col-md-6">
+                            <h6 class="fw-bold text-dark mb-2">BILL TO:</h6>
+                            <p class="mb-1"><strong>{{ $selectedQuotation->customer_name }}</strong></p>
+                            <p class="mb-1 text-muted">{{ $selectedQuotation->customer_address ?? 'N/A' }}</p>
+                            <p class="mb-1 text-muted">Tel: {{ $selectedQuotation->customer_phone }}</p>
+                            @if($selectedQuotation->customer_email)
+                            <p class="mb-0 text-muted">Email: {{ $selectedQuotation->customer_email }}</p>
                             @endif
-                            <tr><td><strong>Status :</strong></td><td>{{ ucfirst($selectedQuotation->status) }}</td></tr>
-                           
+                        </div>
+
+                        {{-- Quotation Information --}}
+                        <div class="col-md-6 text-end">
+                            <table class="table table-sm table-borderless ms-auto" style="width: auto;">
+                                <tr>
+                                    <td class="text-muted"><strong>Quotation No:</strong></td>
+                                    <td class="fw-bold">{{ $selectedQuotation->quotation_number }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted"><strong>Date:</strong></td>
+                                    <td>{{ $selectedQuotation->quotation_date->format('d/m/Y') }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted"><strong>Valid Until:</strong></td>
+                                    <td>{{ \Carbon\Carbon::parse($selectedQuotation->valid_until)->format('d/m/Y') }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted"><strong>Status:</strong></td>
+                                    <td>
+                                        <span class="badge bg-{{ $selectedQuotation->status === 'converted' ? 'success' : ($selectedQuotation->status === 'pending' ? 'warning' : 'info') }}">
+                                            {{ ucfirst($selectedQuotation->status) }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    {{-- Items Table --}}
+                    <div class="table-responsive mb-4" style="min-height: 100px !important;">
+                        <table class="table table-bordered table-hover mb-0" >
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%;" class="text-center">#</th>
+                                    <th style="width: 20%;">Item Code</th>
+                                    <th>Description</th>
+                                    <th style="width: 12%;" class="text-center">Qty</th>
+                                    <th style="width: 15%;" class="text-end">Unit Price</th>
+                                    <th style="width: 15%;" class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if($selectedQuotation->items && count($selectedQuotation->items) > 0)
+                                @foreach($selectedQuotation->items as $i => $item)
+                                <tr>
+                                    <td class="text-center">{{ $i + 1 }}</td>
+                                    <td>{{ $item['product_code'] ?? 'N/A' }}</td>
+                                    <td>
+                                        <strong>{{ $item['product_name'] ?? $item['name'] ?? 'N/A' }}</strong>
+                                    </td>
+                                    <td class="text-center">{{ $item['quantity'] ?? 0 }}</td>
+                                    <td class="text-end">Rs.{{ number_format($item['unit_price'] ?? 0, 2) }}</td>
+                                    <td class="text-end">Rs.{{ number_format($item['total'] ?? (($item['quantity'] ?? 0) * ($item['unit_price'] ?? 0)), 2) }}</td>
+                                </tr>
+                                @endforeach
+                                @else
+                                <tr><td colspan="6" class="text-center text-muted py-3">No items</td></tr>
+                                @endif
+                            </tbody>
                         </table>
                     </div>
-                </div>
 
-                {{-- Items table --}}
-                <div class="table-responsive mb-3">
-                    <table class="table table-bordered table-sm">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width:5%">#</th>
-                                <th style="width:15%">ITEM CODE</th>
-                                <th>DESCRIPTION</th>
-                                <th class="text-center" style="width:12%">QTY</th>
-                                <th class="text-end" style="width:12%">UNIT PRICE</th>
-                                <th class="text-end" style="width:12%">SUBTOTAL</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if($selectedQuotation->items && count($selectedQuotation->items) > 0)
-                            @foreach($selectedQuotation->items as $i => $item)
-                            <tr>
-                                <td>{{ $i + 1 }}</td>
-                                <td>{{ $item['product_code'] ?? 'N/A' }}</td>
-                                <td>
-                                    {{ $item['product_name'] ?? $item['name'] ?? 'N/A' }}
-                                    @if(isset($item['product_model']) && $item['product_model'])
-                                    <br><small class="text-muted">Model: {{ $item['product_model'] }}</small>
-                                    @endif
-                                </td>
-                                <td class="text-center">{{ $item['quantity'] ?? 0 }} Pc(s)</td>
-                                <td class="text-end">{{ number_format($item['unit_price'] ?? 0, 2) }}</td>
-                                <td class="text-end">{{ number_format($item['total'] ?? (($item['quantity'] ?? 0) * ($item['unit_price'] ?? 0)), 2) }}</td>
-                            </tr>
-                            @endforeach
-                            @else
-                            <tr><td colspan="6" class="text-center text-muted">No items</td></tr>
-                            @endif
-                        </tbody>
-                    </table>
-                </div>
-
-                {{-- Totals – right-aligned block --}}
-                <div class="row">
-                    <div class="col-7"></div>
-                    <div class="col-5">
-                        <table class="table table-sm table-borderless">
-                            <tr><td class="text-end"><strong>Subtotal (LKR)</strong></td><td class="text-end">{{ number_format($selectedQuotation->subtotal, 2) }}</td></tr>
-                            
-                            @php
-                            $totalDiscount = $selectedQuotation->discount_amount + $selectedQuotation->additional_discount;
-                            @endphp
-                            
-                            @if($totalDiscount > 0)
-                            <tr>
-                                <td class="text-end">
-                                    <strong>Total Discount</strong>
-                                    @if($selectedQuotation->discount_amount > 0 && $selectedQuotation->additional_discount > 0)
-                                    <br><small class="text-muted">(Item: Rs.{{ number_format($selectedQuotation->discount_amount, 2) }} + Additional: Rs.{{ number_format($selectedQuotation->additional_discount, 2) }})</small>
-                                    @elseif($selectedQuotation->discount_amount > 0)
-                                    <br><small class="text-muted">(Item Discount)</small>
-                                    @elseif($selectedQuotation->additional_discount > 0)
-                                    <br><small class="text-muted">(Additional Discount)</small>
-                                    @endif
-                                </td>
-                                <td class="text-end text-danger">- {{ number_format($totalDiscount, 2) }}</td>
-                            </tr>
-                            @endif
-                            
-                            <tr><td class="text-end"><strong>Total Amount (LKR)</strong></td><td class="text-end">{{ number_format($selectedQuotation->total_amount, 2) }}</td></tr>
-                        </table>
+                    {{-- Totals Section --}}
+                    <div class="row mb-4">
+                        <div class="col-md-7"></div>
+                        <div class="col-md-5">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="text-end"><strong>Subtotal:</strong></td>
+                                    <td class="text-end fw-bold">Rs.{{ number_format($selectedQuotation->subtotal, 2) }}</td>
+                                </tr>
+                                @php
+                                $totalDiscount = $selectedQuotation->discount_amount + $selectedQuotation->additional_discount;
+                                @endphp
+                                @if($totalDiscount > 0)
+                                <tr class="text-danger">
+                                    <td class="text-end"><strong>Discount:</strong></td>
+                                    <td class="text-end fw-bold">- Rs.{{ number_format($totalDiscount, 2) }}</td>
+                                </tr>
+                                @endif
+                                <tr class="border-top border-2" style="border-color: #f58320 !important;">
+                                    <td class="text-end"><strong>Grand Total:</strong></td>
+                                    <td class="text-end fw-bold" style="color: #f58320; font-size: 1.1rem;">Rs.{{ number_format($selectedQuotation->total_amount, 2) }}</td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
-                </div>
 
-                {{-- Terms & Conditions --}}
-                @if($selectedQuotation->terms_conditions)
-                <div class="mt-4">
-                    <h6 class="fw-bold">Terms & Conditions:</h6>
-                    <p class="small text-muted mb-0">{!! nl2br(e($selectedQuotation->terms_conditions)) !!}</p>
-                </div>
-                @endif
+                    
 
-                {{-- Footer – logos + address + note --}}
-                <div class="mt-4 text-center small">
-                    <p class="mb-0">
-                        <strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.<br>
-                        <strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com
-                    </p>
-                    <p class="mt-1 text-muted">
-                        This quotation is valid until {{ $selectedQuotation->valid_until ? \Carbon\Carbon::parse($selectedQuotation->valid_until)->format('F d, Y') : 'specified date' }}.
-                    </p>
+                    {{-- Terms & Conditions --}}
+                    @if($selectedQuotation->terms_conditions)
+                    <div class="mt-3 p-3 bg-light rounded border">
+                        <h6 class="fw-bold mb-2">Terms & Conditions:</h6>
+                        <p class="small mb-0 text-muted">{!! nl2br(e($selectedQuotation->terms_conditions)) !!}</p>
+                    </div>
+                    @endif
+
+                    {{-- Footer Note --}}
+                    <div class="text-center small text-muted mt-4 pt-3 border-top">
+                        <p class="text-center mb-0"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
+                        <p class="text-center mb-0"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                        <p class="mb-0 mt-2"><i class="bi bi-info-circle me-1"></i> Thank you for your business!</p>
+                    </div>
+
                 </div>
 
             </div>
             @endif
 
-            {{-- Modal footer buttons --}}
-            <div class="modal-footer bg-light justify-content-between">
+            {{-- Modal Footer Buttons --}}
+            <div class="modal-footer bg-light border-top">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle me-1"></i> Close
+                    <i class="bi bi-x-circle me-2"></i>Close
                 </button>
-                <div>
-                    <button type="button" class="btn btn-outline-primary"
-                            onclick="window.print()">
-                        <i class="bi bi-printer me-1"></i> Print
-                    </button>
-                </div>
+                @if($selectedQuotation)
+                <a href="{{ route('admin.quotation.print', $selectedQuotation->id) }}" target="_blank" class="btn btn-primary">
+                    <i class="bi bi-printer me-2"></i>Print Quotation
+                </a>
+                @endif
             </div>
         </div>
     </div>

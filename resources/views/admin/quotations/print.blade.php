@@ -315,5 +315,12 @@
             <p>Quotation generated on: {{ now()->format('d/m/Y H:i') }}</p>
         </div>
     </div>
+
+    <script>
+        // Automatically open print dialog when page loads
+        window.onload = function() {
+            window.print();
+        };
+    </script>
 </body>
 </html>
