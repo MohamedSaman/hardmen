@@ -3,6 +3,7 @@
 /public/hot
 /storage/*.key
 /vendor
+/storage/logs/laravel.log
 
 .env
 .env.production
