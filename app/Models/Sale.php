@@ -24,7 +24,7 @@ class Sale extends Model
         'notes',
         'due_amount',
         'user_id',
-        'sale_type', 
+        'sale_type',
     ];
 
     public function customer()
@@ -71,10 +71,7 @@ class Sale extends Model
     public static function generateInvoiceNumber()
     {
         $prefix = 'INV-';
-        $date = now()->format('Ymd');
-        $lastInvoice = self::where('invoice_number', 'like', "{$prefix}{$date}%")
-            ->orderBy('invoice_number', 'desc')
-            ->first();
+        $lastInvoice = self::orderBy('id', 'desc')->first();
 
         $nextNumber = 1;
 
@@ -84,11 +81,11 @@ class Sale extends Model
             $nextNumber = $lastNumber + 1;
         }
 
-        return $prefix . $date . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
     public function returns()
     {
         return $this->hasMany(ReturnsProduct::class, 'sale_id');
-    }   
+    }
 }

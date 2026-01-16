@@ -78,7 +78,7 @@
                         <i class="bi bi-plus-circle me-1"></i>Add New
                     </button>
                 </div>
-                <select class="form-select form-select-sm" wire:model.live="customerId">
+                <select class="form-select form-select-sm" style="border-radius: 8px;" wire:model.live="customerId">
                     @foreach($customers as $customer)
                     <option value="{{ $customer->id }}">
                         {{ $customer->name }}
@@ -91,10 +91,17 @@
 
             {{-- Shopping Cart --}}
             <div class="p-3 flex-grow-1" style="overflow-y: auto;">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3 gap-2">
                     <h6 class="mb-0 fw-bold">
                         <i class="bi bi-cart3 me-2" style="color: #f58320;"></i>Shopping Cart
                     </h6>
+                    
+                    {{-- Price Type Selector in Header --}}
+                    <select class="form-select form-select-sm" style="max-width: 150px; border-radius: 8px;" wire:model.live="priceType">
+                        <option value="retail">Retail Price</option>
+                        <option value="wholesale">Wholesale Price</option>
+                    </select>
+                    
                     <span class="badge text-white" style="background: #f58320;">{{ count($cart) }} Items</span>
                 </div>
 
@@ -108,7 +115,7 @@
                         {{-- Product Image --}}
                         <div class="cart-item-image me-2">
                             @if(isset($item['image']) && $item['image'])
-                                <img src="{{ (strpos($item['image'], 'http') === 0 || strpos($item['image'], 'data:') === 0) ? $item['image'] : asset('storage/' . $item['image']) }}" 
+                                <img src="{{ (strpos($item['image'], 'http') === 0 || strpos($item['image'], 'data:') === 0) ? $item['image'] : asset('images/default.png') }}" 
                                     alt="{{ $item['name'] }}" 
                                     class="rounded shadow-sm" style="width: 45px; height: 45px; object-fit: cover;">
                             @else
@@ -131,24 +138,24 @@
                                         wire:change="updatePrice({{ $index }}, $event.target.value)">
                                 </div>
                                 <div class="d-flex align-items-center ms-auto bg-white rounded border px-1">
-                                    <button class="btn btn-sm btn-link text-dark p-0" wire:click="decrementQuantity({{ $index }})">
-                                        <i class="bi bi-dash"></i>
-                                    </button>
-                                    <span class="mx-2 small fw-bold">{{ $item['quantity'] }}</span>
-                                    <button class="btn btn-sm btn-link text-dark p-0" wire:click="incrementQuantity({{ $index }})">
-                                        <i class="bi bi-plus"></i>
-                                    </button>
+                                    <input type="number" class="form-control form-control-sm text-center fw-bold p-0" 
+                                        style="width: 60px; font-size: 0.85rem; border: none; background: transparent;"
+                                        min="1" 
+                                        max="{{ $item['stock'] }}"
+                                        value="{{ $item['quantity'] }}"
+                                        @input="if($event.target.value > {{ $item['stock'] }}) { Swal.fire('Warning!', 'Maximum available quantity is {{ $item['stock'] }} units.', 'warning'); $event.target.value = {{ $item['stock'] }}; }"
+                                        wire:change="updateQuantity({{ $index }}, $event.target.value)">
                                 </div>
                             </div>
                         </div>
 
                         {{-- Total & Remove --}}
                         <div class="cart-item-price text-end ms-2" style="min-width: 70px;">
-                            <div class="fw-bold small text-orange mb-1">Rs. {{ number_format($item['total'], 0) }}</div>
-                            <button class="btn btn-sm btn-light text-danger p-1 rounded-circle border shadow-sm" 
+                            <button class="btn btn-sm btn-light text-danger p-1 rounded-circle border shadow-sm mb-1" 
                                 wire:click="removeFromCart({{ $index }})" title="Remove">
                                 <i class="bi bi-x" style="font-size: 1rem; line-height: 1;"></i>
                             </button>
+                            <div class="fw-bold small text-orange">Rs. {{ number_format($item['total'], 0) }}</div>
                         </div>
                     </div>
                     @endforeach
@@ -169,10 +176,47 @@
                 </div>
                 @if($totalDiscount > 0)
                 <div class="d-flex justify-content-between mb-1">
-                    <span class="text-muted small">Discount</span>
+                    <span class="text-muted small">Item Discounts</span>
                     <span class="text-danger small">- Rs. {{ number_format($totalDiscount, 2) }}</span>
                 </div>
                 @endif
+                
+                {{-- Additional Discount Input --}}
+                <div class="mb-2 mt-2">
+                    <label class="form-label small fw-semibold mb-1">
+                        <i class="bi bi-tag me-1" style="color: #f58320;"></i>Additional Discount
+                    </label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" wire:model.live="additionalDiscount" 
+                            placeholder="0" step="0.01" min="0"
+                            style="border-right: none;"
+                            @input="$event.target.value = parseInt($event.target.value) || ''">
+                        <button class="btn btn-outline-secondary" type="button" wire:click="toggleDiscountType" 
+                            style="border-left: none; border-right: none; background: white;">
+                            @if($additionalDiscountType === 'percentage')
+                                <i class="bi bi-percent fw-bold" style="color: #f58320;"></i>
+                            @else
+                                <span class="fw-bold" style="color: #f58320;">Rs.</span>
+                            @endif
+                        </button>
+                        @if($additionalDiscount > 0)
+                        <button class="btn btn-outline-danger" type="button" wire:click="removeAdditionalDiscount" title="Remove discount">
+                            <i class="bi bi-x"></i>
+                        </button>
+                        @endif
+                    </div>
+                    @if($additionalDiscount > 0)
+                    <small class="text-muted d-block mt-1">
+                        Discount: 
+                        @if($additionalDiscountType === 'percentage')
+                            {{ $additionalDiscount }}% = Rs. {{ number_format($additionalDiscountAmount, 2) }}
+                        @else
+                            Rs. {{ number_format($additionalDiscountAmount, 2) }}
+                        @endif
+                    </small>
+                    @endif
+                </div>
+                
                 <div class="d-flex justify-content-between mb-3 pt-2 border-top">
                     <span class="fw-bold">Total</span>
                     <span class="fw-bold fs-5" style="color: #f58320;">Rs. {{ number_format($grandTotal, 2) }}</span>
@@ -188,62 +232,116 @@
 
         {{-- CENTER - Search & Products Grid --}}
         <div class="col-md-7 bg-light d-flex flex-column" style="max-height: calc(100vh - 95px);">
-            {{-- Search Bar --}}
+            {{-- Search Bar & View Toggle --}}
             <div class="p-3 bg-white border-bottom">
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0">
-                        <i class="bi bi-search text-muted"></i>
-                    </span>
-                    <input type="text" class="form-control border-start-0" 
-                        wire:model.live.debounce.300ms="search"
-                        placeholder="Search by product name, code, or model...">
-                    @if($search)
-                    <button class="btn btn-outline-secondary" type="button" wire:click="$set('search', '')">
-                        <i class="bi bi-x"></i>
-                    </button>
-                    @endif
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" 
+                            wire:model.live.debounce.300ms="search"
+                            placeholder="Search by product name, code, or model...">
+                        @if($search)
+                        <button class="btn btn-outline-secondary" type="button" wire:click="$set('search', '')">
+                            <i class="bi bi-x"></i>
+                        </button>
+                        @endif
+                        
+                        {{-- View Toggle Buttons --}}
+                        <div class="btn-group" role="group" style="border-left: 1px solid #dee2e6;">
+                            <button type="button" class="btn btn-sm {{ $productViewType === 'grid' ? 'text-white' : 'btn-light' }}" 
+                                wire:click="$set('productViewType', 'grid')" 
+                                style="{{ $productViewType === 'grid' ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); border: none;' : '' }}"
+                                title="Grid View">
+                                <i class="bi bi-grid-3x2-gap"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm {{ $productViewType === 'list' ? 'text-white' : 'btn-light' }}" 
+                                wire:click="$set('productViewType', 'list')" 
+                                style="{{ $productViewType === 'list' ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); border: none;' : '' }}"
+                                title="List View">
+                                <i class="bi bi-list-ul"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {{-- Products Grid --}}
+            {{-- Products Display (Grid or List) --}}
             <div class="p-3 flex-grow-1" style="overflow-y: auto;">
+                @if($productViewType === 'grid')
+                {{-- GRID VIEW --}}
                 <div class="row g-2">
                     @forelse($products as $product)
-                    <div class="col-6 col-lg-4 col-xl-3">
+                    <div style="flex: 0 0 calc(25% - 0.5rem); padding: 0.25rem;">
                         @php
                             $isOutOfStock = ($product['stock'] ?? 0) <= 0;
                         @endphp
                         <div class="card h-100 product-card {{ $isOutOfStock ? 'out-of-stock' : '' }}"
                             style="cursor: {{ $isOutOfStock ? 'not-allowed' : 'pointer' }}; 
                                    transition: all 0.2s;
-                                   border: 2px solid {{ $isOutOfStock ? '#dc3545' : 'transparent' }};
-                                   box-shadow: {{ $isOutOfStock ? '0 0 15px rgba(220, 53, 69, 0.4)' : '0 .125rem .25rem rgba(0,0,0,.075)' }};
-                                   opacity: {{ $isOutOfStock ? '0.6' : '1' }};"
+                                   border: 2px solid {{ $isOutOfStock ? '#dc3545' : '#e0e0e0' }};
+                                   box-shadow: {{ $isOutOfStock ? '0 0 15px rgba(220, 53, 69, 0.4)' : '0 2px 8px rgba(0,0,0,0.1)' }};
+                                   opacity: {{ $isOutOfStock ? '0.6' : '1' }};
+                                   display: flex;
+                                   flex-direction: column;
+                                   position: relative;
+                                   overflow: hidden;"
                             @if(!$isOutOfStock)
                                 wire:click="addToCart({{ json_encode($product) }})"
-                                onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 4px 15px rgba(245,131,32,0.3)'"
-                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 .125rem .25rem rgba(0,0,0,.075)'"
+                                onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 6px 16px rgba(245,131,32,0.4)'"
+                                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'"
                             @endif>
-                            <div class="card-body p-2 text-center">
-                                @if(isset($product['image']) && $product['image'])
-                                <img src="{{ strpos($product['image'], 'http') === 0 || strpos($product['image'], 'data:') === 0 ? $product['image'] : asset('storage/' . $product['image']) }}" 
-                                    alt="{{ $product['name'] }}"
-                                    class="img-fluid rounded mb-2"
-                                    style="height: 70px; width: 100%; object-fit: cover; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
+                            {{-- Stock Badge (Top Right) --}}
+                            <div style="position: absolute; top: 8px; right: 8px; z-index: 10;">
+                                @if($isOutOfStock)
+                                    <span class="badge bg-danger" style="font-size: 0.75rem; padding: 0.4rem 0.6rem;">OUT OF STOCK</span>
                                 @else
-                                <div class="bg-light rounded mb-2 d-flex align-items-center justify-content-center"
-                                    style="height: 70px;">
-                                    <i class="bi bi-image text-muted" style="font-size: 1.5rem;"></i>
-                                </div>
+                                    <span class="badge bg-info" style="font-size: 0.75rem; padding: 0.4rem 0.6rem;">STOCK: {{ $product['stock'] }}</span>
                                 @endif
-                                <h6 class="card-title mb-1 small fw-semibold text-truncate" title="{{ $product['name'] }}">{{ $product['name'] }}</h6>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="fw-bold small" style="color: #f58320;">Rs. {{ number_format($product['price'], 0) }}</span>
-                                    @if($isOutOfStock)
-                                        <span class="badge bg-danger" style="font-size: 0.65rem;">OUT OF STOCK</span>
-                                    @else
-                                        <span class="badge bg-info" style="font-size: 0.65rem;">Stock: {{ $product['stock'] }}</span>
-                                    @endif
+                            </div>
+
+                            {{-- Image Container (Full Width) --}}
+                            <div style="width: 100%; height: 150px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f8f9fa;">
+                                @if(isset($product['image']) && $product['image'])
+                                <img src="{{ strpos($product['image'], 'http') === 0 || strpos($product['image'], 'data:') === 0 ? $product['image'] : asset('images/default.png') }}" 
+                                    alt="{{ $product['name'] }}"
+                                    class="img-fluid"
+                                    style="height: 100%; width: 100%; object-fit: cover; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
+                                @else
+                                <img src="{{ asset('images/default.png') }}" 
+                                    alt="Default Product Image"
+                                    class="img-fluid"
+                                    style="height: 100%; width: 100%; object-fit: cover; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
+                                @endif
+                            </div>
+
+                            {{-- Product Info (Card Body) --}}
+                            <div class="card-body p-3 d-flex flex-column" style="flex: 1;">
+                                {{-- Product Name (single line) --}}
+                                <h6 class="card-title mb-1 small fw-semibold text-truncate" 
+                                    title="{{ $product['name'] }}"
+                                    style="color: #333; font-size: 0.95rem; line-height: 1.3;">
+                                    {{ $product['name'] }}
+                                </h6>
+
+                                {{-- Product Code --}}
+                                @if(isset($product['code']) && $product['code'])
+                                <p class="mb-2 small text-muted" style="font-size: 0.75rem; margin-bottom: 0.5rem !important;">
+                                    CODE: {{ $product['code'] }}
+                                </p>
+                                @endif
+
+                                {{-- Price and Action (Footer) --}}
+                                <div class="mt-auto pt-2" style="border-top: 1px solid #e0e0e0; padding-top: 0.75rem;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-bold" style="color: #f58320; font-size: 1rem;">Rs. {{ number_format($product['price'], 0) }}</span>
+                                        <button class="btn btn-sm btn-outline-primary rounded-circle p-1" 
+                                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
+                                            @if(!$isOutOfStock) wire:click.stop="addToCart({{ json_encode($product) }})" @endif>
+                                            <i class="bi bi-bag-plus" style="font-size: 1rem;"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -255,6 +353,75 @@
                     </div>
                     @endforelse
                 </div>
+                @else
+                {{-- LIST VIEW --}}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 5%;">Image</th>
+                                <th style="width: 35%;">Product Name</th>
+                                <th style="width: 15%;">Price</th>
+                                <th style="width: 15%;">Stock</th>
+                                <th style="width: 10%; text-align: center;">Status</th>
+                                
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($products as $product)
+                            @php
+                                $isOutOfStock = ($product['stock'] ?? 0) <= 0;
+                            @endphp
+                            <tr style="cursor: {{ $isOutOfStock ? 'not-allowed' : 'pointer' }}; opacity: {{ $isOutOfStock ? '0.6' : '1' }};"
+                                @if(!$isOutOfStock) wire:click="addToCart({{ json_encode($product) }})" @endif>
+                                <td>
+                                    @if(isset($product['image']) && $product['image'])
+                                    <img src="{{ strpos($product['image'], 'http') === 0 || strpos($product['image'], 'data:') === 0 ? $product['image'] : asset('images/default.png') }}" 
+                                        alt="{{ $product['name'] }}"
+                                        style="height: 40px; width: 40px; object-fit: cover; border-radius: 4px; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
+                                    @else
+                                    <img src="{{ asset('images/default.png') }}" 
+                                        alt="Default Product Image"
+                                        style="height: 40px; width: 40px; object-fit: cover; border-radius: 4px; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
+                                    @endif
+                                </td>
+                                <td class="fw-semibold">
+                                    {{ $product['name'] }}
+                                    @if(isset($product['code']) && $product['code'])
+                                    <br><small class="text-muted" style="font-size: 0.75rem;">Code: {{ $product['code'] }}</small>
+                                    @endif
+                                </td>
+                                <td>
+                                    <span class="fw-bold" style="color: #f58320;">Rs. {{ number_format($product['price'], 0) }}</span>
+                                </td>
+                                <td>
+                                    @if($isOutOfStock)
+                                    <span class="badge text-danger">OUT</span>
+                                    @else
+                                    <span class="badge text-success">{{ $product['stock'] }} units</span>
+                                    @endif
+                                </td>
+                                <td style="text-align: center;">
+                                    @if($isOutOfStock)
+                                    <span class="badge bg-danger">Unavailable</span>
+                                    @else
+                                    <span class="badge bg-success">Available</span>
+                                    @endif
+                                </td>
+                                
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="6" class="text-center py-5">
+                                    <i class="bi bi-box-seam" style="font-size: 2rem; color: #ccc;"></i>
+                                    <p class="text-muted mt-2 mb-0">No products found</p>
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @endif
             </div>
         </div>
 
@@ -289,27 +456,26 @@
     {{-- Payment Modal --}}
     @if($showPaymentModal)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.7);" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius: 20px;">
-                <div class="modal-header text-white border-0 py-3" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
-                    <h5 class="modal-title fw-800 fs-4">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius: 15px;">
+                <div class="modal-header text-white border-0 py-2 px-3" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
+                    <h6 class="modal-title fw-bold fs-6 mb-0">
                         <i class="bi bi-shield-check me-2"></i>Secure Checkout
-                    </h5>
+                    </h6>
                     <button type="button" class="btn-close btn-close-white" wire:click="closePaymentModal"></button>
                 </div>
                 <div class="modal-body p-0">
                     <div class="row g-0">
                         {{-- Left Side: Payment Methods --}}
-                        <div class="col-md-7 p-4 bg-white">
-                            <h5 class="fw-bold mb-4 border-bottom pb-2">
+                        <div class="col-md-6 p-3 bg-white">
+                            <h6 class="fw-bold mb-3 border-bottom pb-2 fs-7">
                                 <i class="bi bi-cash-coin me-2 text-orange"></i>Payment Method
-                            </h5>
+                            </h6>
                             
-                            <div class="row g-3 mb-5">
+                            <div class="row g-2 mb-3">
                                 @php
                                     $methods = [
                                         ['id' => 'cash', 'icon' => 'bi-cash-stack', 'label' => 'Cash'],
-                                        ['id' => 'card', 'icon' => 'bi-credit-card-2-front', 'label' => 'Card'],
                                         ['id' => 'bank_transfer', 'icon' => 'bi-bank', 'label' => 'Bank Transfer'],
                                         ['id' => 'cheque', 'icon' => 'bi-check2-square', 'label' => 'Cheque'],
                                         ['id' => 'credit', 'icon' => 'bi-calendar-check', 'label' => 'Credit (Due)']
@@ -317,73 +483,74 @@
                                 @endphp
 
                                 @foreach($methods as $method)
-                                <div class="col-md-4">
-                                    <div class="payment-option text-center p-3 rounded-4 border-2 shadow-sm {{ $paymentMethod == $method['id'] ? 'selected border-orange bg-orange-light' : 'border-light bg-light' }}" 
-                                        wire:click="updatedPaymentMethod('{{ $method['id'] }}')"
+                                <div class="col-6">
+                                    <div class="payment-option text-center p-2 rounded-3 border-2 shadow-sm {{ $paymentMethod == $method['id'] ? 'selected border-orange bg-orange-light' : 'border-light bg-light' }}" 
+                                        wire:click="$set('paymentMethod', '{{ $method['id'] }}')"
                                         style="cursor: pointer; transition: all 0.3s; @if($paymentMethod == $method['id']) background-color: #fff7ed !important; border-color: #f58320 !important; @endif">
-                                        <i class="bi {{ $method['icon'] }} fs-1 mb-2 d-block @if($paymentMethod == $method['id']) text-orange @else text-muted @endif"></i>
-                                        <span class="fw-bold @if($paymentMethod == $method['id']) text-orange @else text-dark @endif">{{ $method['label'] }}</span>
+                                        <i class="bi {{ $method['icon'] }} fs-5 mb-1 d-block @if($paymentMethod == $method['id']) text-orange @else text-muted @endif"></i>
+                                        <span class="fw-bold fs-8 @if($paymentMethod == $method['id']) text-orange @else text-dark @endif">{{ $method['label'] }}</span>
                                     </div>
                                 </div>
                                 @endforeach
                             </div>
 
                             {{-- Payment Method Specific Inputs --}}
-                            <div class="payment-details-form p-4 rounded-4 bg-light border">
+                            <div class="payment-details-form p-2 rounded-3 bg-light border">
                                 @if($paymentMethod == 'cash')
-                                    <div class="row g-3 align-items-end">
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-bold">Amount Received (Rs.)</label>
-                                            <div class="input-group input-group-lg shadow-sm">
-                                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-wallet2 text-orange"></i></span>
-                                                <input type="number" class="form-control border-start-0 fw-800 fs-3 text-orange" 
-                                                    wire:model.live="amountReceived" step="0.01" autofocus>
-                                            </div>
+                                    <div class="row g-1">
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold fs-8 mb-1">Amount Received (Rs.)</label>
+                                            <input type="number" class="form-control form-control-sm fs-8 fw-bold text-orange p-2 rounded" 
+                                                wire:model.live="amountReceived" step="0.01" autofocus placeholder="0.00">
                                         </div>
-                                        <div class="col-md-6">
-                                            <div class="p-3 bg-white rounded shadow-sm text-center border">
-                                                <small class="text-muted d-block fw-bold mb-1">CHANGE TO RETURN</small>
-                                                <h3 class="fw-800 text-success mb-0">Rs. {{ number_format(max(0, ($amountReceived ?? 0) - $grandTotal), 2) }}</h3>
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold fs-8 mb-1 text-success">Change to Return (Rs.)</label>
+                                            <div class="bg-white rounded border p-2 ">
+                                                <h6 class="fw-bold text-success mb-0 fs-8">Rs. {{ number_format(max(0, ($amountReceived ?? 0) - $grandTotal), 2) }}</h6>
                                             </div>
                                         </div>
                                     </div>
                                 @elseif($paymentMethod == 'bank_transfer')
-                                    <div class="row g-3">
-                                        <div class="col-md-12">
-                                            <label class="form-label fw-bold">Bank Name</label>
-                                            <input type="text" class="form-control" wire:model="bankTransferBankName" placeholder="Enter Bank Name...">
+                                    <div class="row g-1">
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold fs-8 mb-1">Bank Name</label>
+                                            <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="bankTransferBankName" placeholder="Enter bank name...">
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-bold">Reference Number</label>
-                                            <input type="text" class="form-control" wire:model="bankTransferReferenceNumber" placeholder="TXN ID...">
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold fs-8 mb-1">Reference / TXN ID</label>
+                                            <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="bankTransferReferenceNumber" placeholder="TXN ID...">
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-bold">Amount Transfered (Rs.)</label>
-                                            <input type="number" class="form-control fw-bold" wire:model="bankTransferAmount" step="0.01">
+                                        <div class="col-12">
+                                            <label class="form-label fw-bold fs-8 mb-1">Amount (Rs.)</label>
+                                            <input type="number" class="form-control form-control-sm fw-bold fs-8 text-orange border p-2 rounded" wire:model="bankTransferAmount" step="0.01" placeholder="0.00">
                                         </div>
                                     </div>
                                 @elseif($paymentMethod == 'cheque')
                                     {{-- Multi-Cheque Support --}}
-                                    <div class="bg-white p-3 rounded-3 border mb-3 shadow-sm">
-                                        <h6 class="fw-bold text-orange mb-3"><i class="bi bi-plus-circle me-2"></i>Add Cheque Details</h6>
-                                        <div class="row g-2">
-                                            <div class="col-md-6">
-                                                <input type="text" class="form-control form-control-sm" wire:model="tempBankName" placeholder="Bank Name">
+                                    <div class="bg-white p-2 rounded border mb-2 shadow-sm">
+                                        <h6 class="fw-bold text-orange mb-2 fs-8"><i class="bi bi-plus-circle me-1"></i>Add Cheque Details</h6>
+                                        <div class="row g-1">
+                                            <div class="col-6">
+                                                <label class="form-label fw-bold fs-8 mb-1">Bank Name</label>
+                                                <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempBankName" placeholder="Bank name">
                                             </div>
-                                            <div class="col-md-6">
-                                                <input type="text" class="form-control form-control-sm" wire:model="tempChequeNumber" placeholder="Cheque Number">
+                                            <div class="col-6">
+                                                <label class="form-label fw-bold fs-8 mb-1">Cheque #</label>
+                                                <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempChequeNumber" placeholder="Cheque number">
                                             </div>
-                                            <div class="col-md-4">
-                                                <input type="date" class="form-control form-control-sm" wire:model="tempChequeDate">
+                                            <div class="col-6">
+                                                <label class="form-label fw-bold fs-8 mb-1">Cheque Date</label>
+                                                <input type="date" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempChequeDate">
                                             </div>
-                                            <div class="col-md-4">
-                                                <input type="number" class="form-control form-control-sm fw-bold" wire:model="tempChequeAmount" placeholder="Amount (Rs.)">
+                                            <div class="col-6">
+                                                <label class="form-label fw-bold fs-8 mb-1">Amount (Rs.)</label>
+                                                <input type="number" class="form-control form-control-sm fw-bold fs-8 text-orange border p-2 rounded" wire:model="tempChequeAmount" placeholder="0.00" step="0.01">
                                             </div>
-                                            <div class="col-md-4">
-                                                <button class="btn btn-orange btn-sm w-100 fw-bold text-white shadow-sm" 
-                                                    style="background: #f58320;"
+                                            <div class="col-12">
+                                                <button class="btn btn-orange btn-sm w-100 fw-bold text-white shadow-sm fs-8" 
+                                                    style="background: #f58320; padding: 0.4rem 0.5rem;"
                                                     wire:click="addCheque">
-                                                    ADD CHEQUE
+                                                    <i class="bi bi-plus-circle me-1"></i>ADD CHEQUE
                                                 </button>
                                             </div>
                                         </div>
@@ -434,16 +601,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                @elseif($paymentMethod == 'card')
-                                    <div class="alert alert-info border-2 border-info shadow-sm">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-info-circle-fill fs-3 me-3"></i>
-                                            <div>
-                                                <h6 class="fw-bold mb-1 text-dark">Card Payment</h6>
-                                                <p class="mb-0 small text-muted">Please process the payment on the PDQ terminal and enter the reference number in the notes below if needed.</p>
-                                            </div>
-                                        </div>
-                                    </div>
                                 @endif
                                 
                                 @error('amountReceived') <div class="text-danger small mt-1 fw-bold">{{ $message }}</div> @enderror
@@ -452,57 +609,59 @@
                         </div>
 
                         {{-- Right Side: Order Summary --}}
-                        <div class="col-md-5 p-4 bg-light border-start">
-                            <h5 class="fw-bold mb-4 border-bottom pb-2">
+                        <div class="col-md-6 p-3 bg-light border-start">
+                            <h6 class="fw-bold mb-3 border-bottom pb-2 fs-7">
                                 <i class="bi bi-receipt me-2 text-orange"></i>Order Summary
-                            </h5>
+                            </h6>
                             
-                            <div class="mb-4">
-                                <div class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden border">
-                                    <div class="list-group-item d-flex justify-content-between py-3">
-                                        <span class="text-muted">Customer</span>
-                                        <span class="fw-bold">{{ $selectedCustomer->name ?? 'N/A' }}</span>
+                            <div class="mb-3">
+                                <div class="list-group list-group-flush shadow-sm rounded-3 overflow-hidden border">
+                                    <div class="list-group-item d-flex justify-content-between py-2 px-2">
+                                        <span class="text-muted fs-8">Customer</span>
+                                        <span class="fw-bold fs-8">{{ $selectedCustomer->name ?? 'N/A' }}</span>
                                     </div>
-                                    <div class="list-group-item d-flex justify-content-between py-3 bg-white">
-                                        <span class="text-muted">Order Date</span>
-                                        <span class="fw-bold">{{ now()->format('d/m/Y') }}</span>
+                                    <div class="list-group-item d-flex justify-content-between py-2 px-2 bg-white">
+                                        <span class="text-muted fs-8">Order Date</span>
+                                        <span class="fw-bold fs-8">{{ now()->format('d/m/Y') }}</span>
                                     </div>
-                                    <div class="list-group-item d-flex justify-content-between py-3 bg-white border-bottom-0">
-                                        <span class="text-muted">Payment Type</span>
-                                        <span class="badge text-white" style="background: #f58320;">{{ ucfirst(str_replace('_', ' ', $paymentMethod)) }}</span>
+                                    <div class="list-group-item d-flex justify-content-between py-2 px-2 bg-white border-bottom-0">
+                                        <span class="text-muted fs-8">Payment Type</span>
+                                        <span class="badge text-white fs-8" style="background: #f58320;">{{ ucfirst(str_replace('_', ' ', $paymentMethod)) }}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="p-4 rounded-4 shadow-sm mb-4" style="background: #fff5ed; border: 1px dashed #f58320;">
+                            <div class="p-2 rounded-3 shadow-sm mb-3" style="background: #fff5ed; border: 1px dashed #f58320;">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted fs-8">Subtotal</span>
+                                    <span class="fw-bold fs-8">Rs. {{ number_format($subtotal, 2) }}</span>
+                                </div>
+                                @if($additionalDiscountAmount > 0)
                                 <div class="d-flex justify-content-between mb-2">
-                                    <span class="text-muted fs-6">Subtotal</span>
-                                    <span class="fw-bold fs-6">Rs. {{ number_format($subtotal, 2) }}</span>
+                                    <span class="text-muted fs-8 text-danger">Discount</span>
+                                    <span class="fw-bold fs-8 text-danger">- Rs. {{ number_format($additionalDiscountAmount, 2) }}</span>
                                 </div>
-                                <div class="d-flex justify-content-between mb-3">
-                                    <span class="text-muted fs-6 text-danger">Total Item Discounts</span>
-                                    <span class="fw-bold fs-6 text-danger">- Rs. {{ number_format($totalDiscount, 2) }}</span>
-                                </div>
-                                <div class="d-flex justify-content-between pt-3 border-top border-orange border-1 border-opacity-25">
-                                    <h4 class="fw-800 mb-0">TOTAL DUE</h4>
-                                    <h4 class="fw-800 mb-0 text-orange">Rs. {{ number_format($grandTotal, 2) }}</h4>
+                                @endif
+                                <div class="d-flex justify-content-between pt-2 border-top border-orange border-1 border-opacity-25">
+                                    <h6 class="fw-bold mb-0 fs-7">TOTAL</h6>
+                                    <h6 class="fw-bold mb-0 text-orange fs-7">Rs. {{ number_format($grandTotal, 2) }}</h6>
                                 </div>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="form-label fw-bold"><i class="bi bi-sticky me-1 text-orange"></i>Transaction Notes</label>
-                                <textarea class="form-control rounded-4 shadow-sm" wire:model="paymentNotes" rows="3" 
-                                    placeholder="Add any internal transaction notes here..."></textarea>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold fs-8 mb-1"><i class="bi bi-sticky me-1 text-orange"></i>Notes</label>
+                                <textarea class="form-control rounded-3 shadow-sm fs-8" wire:model="paymentNotes" rows="2" 
+                                    placeholder="Add notes..."></textarea>
                             </div>
 
-                            <div class="d-grid gap-2">
-                                <button type="button" class="btn btn-orange text-white py-3 fw-800 shadow-lg rounded-4 fs-5" 
-                                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%); letter-spacing: 1px;"
+                            <div class="d-grid gap-1">
+                                <button type="button" class="btn btn-orange text-white py-2 fw-bold shadow-lg rounded-3 fs-8" 
+                                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);"
                                     wire:click="completeSaleWithPayment">
-                                    <i class="bi bi-printer me-2"></i>PROCESS & PRINT
+                                    <i class="bi bi-printer me-1"></i>PROCESS & PRINT
                                 </button>
-                                <button type="button" class="btn btn-light border py-2 rounded-4 fw-bold" wire:click="closePaymentModal">
-                                    CANCEL TRANSACTION
+                                <button type="button" class="btn btn-light border py-1 rounded-3 fw-bold fs-8" wire:click="closePaymentModal">
+                                    CANCEL
                                 </button>
                             </div>
                         </div>
@@ -679,25 +838,26 @@
                         </div>
 
                         {{-- ==================== FOOTER ==================== --}}
-                        <div class="invoice-footer mt-4 border-top pt-3">
+                        <div class="invoice-footer mt-4 border-top pt-4">
                             <div class="row text-center mb-3">
                                 <div class="col-4">
-                                    <small class="text-muted">Prepared by</small><br>
-                                    <small>______________</small>
+                                    <small>______________</small><br>
+                                    <small class="text-muted">Prepared by</small>
+                                    
                                 </div>
                                 <div class="col-4">
-                                    <small class="text-muted">Verified by</small><br>
-                                    <small>______________</small>
+                                    <small>______________</small><br>
+                                    <small class="text-muted">Verified by</small>
                                 </div>
                                 <div class="col-4">
-                                    <small class="text-muted">Customer Sign</small><br>
-                                    <small>______________</small>
+                                    <small>______________</small><br>
+                                    <small class="text-muted">Customer Sign</small>
                                 </div>
                             </div>
                             <div class="border-top pt-3">
                                 <p class="text-center mb-0"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
                                 <p class="text-center mb-0"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
-                                <p class="text-center" style="font-size: 11px;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
+                                
                                 <p class="text-center mb-0 mt-2"><strong>Thank you for your purchase!</strong></p>
                             </div>
                         </div>
@@ -1029,7 +1189,10 @@
         window.posClockInterval = setInterval(updatePosClock, 1000);
     }
 
-    // Initialize on page load
+    // Initialize clock immediately when script loads
+    initializePosClock();
+
+    // Also initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         initializePosClock();
 
@@ -1068,11 +1231,31 @@
         }
     });
 
-    // Reinitialize clock after Livewire updates
+    // Reinitialize clock after Livewire updates (works with Livewire 3)
+    document.addEventListener('livewire:initialized', () => {
+        initializePosClock();
+    });
+
+    // For Livewire 3 - after any component update
+    document.addEventListener('livewire:navigated', () => {
+        initializePosClock();
+    });
+
+    // Fallback for older Livewire versions
     if (typeof Livewire !== 'undefined') {
-        Livewire.hook('message.processed', () => {
-            initializePosClock();
-        });
+        try {
+            // Livewire 3
+            Livewire.hook('morph.updated', () => {
+                initializePosClock();
+            });
+        } catch(e) {
+            // Livewire 2 fallback
+            try {
+                Livewire.hook('message.processed', () => {
+                    initializePosClock();
+                });
+            } catch(e2) {}
+        }
     }
 </script>
 @endpush

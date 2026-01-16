@@ -42,6 +42,8 @@ class AdminDashboard extends Component
     public $staffWithAssignmentsCount = 0;
     public $staffAssignmentPercentage = 0;
     public $totalStaffSalesValue = 0;
+    public $totalStaffDueAmount = 0;
+    public $totalPaidAmount = 0;
 
     public $recentSales = [];
     public $ProductInventory = [];
@@ -73,16 +75,16 @@ class AdminDashboard extends Component
         $this->monthTotal = Expense::whereMonth('date', Carbon::now()->month)
             ->whereYear('date', Carbon::now()->year)
             ->sum('amount');
-        
+
         // Calculate monthly progress percentage
-        $this->monthlyProgressPercentage = $this->monthlyBudget > 0 
+        $this->monthlyProgressPercentage = $this->monthlyBudget > 0
             ? min(round(($this->monthTotal / $this->monthlyBudget) * 100, 2), 100)
             : 0;
 
         // Calculate today vs average
         $daysInMonth = now()->daysInMonth;
         $this->dailyAverage = $daysInMonth > 0 ? $this->monthTotal / now()->day : 0;
-        $this->todayVsAverage = $this->dailyAverage > 0 
+        $this->todayVsAverage = $this->dailyAverage > 0
             ? round((($this->todayTotal - $this->dailyAverage) / $this->dailyAverage) * 100, 2)
             : 0;
 
@@ -90,6 +92,7 @@ class AdminDashboard extends Component
         $this->totalSales = $salesStats->total_sales ?? 0;
         $this->totalDueAmount = $salesStats->total_due ?? 0;
         $this->totalRevenue = $this->totalSales - $this->totalDueAmount;
+        $this->totalPaidAmount = $this->totalRevenue; // Amount already collected
 
         // Calculate percentages
         if ($this->totalSales > 0) {
@@ -189,12 +192,21 @@ class AdminDashboard extends Component
         if ($this->totalStaffCount > 0) {
             $this->staffAssignmentPercentage = round(($this->staffWithAssignmentsCount / $this->totalStaffCount) * 100, 1);
         }
-        
+
         $staffSalesTotal = DB::table('staff_sales')
             ->select(DB::raw('SUM(total_value) as total_value'))
             ->first();
 
         $this->totalStaffSalesValue = $staffSalesTotal->total_value ?? 0;
+
+        // Calculate total staff due amount from all staff sales
+        $staffDueTotal = DB::table('sales')
+            ->join('users', 'sales.user_id', '=', 'users.id')
+            ->where('users.role', 'staff')
+            ->select(DB::raw('SUM(sales.due_amount) as total_due'))
+            ->first();
+
+        $this->totalStaffDueAmount = $staffDueTotal->total_due ?? 0;
 
         // Fetch recent sales
         $this->loadRecentSales();
@@ -258,7 +270,7 @@ class AdminDashboard extends Component
                 ->join('product_details', 'sale_items.product_id', '=', 'product_details.id')
                 ->join('category_lists', 'product_details.category_id', '=', 'category_lists.id')
                 ->select(
-                    'category_lists.category_name as category', 
+                    'category_lists.category_name as category',
                     DB::raw('SUM(sale_items.total) as total_sales')
                 )
                 ->groupBy('category_lists.id', 'category_lists.category_name')
@@ -270,7 +282,6 @@ class AdminDashboard extends Component
             if (empty($this->categorySales)) {
                 $this->categorySales = $this->getFallbackCategorySales();
             }
-
         } catch (\Exception $e) {
             // If there's an error (like table doesn't exist), use fallback
             $this->categorySales = $this->getFallbackCategorySales();
@@ -284,9 +295,11 @@ class AdminDashboard extends Component
             ->join('product_details', 'sale_items.product_id', '=', 'product_details.id')
             ->join('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
             ->select(
-                'brand_lists.brand_name as category', 
-                DB::raw('SUM(sale_items.total) as total_sales'
-            ))
+                'brand_lists.brand_name as category',
+                DB::raw(
+                    'SUM(sale_items.total) as total_sales'
+                )
+            )
             ->groupBy('brand_lists.id', 'brand_lists.brand_name')
             ->orderBy('total_sales', 'desc')
             ->get()

@@ -57,6 +57,9 @@ use App\Livewire\Admin\SalesList;
 use App\Livewire\Admin\PosSales;
 use App\Livewire\Admin\PurchaseOrderList;
 use App\Livewire\Admin\StaffProductAllocation;
+use App\Livewire\Admin\StaffAllocatedList;
+use App\Livewire\Admin\ViewStaffAllocatedProducts;
+use App\Livewire\Admin\StaffProductReentry;
 use App\Models\Setting as ModelsSetting;
 use App\Livewire\Admin\Settings;
 use App\Livewire\Admin\Expenses;
@@ -174,7 +177,11 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         Route::get('/loan-management', LoanManage::class)->name('loan-management');
         Route::get('/sales-system', SalesSystem::class)->name('sales-system');
         Route::get('/staff-product-allocation', StaffProductAllocation::class)->name('staff-product-allocation');
+        Route::get('/staff-allocated-list', StaffAllocatedList::class)->name('staff-allocated-list');
+        Route::get('/staff-allocated-products/{staffId}', ViewStaffAllocatedProducts::class)->name('staff-allocated-products.view');
+        Route::get('/staff-product-reentry/{staffId}', StaffProductReentry::class)->name('staff-product-reentry');
         Route::get('/staff-sales', StaffSalesView::class)->name('staff-sales');
+        Route::get('/staff-sales-detail/{staffId}', \App\Livewire\Admin\StaffSalesDetail::class)->name('staff-sales-detail');
         Route::get('/staff-payment-approval', StaffPaymentApproval::class)->name('staff-payment-approval');
         Route::get('/pos-sales', PosSales::class)->name('pos-sales');
 
@@ -231,9 +238,9 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         // Sales
         Route::get('/billing', Billing::class)->name('billing');
         Route::get('/billing-page', BillingPage::class)->name('billing-page');
-        Route::get('/sales-system', SalesSystem::class)->name('sales-system');
+        Route::get('/sales-system', \App\Livewire\Staff\StaffSalesSystem::class)->name('sales-system');
         Route::get('/pos-sales', PosSales::class)->name('pos-sales');
-        Route::get('/sales-list', SalesList::class)->name('sales-list');
+        Route::get('/sales-list', \App\Livewire\Staff\StaffSalesList::class)->name('sales-list');
         Route::get('/store-billing', StoreBilling::class)->name('store-billing');
 
         // Customers

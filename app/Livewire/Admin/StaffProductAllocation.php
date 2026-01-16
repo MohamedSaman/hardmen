@@ -157,6 +157,17 @@ class StaffProductAllocation extends Component
         $this->updateCartTotal($index);
     }
 
+    // Update price in cart
+    public function updatePrice($index, $price)
+    {
+        if (!isset($this->cart[$index])) {
+            return;
+        }
+
+        $this->cart[$index]['unit_price'] = max(0, (float)$price);
+        $this->updateCartTotal($index);
+    }
+
     // Update discount in cart
     public function updateDiscount($index, $discount)
     {
@@ -282,20 +293,45 @@ class StaffProductAllocation extends Component
                     $totalDiscount = $item['discount'];
                 }
 
-                // Create staff product record
-                $staffProduct = StaffProduct::create([
-                    'product_id' => $item['product_id'],
-                    'staff_id' => $this->staffId,
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'discount_per_unit' => $item['discount_type'] === 'percentage' ?
-                        ($item['unit_price'] * $item['discount']) / 100 : ($item['discount'] / $item['quantity']),
-                    'total_discount' => $totalDiscount,
-                    'total_value' => $subtotal - $totalDiscount,
-                    'sold_quantity' => 0,
-                    'sold_value' => 0,
-                    'status' => 'assigned',
-                ]);
+                // Check if product is already allocated to this staff
+                $existingAllocation = StaffProduct::where('staff_id', $this->staffId)
+                    ->where('product_id', $item['product_id'])
+                    ->first();
+
+                if ($existingAllocation) {
+                    // Update existing allocation - add to quantity
+                    $existingAllocation->quantity += $item['quantity'];
+
+                    // Recalculate totals based on new quantity
+                    $newSubtotal = $existingAllocation->quantity * $item['unit_price'];
+                    if ($item['discount_type'] === 'percentage') {
+                        $newTotalDiscount = ($newSubtotal * $item['discount']) / 100;
+                    } else {
+                        $newTotalDiscount = $item['discount'] * $item['quantity'];
+                    }
+
+                    $existingAllocation->unit_price = $item['unit_price'];
+                    $existingAllocation->discount_per_unit = $item['discount_type'] === 'percentage' ?
+                        ($item['unit_price'] * $item['discount']) / 100 : ($item['discount'] / $item['quantity']);
+                    $existingAllocation->total_discount += $newTotalDiscount;
+                    $existingAllocation->total_value = $newSubtotal - $existingAllocation->total_discount;
+                    $existingAllocation->save();
+                } else {
+                    // Create new staff product record
+                    $staffProduct = StaffProduct::create([
+                        'product_id' => $item['product_id'],
+                        'staff_id' => $this->staffId,
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'discount_per_unit' => $item['discount_type'] === 'percentage' ?
+                            ($item['unit_price'] * $item['discount']) / 100 : ($item['discount'] / $item['quantity']),
+                        'total_discount' => $totalDiscount,
+                        'total_value' => $subtotal - $totalDiscount,
+                        'sold_quantity' => 0,
+                        'sold_value' => 0,
+                        'status' => 'assigned',
+                    ]);
+                }
 
                 // Reduce stock using FIFO
                 $this->reduceProductStock($item['product_id'], $item['quantity']);

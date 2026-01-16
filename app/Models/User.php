@@ -82,6 +82,12 @@ class User extends Authenticatable
         return $this->hasMany(StaffPermission::class, 'user_id', 'id');
     }
 
+    // Relationship: User (staff) has many staff products
+    public function staffProducts()
+    {
+        return $this->hasMany(StaffProduct::class, 'staff_id', 'id');
+    }
+
     /**
      * Check if user has a specific permission
      * If staff has no permissions assigned, show only dashboard as default

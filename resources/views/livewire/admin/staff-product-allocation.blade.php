@@ -1,7 +1,7 @@
 <div class="container-fluid py-3">
     {{-- Top Header with Staff Selection --}}
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0 fw-bold">Billing System</h5>
+        <h5 class="mb-0 fw-bold text-dark">Billing System</h5>
         <div style="width: 280px;">
             <select class="form-select form-select-sm" wire:model.live="staffId">
                 <option value="">-- Choose Staff --</option>
@@ -71,12 +71,12 @@
                 <table class="table table-hover mb-0">
                     <thead>
                         <tr class="border-bottom">
-                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;color: #fff !important;">Product</th>
-                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;color: #fff!important;">Unit Price</th>
-                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;color: #fff!important;">Quantity</th>
-                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;color: #fff!important;">Discount (Per Unit)</th>
-                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;color: #fff!important;">Total</th>
-                            <th class="fw-bold text-uppercase text-muted text-center" style="font-size: 12px;color: #fff!important;">Actions</th>
+                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;">Product</th>
+                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;">Unit Price</th>
+                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;">Quantity</th>
+                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;">Discount (Per Unit)</th>
+                            <th class="fw-bold text-uppercase text-muted" style="font-size: 12px;">Total</th>
+                            <th class="fw-bold text-uppercase text-muted text-center" style="font-size: 12px; ">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -88,7 +88,14 @@
                                     <small class="text-muted">{{ $item['product_code'] }}</small>
                                 </div>
                             </td>
-                            <td class="py-3 fw-bold">Rs.{{ number_format($item['unit_price'], 2) }}</td>
+                            <td class="py-3">
+                                <div class="input-group input-group-sm" style="width: 140px;">
+                                    <span class="input-group-text bg-light">Rs.</span>
+                                    <input type="number" class="form-control" step="0.01" min="0"
+                                        wire:change="updatePrice('{{ $index }}', $event.target.value)"
+                                        value="{{ number_format($item['unit_price'], 2, '.', '') }}">
+                                </div>
+                            </td>
                             <td class="py-3">
                                 <div class="input-group input-group-sm" style="width: 140px;">
                                     <input type="number" class="form-control" min="1" max="{{ $item['available_stock'] }}"

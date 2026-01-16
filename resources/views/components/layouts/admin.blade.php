@@ -218,6 +218,13 @@
             display: none;
         }
 
+        .sidebar.collapsed .nav-link.dropdown-toggle::after {
+            display: flex !important;
+            margin-left: 0;
+            width: 100%;
+            justify-content: center;
+        }
+
         .sidebar.collapsed .nav-link i {
             margin-right: 0;
             font-size: 1.25rem;
@@ -254,7 +261,7 @@
 
         .nav-link {
             color: var(--text-muted);
-            padding: 12px 24px;
+            padding: 6px 24px;
             margin: 4px 12px;
             border-radius: 8px;
             transition: all 0.2s;
@@ -296,12 +303,24 @@
             border: none;
             content: "\F282";
             font-family: "bootstrap-icons";
-            font-size: 0.8rem;
-            transition: transform 0.3s;
+            font-size: 0.95rem;
+            transition: transform 0.3s ease;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            color: var(--text-muted);
         }
 
         .nav-link.dropdown-toggle[aria-expanded="true"]::after {
             transform: rotate(180deg);
+            color: var(--primary);
+        }
+
+        .nav-link.dropdown-toggle:hover::after {
+            color: var(--primary);
         }
 
         #inventorySubmenu .nav-link,
@@ -978,6 +997,11 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('admin.staff-product-allocation') ? 'active' : '' }}" href="{{ route('admin.staff-product-allocation') }}">
                                     <i class="bi bi-person-badge"></i> <span>Staff Allocation</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('admin.staff-allocated-list') ? 'active' : '' }}" href="{{ route('admin.staff-allocated-list') }}">
+                                    <i class="bi bi-list-check"></i> <span>Allocated List</span>
                                 </a>
                             </li>
                             <li class="nav-item">

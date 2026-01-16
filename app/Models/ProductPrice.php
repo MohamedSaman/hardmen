@@ -12,6 +12,14 @@ class ProductPrice extends Model
 
     protected $fillable = ['product_id', 'supplier_price', 'selling_price', 'retail_price', 'wholesale_price', 'discount_price'];
 
+    protected $casts = [
+        'supplier_price' => 'decimal:2',
+        'selling_price' => 'decimal:2',
+        'retail_price' => 'decimal:2',
+        'wholesale_price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+    ];
+
     /**
      * Get the Product that owns this price information
      */

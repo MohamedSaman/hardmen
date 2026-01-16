@@ -16,10 +16,10 @@ class ProductsTemplateExport implements FromArray, WithHeadings, WithStyles, Wit
     public function array(): array
     {
         return [
-            ['USN0001', 'Flasher Musical 12 V'],
-            ['USN0002', 'Flasher Musical 24 V'],
-            ['USN0003', 'Flasher Electrical 12 V'],
-            ['USN0004', 'Flasher Electrical 24 V'],
+            ['USN0001', 'Flasher Musical 12 V', 100.00, 150.00, 140.00, 50],
+            ['USN0002', 'Flasher Musical 24 V', 120.00, 180.00, 170.00, 30],
+            ['USN0003', 'Flasher Electrical 12 V', 90.00, 140.00, 130.00, 40],
+            ['USN0004', 'Flasher Electrical 24 V', 110.00, 160.00, 150.00, 25],
         ];
     }
 
@@ -31,6 +31,10 @@ class ProductsTemplateExport implements FromArray, WithHeadings, WithStyles, Wit
         return [
             'CODE',
             'NAME',
+            'SUPPLIER PRICE',
+            'RETAIL PRICE',
+            'WHOLESALE PRICE',
+            'AVAILABLE STOCK',
         ];
     }
 

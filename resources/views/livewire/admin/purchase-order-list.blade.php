@@ -460,7 +460,8 @@
                                 <th style="width: 80px;">Recv Qty</th>
                                 <th style="width: 150px;">Supplier Price</th>
                                 <th style="width: 180px;">Discount</th>
-                                <th style="width: 150px;">Selling Price</th>
+                                <th style="width: 150px;">Wholesale Price</th>
+                                <th style="width: 150px;">Retail Price</th>
                                 <th style="width: 80px;">Cost</th>
                                 <th style="width: 80px;">Total</th>
                                 <th style="width: 80px;">Actions</th>
@@ -569,17 +570,21 @@
                                 </td>
                                 <td>
                                     <input type="number"
-                                        class="form-control text-end selling-price-input"
-                                        wire:model.live="grnItems.{{ $index }}.selling_price"
-                                        data-index="{{ $index }}"
+                                        class="form-control text-end"
+                                        wire:model.live="grnItems.{{ $index }}.wholesale_price"
                                         step="10"
                                         min="0"
-                                        placeholder="Enter price"
-                                        title="Selling Price (Enter manually)"
-                                        wire:change="calculateGRNTotal({{ $index }})">
-                                    <small class="text-muted d-block mt-1">
-                                        Calc: {{ number_format($this->calculateSellingPrice($index), 0) }}
-                                    </small>
+                                        placeholder="Wholesale"
+                                        title="Wholesale Price">
+                                </td>
+                                <td>
+                                    <input type="number"
+                                        class="form-control text-end"
+                                        wire:model.live="grnItems.{{ $index }}.retail_price"
+                                        step="10"
+                                        min="0"
+                                        placeholder="Retail"
+                                        title="Retail Price">
                                 </td>
                                 <td class="text-end fw-semibold text-success">
                                     {{ number_format($this->calculateCost($index), 2) }}

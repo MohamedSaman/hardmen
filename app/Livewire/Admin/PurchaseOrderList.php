@@ -715,7 +715,7 @@ class PurchaseOrderList extends Component
         }
     }
 
-    protected function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null)
+    protected function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null, $wholesalePrice = 0, $retailPrice = 0)
     {
         $product = ProductDetail::with('price')->find($productId);
         if (!$product) return;
@@ -726,8 +726,14 @@ class PurchaseOrderList extends Component
         if ($supplierPrice == 0 && $productPrice) {
             $supplierPrice = $productPrice->supplier_price;
         }
-        if ($sellingPrice == 0 && $productPrice) {
-            $sellingPrice = $productPrice->selling_price;
+        // Set selling_price to 0 always
+        $sellingPrice = 0;
+
+        if ($wholesalePrice == 0 && $productPrice) {
+            $wholesalePrice = $productPrice->wholesale_price;
+        }
+        if ($retailPrice == 0 && $productPrice) {
+            $retailPrice = $productPrice->retail_price;
         }
 
         // Check if product already has stock
@@ -769,13 +775,17 @@ class PurchaseOrderList extends Component
         if (!$hasExistingStock) {
             if ($productPrice) {
                 $productPrice->supplier_price = $supplierPrice;
-                $productPrice->selling_price = $sellingPrice;
+                $productPrice->selling_price = 0;
+                $productPrice->wholesale_price = $wholesalePrice;
+                $productPrice->retail_price = $retailPrice;
                 $productPrice->save();
             } else {
                 ProductPrice::create([
                     'product_id' => $productId,
                     'supplier_price' => $supplierPrice,
-                    'selling_price' => $sellingPrice,
+                    'selling_price' => 0,
+                    'wholesale_price' => $wholesalePrice,
+                    'retail_price' => $retailPrice,
                     'discount_price' => 0,
                 ]);
             }
@@ -808,14 +818,6 @@ class PurchaseOrderList extends Component
                 if ($unitPrice <= 0) {
                     $productName = $item['name'] ?? 'Item ' . ($index + 1);
                     $this->js("Swal.fire('Error', 'Supplier price must be greater than 0 for {$productName}!', 'error');");
-                    return;
-                }
-
-                // Validate selling price is greater than 0
-                $sellingPrice = floatval($item['selling_price'] ?? 0);
-                if ($sellingPrice <= 0) {
-                    $productName = $item['name'] ?? 'Item ' . ($index + 1);
-                    $this->js("Swal.fire('Error', 'Selling price must be greater than 0 for {$productName}!', 'error');");
                     return;
                 }
 
@@ -906,29 +908,12 @@ class PurchaseOrderList extends Component
                 }
                 $supplierPrice = max(0, $supplierPrice);
 
-                // Use selling price from the form if provided, otherwise calculate
-                $sellingPrice = floatval($item['selling_price'] ?? 0);
+                // Set selling price to 0 (not used)
+                $sellingPrice = 0;
 
-                if ($sellingPrice <= 0) {
-                    // Calculate selling price based on markup ratio if not provided
-                    $product = ProductDetail::with('price')->find($productId);
-                    if ($product && $product->price) {
-                        $currentSupplierPrice = $product->price->supplier_price;
-                        $currentSellingPrice = $product->price->selling_price;
-                        if ($currentSupplierPrice > 0) {
-                            $ratio = $currentSellingPrice / $currentSupplierPrice;
-                            $sellingPrice = $supplierPrice * $ratio;
-                        } else {
-                            $sellingPrice = $currentSellingPrice;
-                        }
-                    } else {
-                        // Default markup of 20% if no existing price
-                        $sellingPrice = $supplierPrice * 1.2;
-                    }
-                }
-
-                // Round selling price to nearest 10
-                $sellingPrice = round($sellingPrice / 10) * 10;
+                // Get wholesale and retail prices from the form
+                $wholesalePrice = floatval($item['wholesale_price'] ?? 0);
+                $retailPrice = floatval($item['retail_price'] ?? 0);
 
                 $orderTotal += max(0, $itemTotal);
                 if (isset($item['id'])) {
@@ -946,7 +931,7 @@ class PurchaseOrderList extends Component
                         $orderItem->save();
 
                         if ($status === 'received' && $receivedQty > 0) {
-                            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id);
+                            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice);
                         }
                     }
                 } else {
@@ -967,7 +952,7 @@ class PurchaseOrderList extends Component
                     ]);
 
                     if ($receivedQty > 0) {
-                        $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id);
+                        $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice);
                     }
                 }
             }
@@ -1182,9 +1167,10 @@ class PurchaseOrderList extends Component
         // Initialize GRN items from purchase order items
         $this->grnItems = [];
         foreach ($this->selectedPO->items as $item) {
-            // Get current product price for selling price reference
+            // Get current product prices
             $product = ProductDetail::with('price')->find($item->product_id);
-            $currentSellingPrice = $product && $product->price ? $product->price->selling_price : 0;
+            $currentWholesalePrice = $product && $product->price ? $product->price->wholesale_price : 0;
+            $currentRetailPrice = $product && $product->price ? $product->price->retail_price : 0;
 
             // Set default discount_type to 'percent'
             $discountType = $item->discount_type ?? 'percent';
@@ -1199,7 +1185,8 @@ class PurchaseOrderList extends Component
                 'unit_price' => $item->unit_price,
                 'discount' => $item->discount ?? 0,
                 'discount_type' => $discountType,
-                'selling_price' => $currentSellingPrice,
+                'wholesale_price' => $currentWholesalePrice,
+                'retail_price' => $currentRetailPrice,
                 'status' => 'received'
             ];
         }

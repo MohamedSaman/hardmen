@@ -43,14 +43,14 @@ class Products extends Component
 
     // Create form fields
     public $code, $name, $model, $brand, $category, $image, $description, $barcode, $status, $supplier;
-    public $supplier_price, $selling_price, $discount_price, $available_stock, $damage_stock;
+    public $supplier_price, $retail_price, $wholesale_price, $discount_price, $available_stock, $damage_stock;
 
     // Import file
     public $importFile;
 
     // Edit form fields
     public $editId, $editCode, $editName, $editModel, $editBrand, $editCategory, $editImage, $existingImage,
-        $editDescription, $editBarcode, $editStatus, $editSupplierPrice, $editSellingPrice,
+        $editDescription, $editBarcode, $editStatus, $editSupplierPrice, $editRetailPrice, $editWholesalePrice,
         $editDiscountPrice, $editDamageStock;
 
     // Stock Adjustment fields
@@ -145,7 +145,8 @@ class Products extends Component
 
         // Set default prices
         $this->supplier_price = 0;
-        $this->selling_price = 0;
+        $this->retail_price = 0;
+        $this->wholesale_price = 0;
         $this->discount_price = 0;
     }
 
@@ -172,7 +173,8 @@ class Products extends Component
                     'product_details.barcode',
                     'product_details.status',
                     'product_prices.supplier_price',
-                    'staff_products.unit_price as selling_price',
+                    'product_prices.wholesale_price',
+                    'product_prices.retail_price',
                     'staff_products.discount_per_unit as discount_price',
                     DB::raw('(staff_products.quantity - staff_products.sold_quantity) as available_stock'),
                     DB::raw('0 as damage_stock'),
@@ -209,7 +211,8 @@ class Products extends Component
                     'product_details.barcode',
                     'product_details.status',
                     'product_prices.supplier_price',
-                    'product_prices.selling_price',
+                    'product_prices.wholesale_price',
+                    'product_prices.retail_price',
                     'product_prices.discount_price',
                     'product_stocks.available_stock',
                     'product_stocks.damage_stock',
@@ -258,8 +261,9 @@ class Products extends Component
             'description' => 'nullable|string|max:1000',
             'barcode' => 'nullable|string|max:255|unique:product_details,barcode',
             'supplier_price' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0|gte:supplier_price',
-            'discount_price' => 'nullable|numeric|min:0|lte:selling_price',
+            'retail_price' => 'required|numeric|min:0|gte:supplier_price',
+            'wholesale_price' => 'required|numeric|min:0|gte:supplier_price',
+            'discount_price' => 'nullable|numeric|min:0|lte:retail_price',
             'available_stock' => 'required|integer|min:0',
             'damage_stock' => 'nullable|integer|min:0',
         ];
@@ -280,11 +284,15 @@ class Products extends Component
             'supplier_price.required' => 'Supplier price is required.',
             'supplier_price.numeric' => 'Supplier price must be a number.',
             'supplier_price.min' => 'Supplier price cannot be negative.',
-            'selling_price.required' => 'Selling price is required.',
-            'selling_price.numeric' => 'Selling price must be a number.',
-            'selling_price.min' => 'Selling price cannot be negative.',
-            'selling_price.gte' => 'Selling price must be greater than or equal to supplier price.',
-            'discount_price.lte' => 'Discount price cannot be greater than selling price.',
+            'retail_price.required' => 'Retail price is required.',
+            'retail_price.numeric' => 'Retail price must be a number.',
+            'retail_price.min' => 'Retail price cannot be negative.',
+            'retail_price.gte' => 'Retail price must be greater than or equal to supplier price.',
+            'wholesale_price.required' => 'Wholesale price is required.',
+            'wholesale_price.numeric' => 'Wholesale price must be a number.',
+            'wholesale_price.min' => 'Wholesale price cannot be negative.',
+            'wholesale_price.gte' => 'Wholesale price must be greater than or equal to supplier price.',
+            'discount_price.lte' => 'Discount price cannot be greater than retail price.',
             'available_stock.required' => 'Available stock is required.',
             'available_stock.integer' => 'Available stock must be a whole number.',
             'available_stock.min' => 'Available stock cannot be negative.',
@@ -319,9 +327,12 @@ class Products extends Component
         $validatedData = $this->validate();
 
         try {
+            DB::beginTransaction();
+
             // Generate product code if not provided
             $productCode = $this->code ?: 'PROD-' . strtoupper(Str::random(8));
 
+            // Step 1: Create ProductDetail
             $product = ProductDetail::create([
                 'code' => $productCode,
                 'name' => $this->name,
@@ -332,15 +343,20 @@ class Products extends Component
                 'status' => 'active',
                 'brand_id' => $this->brand,
                 'category_id' => $this->category,
+                'supplier_id' => $this->supplier,
             ]);
 
+            // Step 2: Create ProductPrice with product_id reference
             ProductPrice::create([
                 'product_id' => $product->id,
-                'supplier_price' => $this->supplier_price,
-                'selling_price' => $this->selling_price,
-                'discount_price' => $this->discount_price,
+                'supplier_price' => $this->supplier_price ?? 0,
+                'selling_price' => $this->retail_price ?? $this->supplier_price ?? 0,
+                'retail_price' => $this->retail_price ?? 0,
+                'wholesale_price' => $this->wholesale_price ?? 0,
+                'discount_price' => $this->discount_price ?? 0,
             ]);
 
+            // Step 3: Create ProductStock with product_id reference
             ProductStock::create([
                 'product_id' => $product->id,
                 'available_stock' => $this->available_stock ?? 0,
@@ -349,6 +365,8 @@ class Products extends Component
                 'sold_count' => 0,
                 'restocked_quantity' => 0,
             ]);
+
+            DB::commit();
 
             $this->resetForm();
             $this->js("$('#createProductModal').modal('hide')");
@@ -359,7 +377,9 @@ class Products extends Component
 
             $this->dispatch('refreshPage');
         } catch (\Exception $e) {
-            $this->js("Swal.fire('Error!', 'Failed to create product. Please try again.', 'error')");
+            DB::rollBack();
+            Log::error('Product creation failed: ' . $e->getMessage());
+            $this->js("Swal.fire('Error!', 'Failed to create product: " . addslashes($e->getMessage()) . "', 'error')");
         }
     }
 
@@ -446,7 +466,8 @@ class Products extends Component
             'status',
             'supplier',
             'supplier_price',
-            'selling_price',
+            'retail_price',
+            'wholesale_price',
             'discount_price',
             'available_stock',
             'damage_stock'
@@ -470,7 +491,8 @@ class Products extends Component
         $this->editBarcode = $product->barcode;
         $this->editStatus = $product->status;
         $this->editSupplierPrice = $product->price->supplier_price ?? 0;
-        $this->editSellingPrice = $product->price->selling_price ?? 0;
+        $this->editRetailPrice = $product->price->retail_price ?? 0;
+        $this->editWholesalePrice = $product->price->wholesale_price ?? 0;
         $this->editDiscountPrice = $product->price->discount_price ?? 0;
         $this->editDamageStock = $product->stock->damage_stock ?? 0;
 
@@ -498,8 +520,9 @@ class Products extends Component
             'editBarcode' => 'nullable|string|max:255|unique:product_details,barcode,' . $this->editId,
             'editStatus' => 'required|in:active,inactive',
             'editSupplierPrice' => 'required|numeric|min:0',
-            'editSellingPrice' => 'required|numeric|min:0|gte:editSupplierPrice',
-            'editDiscountPrice' => 'nullable|numeric|min:0|lte:editSellingPrice',
+            'editRetailPrice' => 'required|numeric|min:0|gte:editSupplierPrice',
+            'editWholesalePrice' => 'required|numeric|min:0|gte:editSupplierPrice',
+            'editDiscountPrice' => 'nullable|numeric|min:0|lte:editRetailPrice',
             'editDamageStock' => 'required|integer|min:0',
         ];
     }
@@ -532,7 +555,9 @@ class Products extends Component
 
             $product->price()->updateOrCreate([], [
                 'supplier_price' => $this->editSupplierPrice,
-                'selling_price' => $this->editSellingPrice,
+                'selling_price' => $this->editRetailPrice,
+                'retail_price' => $this->editRetailPrice,
+                'wholesale_price' => $this->editWholesalePrice,
                 'discount_price' => $this->editDiscountPrice,
             ]);
 

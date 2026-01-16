@@ -548,14 +548,16 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th class="ps-4">No</th>
-                                            <th>Product Name</th>
                                             <th>Code</th>
+                                            <th>Product Name</th>
+                                            
                                             <th>Brand</th>
                                             <th>Model</th>
                                             <th>Stock</th>
-                                            <th>Supplier Price</th>
-                                            <th>Selling Price</th>
                                             <th>Status</th>
+                                            <th >Supplier Price</th>
+                                            <th >Wholesale Price</th>
+                                            <th >Retail Price</th>
                                             @if (!$isStaff)
                                             <th class="text-end pe-5">Actions</th>
                                             @endif
@@ -569,11 +571,12 @@
                                                 <span class="fw-medium text-dark">{{ $loop->iteration }}</span>
                                             </td>
                                             <td wire:click="viewProductDetails({{ $product->id }})">
-                                                <span class="fw-medium text-dark">{{ $product->product_name }}</span>
-                                            </td>
-                                            <td wire:click="viewProductDetails({{ $product->id }})">
                                                 <span class="fw-medium text-dark">{{ $product->code }}</span>
                                             </td>
+                                            <td wire:click="viewProductDetails({{ $product->id }})">
+                                                <span class="fw-medium text-dark">{{ $product->product_name }}</span>
+                                            </td>
+                                            
                                             <td wire:click="viewProductDetails({{ $product->id }})">
                                                 <span class="fw-medium text-dark">{{ $product->brand }}</span>
                                             </td>
@@ -594,19 +597,23 @@
                                                         </span>
                                             </td>
                                             <td wire:click="viewProductDetails({{ $product->id }})">
-                                                <span class="fw-bold text-dark">Rs.{{
-                                                    number_format($product->supplier_price, 2) }}</span>
-                                            </td>
-                                            <td wire:click="viewProductDetails({{ $product->id }})">
-                                                <span class="fw-bold text-dark">Rs.{{
-                                                    number_format($product->selling_price, 2) }}</span>
-                                            </td>
-                                            <td wire:click="viewProductDetails({{ $product->id }})">
                                                 @if ($product->status == 'active')
                                                 <span class="badge bg-success">Active</span>
                                                 @else
                                                 <span class="badge bg-danger">Inactive</span>
                                                 @endif
+                                            </td>
+                                            <td class="text-end" wire:click="viewProductDetails({{ $product->id }})">
+                                                <span class="fw-bold text-dark">Rs.{{
+                                                    number_format($product->supplier_price, 2) }}</span>
+                                            </td>
+                                            <td class="text-end" wire:click="viewProductDetails({{ $product->id }})">
+                                                <span class="fw-bold text-primary">Rs.{{
+                                                    number_format($product->wholesale_price, 2) }}</span>
+                                            </td>
+                                            <td class="text-end pe-3" wire:click="viewProductDetails({{ $product->id }})">
+                                                <span class="fw-bold text-success">Rs.{{
+                                                    number_format($product->retail_price, 2) }}</span>
                                             </td>
 
                                             @if (!$isStaff)
@@ -1246,14 +1253,28 @@
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
-                                            <label for="selling_price" class="form-label fw-semibold">Selling
+                                            <label for="retail_price" class="form-label fw-semibold">Retail
                                                 Price:</label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
-                                                <input type="number" step="0.01" class="form-control" id="selling_price"
-                                                    wire:model="selling_price">
+                                                <input type="number" step="0.01" class="form-control" id="retail_price"
+                                                    wire:model="retail_price">
                                             </div>
-                                            @error('selling_price')
+                                            @error('retail_price')
+                                            <span class="text-danger small">* {{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="wholesale_price" class="form-label fw-semibold">Wholesale
+                                                Price:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">Rs.</span>
+                                                <input type="number" step="0.01" class="form-control" id="wholesale_price"
+                                                    wire:model="wholesale_price">
+                                            </div>
+                                            @error('wholesale_price')
                                             <span class="text-danger small">* {{ $message }}</span>
                                             @enderror
                                         </div>
@@ -1337,6 +1358,10 @@
                             <ul class="mb-2">
                                 <li><strong>CODE</strong> - Product code (required, unique)</li>
                                 <li><strong>NAME</strong> - Product name (required)</li>
+                                <li><strong>SUPPLIER PRICE</strong> - Cost price (optional)</li>
+                                <li><strong>RETAIL PRICE</strong> - Retail selling price (optional)</li>
+                                <li><strong>WHOLESALE PRICE</strong> - Wholesale selling price (optional)</li>
+                                <li><strong>AVAILABLE STOCK</strong> - Product quantity in stock (optional)</li>
                             </ul>
                             <p class="mb-2"><strong>Note:</strong> Other product fields will be set to default values:
                             </p>
@@ -1344,9 +1369,8 @@
                                 <li>Brand: Default Brand</li>
                                 <li>Category: Default Category</li>
                                 <li>Supplier: Default Supplier</li>
-                                <li>Prices: Rs. 0.00</li>
-                                <li>Stock: 0</li>
                                 <li>Status: Active</li>
+                                <li>If Available Stock is provided, Total Stock will be set to that value</li>
                             </ul>
                         </div>
 
@@ -1367,24 +1391,44 @@
                                             <tr>
                                                 <th>CODE</th>
                                                 <th>NAME</th>
+                                                <th>SUPPLIER PRICE</th>
+                                                <th>RETAIL PRICE</th>
+                                                <th>WHOLESALE PRICE</th>
+                                                <th>AVAILABLE STOCK</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr>
-                                                <td>USN0001</td>
+                                                <td>HM0001</td>
                                                 <td>Flasher Musical 12 V</td>
+                                                <td>100.00</td>
+                                                <td>150.00</td>
+                                                <td>140.00</td>
+                                                <td>50</td>
                                             </tr>
                                             <tr>
-                                                <td>USN0002</td>
+                                                <td>HM0002</td>
                                                 <td>Flasher Musical 24 V</td>
+                                                <td>120.00</td>
+                                                <td>180.00</td>
+                                                <td>170.00</td>
+                                                <td>30</td>
                                             </tr>
                                             <tr>
-                                                <td>USN0003</td>
+                                                <td>HM0003</td>
                                                 <td>Flasher Electrical 12 V</td>
+                                                <td>90.00</td>
+                                                <td>140.00</td>
+                                                <td>130.00</td>
+                                                <td>40</td>
                                             </tr>
                                             <tr>
-                                                <td>USN0004</td>
+                                                <td>HM0004</td>
                                                 <td>Flasher Electrical 24 V</td>
+                                                <td>110.00</td>
+                                                <td>160.00</td>
+                                                <td>150.00</td>
+                                                <td>25</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -1598,14 +1642,28 @@
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
-                                            <label for="editSellingPrice" class="form-label fw-semibold">Selling
+                                            <label for="editRetailPrice" class="form-label fw-semibold">Retail
                                                 Price:</label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control"
-                                                    id="editSellingPrice" wire:model="editSellingPrice">
+                                                    id="editRetailPrice" wire:model="editRetailPrice">
                                             </div>
-                                            @error('editSellingPrice')
+                                            @error('editRetailPrice')
+                                            <span class="text-danger small">* {{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="editWholesalePrice" class="form-label fw-semibold">Wholesale
+                                                Price:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">Rs.</span>
+                                                <input type="number" step="0.01" class="form-control"
+                                                    id="editWholesalePrice" wire:model="editWholesalePrice">
+                                            </div>
+                                            @error('editWholesalePrice')
                                             <span class="text-danger small">* {{ $message }}</span>
                                             @enderror
                                         </div>

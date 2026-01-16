@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('staff_returns', function (Blueprint $table) {
             $table->id();
             $table->foreignId('staff_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->foreignId('product_id')->constrained('product_details')->onDelete('cascade');
             $table->foreignId('customer_id')->nullable()->constrained('customers')->onDelete('set null');
             $table->integer('quantity');
             $table->decimal('unit_price', 10, 2);

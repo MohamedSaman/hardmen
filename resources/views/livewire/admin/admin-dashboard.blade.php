@@ -94,63 +94,88 @@
                 <p class="text-muted mb-0">Get a complete view of your product performance and stock activity.</p>
             </div>
         </div>
-        <!-- Stats Cards Row - Updated to 3 cards -->
+        <!-- Stats Cards Row - Updated to 4 cards -->
         <div class="row mb-4">
-            <!-- Total Sold Stocks Card -->
-            <div class="col-sm-6 col-lg-4 mb-3">
+            <!-- Card 1: Total Sales and Revenue -->
+            <div class="col-sm-6 col-lg-3 mb-3">
                 <div class="stat-card">
-                    <i class="bi bi-cart-check icon-bg"></i>
-                    <div class="stat-label mb-2">Total Sold Stocks</div>
-                    <div class="stat-value mb-3">{{ number_format($soldStock) }} <span class="fs-6 text-muted fw-normal">units</span></div>
+                    <i class="bi bi-cash-stack icon-bg"></i>
+                    <div class="stat-label mb-2">Total Sales & Revenue</div>
+                    <div class="stat-value mb-3">Rs.{{ number_format($totalSales, 0) }}</div>
                     
                     <div class="progress mb-2">
-                        <div class="progress-bar bg-success" style="width: {{ $soldPercentage }}%;"></div>
+                        <div class="progress-bar bg-success" style="width: {{ $revenuePercentage }}%;"></div>
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ $soldPercentage }}% of total stock</small>
+                        <small class="text-muted">Revenue: {{ $revenuePercentage }}%</small>
                         <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
-                            Rs.{{ number_format($totalSales, 0) }}
+                            Rs.{{ number_format($totalRevenue, 0) }}
                         </span>
                     </div>
                 </div>
             </div>
             
-            <!-- Total Available Stocks Card -->
-            <div class="col-sm-6 col-lg-4 mb-3">
+            <!-- Card 2: Total Payment and Due Payment -->
+            <div class="col-sm-6 col-lg-3 mb-3">
+                <div class="stat-card">
+                    <i class="bi bi-wallet2 icon-bg"></i>
+                    <div class="stat-label mb-2">Payment & Due</div>
+                    <div class="stat-value mb-3">Rs.{{ number_format($totalPaidAmount, 0) }}</div>
+                    
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-primary" style="width: {{ $revenuePercentage }}%;"></div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Due: {{ $duePercentage }}%</small>
+                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1">
+                            Rs.{{ number_format($totalDueAmount, 0) }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 3: Total Stocks and Available Stocks -->
+            <div class="col-sm-6 col-lg-3 mb-3">
                 <div class="stat-card">
                     <i class="bi bi-box-seam icon-bg"></i>
-                    <div class="stat-label mb-2">Total Available Stocks</div>
-                    <div class="stat-value mb-3">{{ number_format($availableStock) }} <span class="fs-6 text-muted fw-normal">units</span></div>
+                    <div class="stat-label mb-2">Stocks & Available</div>
+                    <div class="stat-value mb-3">{{ number_format($totalStock) }} <span class="fs-6 text-muted fw-normal">units</span></div>
                     
                     <div class="progress mb-2">
-                        <div class="progress-bar bg-primary" style="width: {{ $availablePercentage }}%;"></div>
+                        <div class="progress-bar bg-info" style="width: {{ $availablePercentage }}%;"></div>
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ $availablePercentage }}% of total stock</small>
-                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">
-                            Rs.{{ number_format($totalAvailableInventory, 0) }}
+                        <small class="text-muted">Available: {{ $availablePercentage }}%</small>
+                        <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1">
+                            {{ number_format($availableStock) }} units
                         </span>
                     </div>
                 </div>
             </div>
             
-            <!-- Damage Stocks Card -->
-            <div class="col-sm-6 col-lg-4 mb-3">
+            <!-- Card 4: Staff Sale and Due Amount -->
+            <div class="col-sm-6 col-lg-3 mb-3">
                 <div class="stat-card">
-                    <i class="bi bi-exclamation-triangle icon-bg"></i>
-                    <div class="stat-label mb-2">Damage Stocks</div>
-                    <div class="stat-value mb-3">{{ number_format($damagedStock) }} <span class="fs-6 text-muted fw-normal">units</span></div>
+                    <i class="bi bi-people icon-bg"></i>
+                    <div class="stat-label mb-2">Staff Sales & Due</div>
+                    <div class="stat-value mb-3">Rs.{{ number_format($totalStaffSalesValue, 0) }}</div>
+                    
+                    @php
+                        $staffDuePercentage = $totalStaffSalesValue > 0 ? round(($totalStaffDueAmount / $totalStaffSalesValue) * 100, 1) : 0;
+                        $staffPaidPercentage = 100 - $staffDuePercentage;
+                    @endphp
                     
                     <div class="progress mb-2">
-                        <div class="progress-bar bg-danger" style="width: {{ $damagedPercentage }}%;"></div>
+                        <div class="progress-bar bg-danger" style="width: {{ $staffDuePercentage }}%;"></div>
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ $damagedPercentage }}% of total stock</small>
+                        <small class="text-muted">Due: {{ $staffDuePercentage }}%</small>
                         <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">
-                            Rs.{{ number_format($damagedValue, 0) }}
+                            Rs.{{ number_format($totalStaffDueAmount, 0) }}
                         </span>
                     </div>
                 </div>

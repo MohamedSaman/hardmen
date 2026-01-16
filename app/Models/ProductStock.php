@@ -10,7 +10,15 @@ class ProductStock extends Model
 {
     use HasFactory;
 
-    protected $fillable = [ 'product_id', 'available_stock',  'damage_stock', 'total_stock','sold_count','restocked_quantity',];
+    protected $fillable = ['product_id', 'available_stock', 'damage_stock', 'total_stock', 'sold_count', 'restocked_quantity'];
+
+    protected $casts = [
+        'available_stock' => 'integer',
+        'damage_stock' => 'integer',
+        'total_stock' => 'integer',
+        'sold_count' => 'integer',
+        'restocked_quantity' => 'integer',
+    ];
 
     /**
      * Get the Product that owns this stock information
@@ -19,7 +27,7 @@ class ProductStock extends Model
     {
         return $this->belongsTo(ProductDetail::class, 'product_id');
     }
-    
+
     /**
      * Update total and available stock automatically
      */
@@ -30,8 +38,7 @@ class ProductStock extends Model
         $this->save();
     }
     public function detail()
-{
-    return $this->hasOne(ProductDetail::class, 'code');
-}
-
+    {
+        return $this->hasOne(ProductDetail::class, 'code');
+    }
 }

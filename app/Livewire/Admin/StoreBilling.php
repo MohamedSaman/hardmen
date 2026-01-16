@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 #[Title('POS')]
+#[Layout('components.layouts.app')]
 class StoreBilling extends Component
 {
     use WithFileUploads;
@@ -90,6 +91,12 @@ class StoreBilling extends Component
     // Discount Properties
     public $additionalDiscount = 0;
     public $additionalDiscountType = 'fixed'; // 'fixed' or 'percentage'
+
+    // Price Type Selection
+    public $priceType = 'retail'; // 'retail' or 'wholesale'
+
+    // View Type Selection
+    public $productViewType = 'grid'; // 'grid' or 'list'
 
     // Modals
     public $showSaleModal = false;
@@ -241,12 +248,18 @@ class StoreBilling extends Component
         }
 
         $this->products = $query->take(20)->get()->map(function ($product) {
+            $priceValue = $this->priceType === 'retail'
+                ? ($product->price->retail_price ?? 0)
+                : ($product->price->wholesale_price ?? 0);
+
             return [
                 'id' => $product->id,
                 'name' => $product->name,
                 'code' => $product->code,
                 'model' => $product->model,
-                'price' => $product->price->selling_price ?? 0,
+                'price' => $priceValue,
+                'retail_price' => $product->price->retail_price ?? 0,
+                'wholesale_price' => $product->price->wholesale_price ?? 0,
                 'stock' => $product->stock->available_stock ?? 0,
                 'image' => $product->image
             ];
@@ -467,6 +480,12 @@ class StoreBilling extends Component
         } elseif ($value === 'cheque') {
             $this->tempChequeAmount = $this->grandTotal;
         }
+    }
+
+    // When price type changes
+    public function updatedPriceType($value)
+    {
+        $this->loadProducts();
     }
 
     // Auto-update cash amount when cart changes (if payment method is cash)
@@ -1004,6 +1023,7 @@ class StoreBilling extends Component
             $this->resetPaymentFields();
             $this->notes = '';
 
+
             // Reset to walking customer
             $this->setDefaultCustomer();
 
@@ -1115,6 +1135,8 @@ class StoreBilling extends Component
         $this->resetExcept(['customers', 'currentSession']);
         $this->loadCustomers();
         $this->setDefaultCustomer(); // Set walking customer again for new sale
+        $this->loadCategories(); // Reload categories after sale
+        $this->loadProducts(); // Reload products after sale
         $this->showSaleModal = false;
 
         // Dispatch event to clean up modal backdrop
