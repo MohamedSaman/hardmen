@@ -66,167 +66,31 @@
     {{-- Main POS Layout --}}
     <div class="row g-0" style="min-height: calc(100vh - 95px);">
         
-        {{-- LEFT SIDEBAR - Customer & Cart --}}
-        <div class="col-md-3 bg-white border-end d-flex flex-column" style="max-height: calc(100vh - 95px);">
-            {{-- Customer Section --}}
-            <div class="p-3 border-bottom">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="mb-0 fw-bold">
-                        <i class="bi bi-person me-2" style="color: #f58320;"></i>Customer
-                    </h6>
-                    <button class="btn btn-link btn-sm p-0 text-decoration-none" style="color: #f58320;" wire:click="openCustomerModal">
-                        <i class="bi bi-plus-circle me-1"></i>Add New
-                    </button>
-                </div>
-                <select class="form-select form-select-sm" style="border-radius: 8px;" wire:model.live="customerId">
-                    @foreach($customers as $customer)
-                    <option value="{{ $customer->id }}">
-                        {{ $customer->name }}
-                        @if($customer->phone) - {{ $customer->phone }} @endif
-                        @if($customer->name === 'Walking Customer') (Default) @endif
-                    </option>
-                    @endforeach
-                </select>
-            </div>
-
-            {{-- Shopping Cart --}}
+        {{-- LEFT SIDEBAR - Categories --}}
+        
+        <div class="col-md-2 bg-white border-start d-flex flex-column" style="max-height: calc(100vh - 95px);">
+            {{-- Categories --}}
             <div class="p-3 flex-grow-1" style="overflow-y: auto;">
-                <div class="d-flex justify-content-between align-items-center mb-3 gap-2">
-                    <h6 class="mb-0 fw-bold">
-                        <i class="bi bi-cart3 me-2" style="color: #f58320;"></i>Shopping Cart
-                    </h6>
-                    
-                    {{-- Price Type Selector in Header --}}
-                    <select class="form-select form-select-sm" style="max-width: 150px; border-radius: 8px;" wire:model.live="priceType">
-                        <option value="retail">Retail Price</option>
-                        <option value="wholesale">Wholesale Price</option>
-                    </select>
-                    
-                    <span class="badge text-white" style="background: #f58320;">{{ count($cart) }} Items</span>
-                </div>
-
-                @if(count($cart) > 0)
-                <div class="cart-items">
-                    @foreach($cart as $index => $item)
-                    <div class="cart-item d-flex align-items-center p-2 mb-2 bg-light rounded border-start border-4" 
-                        style="border-left-color: #f58320 !important;"
-                        wire:key="cart-{{ $item['key'] ?? $index }}">
-                        
-                        {{-- Product Image --}}
-                        <div class="cart-item-image me-2">
-                            @if(isset($item['image']) && $item['image'])
-                                <img src="{{ (strpos($item['image'], 'http') === 0 || strpos($item['image'], 'data:') === 0) ? $item['image'] : asset('images/default.png') }}" 
-                                    alt="{{ $item['name'] }}" 
-                                    class="rounded shadow-sm" style="width: 45px; height: 45px; object-fit: cover;">
-                            @else
-                                <div class="bg-white rounded shadow-sm d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
-                                    <i class="bi bi-image text-muted" style="font-size: 1.2rem;"></i>
-                                </div>
-                            @endif
-                        </div>
-
-                        {{-- Product Details --}}
-                        <div class="cart-item-details flex-grow-1" style="min-width: 0;">
-                            <h6 class="mb-0 small fw-bold text-truncate" title="{{ $item['name'] }}">{{ $item['name'] }}</h6>
-                            <div class="d-flex align-items-center mt-1">
-                                <div class="input-group input-group-sm" style="width: 90px;">
-                                    <span class="input-group-text bg-white border-end-0 px-1 py-0" style="font-size: 0.7rem;">Rs.</span>
-                                    <input type="number" step="0.01" 
-                                        class="form-control border-start-0 px-1 py-0 fw-semibold text-orange" 
-                                        style="font-size: 0.75rem;"
-                                        value="{{ $item['price'] }}"
-                                        wire:change="updatePrice({{ $index }}, $event.target.value)">
-                                </div>
-                                <div class="d-flex align-items-center ms-auto bg-white rounded border px-1">
-                                    <input type="number" class="form-control form-control-sm text-center fw-bold p-0" 
-                                        style="width: 60px; font-size: 0.85rem; border: none; background: transparent;"
-                                        min="1" 
-                                        max="{{ $item['stock'] }}"
-                                        value="{{ $item['quantity'] }}"
-                                        @input="if($event.target.value > {{ $item['stock'] }}) { Swal.fire('Warning!', 'Maximum available quantity is {{ $item['stock'] }} units.', 'warning'); $event.target.value = {{ $item['stock'] }}; }"
-                                        wire:change="updateQuantity({{ $index }}, $event.target.value)">
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Total & Remove --}}
-                        <div class="cart-item-price text-end ms-2" style="min-width: 70px;">
-                            <button class="btn btn-sm btn-light text-danger p-1 rounded-circle border shadow-sm mb-1" 
-                                wire:click="removeFromCart({{ $index }})" title="Remove">
-                                <i class="bi bi-x" style="font-size: 1rem; line-height: 1;"></i>
-                            </button>
-                            <div class="fw-bold small text-orange">Rs. {{ number_format($item['total'], 0) }}</div>
-                        </div>
-                    </div>
-                    @endforeach
-                </div>
-                @else
-                <div class="text-center text-muted py-4">
-                    <i class="bi bi-cart-x" style="font-size: 2rem;"></i>
-                    <p class="mb-0 mt-2 small">Cart is empty</p>
-                </div>
-                @endif
-            </div>
-
-            {{-- Cart Summary & Complete Sale --}}
-            <div class="p-3 border-top bg-light mt-auto">
-                <div class="d-flex justify-content-between mb-1">
-                    <span class="text-muted small">Subtotal</span>
-                    <span class="fw-semibold small">Rs. {{ number_format($subtotal, 2) }}</span>
-                </div>
-                @if($totalDiscount > 0)
-                <div class="d-flex justify-content-between mb-1">
-                    <span class="text-muted small">Item Discounts</span>
-                    <span class="text-danger small">- Rs. {{ number_format($totalDiscount, 2) }}</span>
-                </div>
-                @endif
+                <h6 class="mb-3 fw-bold">
+                    <i class="bi bi-grid me-2" style="color: #f58320;"></i>Categories
+                </h6>
                 
-                {{-- Additional Discount Input --}}
-                <div class="mb-2 mt-2">
-                    <label class="form-label small fw-semibold mb-1">
-                        <i class="bi bi-tag me-1" style="color: #f58320;"></i>Additional Discount
-                    </label>
-                    <div class="input-group input-group-sm">
-                        <input type="number" class="form-control" wire:model.live="additionalDiscount" 
-                            placeholder="0" step="0.01" min="0"
-                            style="border-right: none;"
-                            @input="$event.target.value = parseInt($event.target.value) || ''">
-                        <button class="btn btn-outline-secondary" type="button" wire:click="toggleDiscountType" 
-                            style="border-left: none; border-right: none; background: white;">
-                            @if($additionalDiscountType === 'percentage')
-                                <i class="bi bi-percent fw-bold" style="color: #f58320;"></i>
-                            @else
-                                <span class="fw-bold" style="color: #f58320;">Rs.</span>
-                            @endif
-                        </button>
-                        @if($additionalDiscount > 0)
-                        <button class="btn btn-outline-danger" type="button" wire:click="removeAdditionalDiscount" title="Remove discount">
-                            <i class="bi bi-x"></i>
-                        </button>
-                        @endif
-                    </div>
-                    @if($additionalDiscount > 0)
-                    <small class="text-muted d-block mt-1">
-                        Discount: 
-                        @if($additionalDiscountType === 'percentage')
-                            {{ $additionalDiscount }}% = Rs. {{ number_format($additionalDiscountAmount, 2) }}
-                        @else
-                            Rs. {{ number_format($additionalDiscountAmount, 2) }}
-                        @endif
-                    </small>
-                    @endif
-                </div>
-                
-                <div class="d-flex justify-content-between mb-3 pt-2 border-top">
-                    <span class="fw-bold">Total</span>
-                    <span class="fw-bold fs-5" style="color: #f58320;">Rs. {{ number_format($grandTotal, 2) }}</span>
-                </div>
-                <button class="btn w-100 text-white py-2 fw-bold" 
-                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);"
-                    wire:click="validateAndCreateSale"
-                    {{ count($cart) == 0 ? 'disabled' : '' }}>
-                    <i class="bi bi-cart-check me-2"></i>Complete Sale
+                {{-- All Products Button --}}
+                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ !$selectedCategory ? 'text-white' : 'btn-light' }}"
+                    style="{{ !$selectedCategory ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
+                    wire:click="showAllProducts">
+                    <span><i class="bi bi-collection me-2"></i>All Products</span>
+                    <i class="bi bi-chevron-right"></i>
                 </button>
+
+                {{-- Category List --}}
+                @foreach($categories as $category)
+                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ $selectedCategory == $category->id ? 'text-white' : 'btn-light' }}"
+                    style="{{ $selectedCategory == $category->id ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
+                    wire:click="selectCategory({{ $category->id }})">
+                    <span>{{ $category->category_name }}</span>
+                </button>
+                @endforeach
             </div>
         </div>
 
@@ -425,30 +289,167 @@
             </div>
         </div>
 
-        {{-- RIGHT SIDEBAR - Categories --}}
-        <div class="col-md-2 bg-white border-start d-flex flex-column" style="max-height: calc(100vh - 95px);">
-            {{-- Categories --}}
-            <div class="p-3 flex-grow-1" style="overflow-y: auto;">
-                <h6 class="mb-3 fw-bold">
-                    <i class="bi bi-grid me-2" style="color: #f58320;"></i>Categories
-                </h6>
-                
-                {{-- All Products Button --}}
-                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ !$selectedCategory ? 'text-white' : 'btn-light' }}"
-                    style="{{ !$selectedCategory ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
-                    wire:click="showAllProducts">
-                    <span><i class="bi bi-collection me-2"></i>All Products</span>
-                    <i class="bi bi-chevron-right"></i>
-                </button>
+        {{-- RIGHT SIDEBAR - Customer & Cart --}}
+        <div class="col-md-3 bg-white border-end d-flex flex-column" style="max-height: calc(100vh - 95px);">
+            {{-- Customer Section --}}
+            <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 fw-bold">
+                        <i class="bi bi-person me-2" style="color: #f58320;"></i>Customer
+                    </h6>
+                    <button class="btn btn-link btn-sm p-0 text-decoration-none" style="color: #f58320;" wire:click="openCustomerModal">
+                        <i class="bi bi-plus-circle me-1"></i>Add New
+                    </button>
+                </div>
+                <select class="form-select form-select-sm" style="border-radius: 8px;" wire:model.live="customerId">
+                    @foreach($customers as $customer)
+                    <option value="{{ $customer->id }}">
+                        {{ $customer->name }}
+                        @if($customer->phone) - {{ $customer->phone }} @endif
+                        @if($customer->name === 'Walking Customer') (Default) @endif
+                    </option>
+                    @endforeach
+                </select>
+            </div>
 
-                {{-- Category List --}}
-                @foreach($categories as $category)
-                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ $selectedCategory == $category->id ? 'text-white' : 'btn-light' }}"
-                    style="{{ $selectedCategory == $category->id ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
-                    wire:click="selectCategory({{ $category->id }})">
-                    <span>{{ $category->category_name }}</span>
+            {{-- Shopping Cart --}}
+            <div class="p-3 flex-grow-1" style="overflow-y: auto;">
+                <div class="d-flex justify-content-between align-items-center mb-3 gap-2">
+                    <h6 class="mb-0 fw-bold">
+                        <i class="bi bi-cart3 me-2" style="color: #f58320;"></i>Shopping Cart
+                    </h6>
+                    
+                    {{-- Price Type Selector in Header --}}
+                    <select class="form-select form-select-sm" style="max-width: 150px; border-radius: 8px;" wire:model.live="priceType">
+                        <option value="retail">Retail Price</option>
+                        <option value="wholesale">Wholesale Price</option>
+                    </select>
+                    
+                    <span class="badge text-white" style="background: #f58320;">{{ count($cart) }} Items</span>
+                </div>
+
+                @if(count($cart) > 0)
+                <div class="cart-items">
+                    @foreach($cart as $index => $item)
+                    <div class="cart-item d-flex align-items-center p-2 mb-2 bg-light rounded border-start border-4" 
+                        style="border-left-color: #f58320 !important;"
+                        wire:key="cart-{{ $item['key'] ?? $index }}">
+                        
+                        {{-- Product Image --}}
+                        <div class="cart-item-image me-2">
+                            @if(isset($item['image']) && $item['image'])
+                                <img src="{{ (strpos($item['image'], 'http') === 0 || strpos($item['image'], 'data:') === 0) ? $item['image'] : asset('images/default.png') }}" 
+                                    alt="{{ $item['name'] }}" 
+                                    class="rounded shadow-sm" style="width: 45px; height: 45px; object-fit: cover;">
+                            @else
+                                <div class="bg-white rounded shadow-sm d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                                    <i class="bi bi-image text-muted" style="font-size: 1.2rem;"></i>
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Product Details --}}
+                        <div class="cart-item-details flex-grow-1" style="min-width: 0;">
+                            <h6 class="mb-0 small fw-bold text-truncate" title="{{ $item['name'] }}">{{ $item['name'] }}</h6>
+                            <div class="d-flex align-items-center mt-1">
+                                <div class="input-group input-group-sm" style="width: 90px;">
+                                    <span class="input-group-text bg-white border-end-0 px-1 py-0" style="font-size: 0.7rem;">Rs.</span>
+                                    <input type="number" step="0.01" 
+                                        class="form-control border-start-0 px-1 py-0 fw-semibold text-orange" 
+                                        style="font-size: 0.75rem;"
+                                        value="{{ $item['price'] }}"
+                                        wire:change="updatePrice({{ $index }}, $event.target.value)">
+                                </div>
+                                <div class="d-flex align-items-center ms-auto bg-white rounded border px-1">
+                                    <input type="number" class="form-control form-control-sm text-center fw-bold p-0" 
+                                        style="width: 60px; font-size: 0.85rem; border: none; background: transparent;"
+                                        min="1" 
+                                        max="{{ $item['stock'] }}"
+                                        value="{{ $item['quantity'] }}"
+                                        @input="if($event.target.value > {{ $item['stock'] }}) { Swal.fire('Warning!', 'Maximum available quantity is {{ $item['stock'] }} units.', 'warning'); $event.target.value = {{ $item['stock'] }}; }"
+                                        wire:change="updateQuantity({{ $index }}, $event.target.value)">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Total & Remove --}}
+                        <div class="cart-item-price text-end ms-2" style="min-width: 70px;">
+                            <button class="btn btn-sm btn-light text-danger p-1 rounded-circle border shadow-sm mb-1" 
+                                wire:click="removeFromCart({{ $index }})" title="Remove">
+                                <i class="bi bi-x" style="font-size: 1rem; line-height: 1;"></i>
+                            </button>
+                            <div class="fw-bold small text-orange">Rs. {{ number_format($item['total'], 0) }}</div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+                @else
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-cart-x" style="font-size: 2rem;"></i>
+                    <p class="mb-0 mt-2 small">Cart is empty</p>
+                </div>
+                @endif
+            </div>
+
+            {{-- Cart Summary & Complete Sale --}}
+            <div class="p-3 border-top bg-light mt-auto">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted small">Subtotal</span>
+                    <span class="fw-semibold small">Rs. {{ number_format($subtotal, 2) }}</span>
+                </div>
+                @if($totalDiscount > 0)
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted small">Item Discounts</span>
+                    <span class="text-danger small">- Rs. {{ number_format($totalDiscount, 2) }}</span>
+                </div>
+                @endif
+                
+                {{-- Additional Discount Input --}}
+                <div class="mb-2 mt-2">
+                    <label class="form-label small fw-semibold mb-1">
+                        <i class="bi bi-tag me-1" style="color: #f58320;"></i>Additional Discount
+                    </label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" wire:model.live="additionalDiscount" 
+                            placeholder="0" step="0.01" min="0"
+                            style="border-right: none;"
+                            @input="$event.target.value = parseInt($event.target.value) || ''">
+                        <button class="btn btn-outline-secondary" type="button" wire:click="toggleDiscountType" 
+                            style="border-left: none; border-right: none; background: white;">
+                            @if($additionalDiscountType === 'percentage')
+                                <i class="bi bi-percent fw-bold" style="color: #f58320;"></i>
+                            @else
+                                <span class="fw-bold" style="color: #f58320;">Rs.</span>
+                            @endif
+                        </button>
+                        @if($additionalDiscount > 0)
+                        <button class="btn btn-outline-danger" type="button" wire:click="removeAdditionalDiscount" title="Remove discount">
+                            <i class="bi bi-x"></i>
+                        </button>
+                        @endif
+                    </div>
+                    @if($additionalDiscount > 0)
+                    <small class="text-muted d-block mt-1">
+                        Discount: 
+                        @if($additionalDiscountType === 'percentage')
+                            {{ $additionalDiscount }}% = Rs. {{ number_format($additionalDiscountAmount, 2) }}
+                        @else
+                            Rs. {{ number_format($additionalDiscountAmount, 2) }}
+                        @endif
+                    </small>
+                    @endif
+                </div>
+                
+                <div class="d-flex justify-content-between mb-3 pt-2 border-top">
+                    <span class="fw-bold">Total</span>
+                    <span class="fw-bold fs-5" style="color: #f58320;">Rs. {{ number_format($grandTotal, 2) }}</span>
+                </div>
+                <button class="btn w-100 text-white py-2 fw-bold" 
+                    style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);"
+                    wire:click="validateAndCreateSale"
+                    {{ count($cart) == 0 ? 'disabled' : '' }}>
+                    <i class="bi bi-cart-check me-2"></i>Complete Sale
                 </button>
-                @endforeach
             </div>
         </div>
     </div>
@@ -528,32 +529,51 @@
                                 @elseif($paymentMethod == 'cheque')
                                     {{-- Multi-Cheque Support --}}
                                     <div class="bg-white p-2 rounded border mb-2 shadow-sm">
-                                        <h6 class="fw-bold text-orange mb-2 fs-8"><i class="bi bi-plus-circle me-1"></i>Add Cheque Details</h6>
-                                        <div class="row g-1">
-                                            <div class="col-6">
-                                                <label class="form-label fw-bold fs-8 mb-1">Bank Name</label>
-                                                <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempBankName" placeholder="Bank name">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label fw-bold fs-8 mb-1">Cheque #</label>
-                                                <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempChequeNumber" placeholder="Cheque number">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label fw-bold fs-8 mb-1">Cheque Date</label>
-                                                <input type="date" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempChequeDate">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label fw-bold fs-8 mb-1">Amount (Rs.)</label>
-                                                <input type="number" class="form-control form-control-sm fw-bold fs-8 text-orange border p-2 rounded" wire:model="tempChequeAmount" placeholder="0.00" step="0.01">
-                                            </div>
-                                            <div class="col-12">
-                                                <button class="btn btn-orange btn-sm w-100 fw-bold text-white shadow-sm fs-8" 
-                                                    style="background: #f58320; padding: 0.4rem 0.5rem;"
-                                                    wire:click="addCheque">
-                                                    <i class="bi bi-plus-circle me-1"></i>ADD CHEQUE
-                                                </button>
+                                        {{-- Add Cheque Button --}}
+                                        @if(!$expandedChequeForm)
+                                        <button class="btn btn-orange btn-sm w-100 fw-bold text-white shadow-sm fs-8" 
+                                            style="background: #f58320; padding: 0.4rem 0.5rem;"
+                                            wire:click="toggleChequeForm">
+                                            <i class="bi bi-plus-circle me-1"></i>ADD CHEQUE
+                                        </button>
+                                        @else
+                                        {{-- Cheque Form (Collapsed/Expanded) --}}
+                                        <div class="border rounded p-2 bg-light">
+                                            <h6 class="fw-bold text-orange mb-2 fs-8"><i class="bi bi-check2-square me-1"></i>Cheque Details</h6>
+                                            <div class="row g-1">
+                                                <div class="col-6">
+                                                    <label class="form-label fw-bold fs-8 mb-1">Bank Name</label>
+                                                    <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempBankName" placeholder="Bank name">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label fw-bold fs-8 mb-1">Cheque #</label>
+                                                    <input type="text" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempChequeNumber" placeholder="Cheque number">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label fw-bold fs-8 mb-1">Cheque Date</label>
+                                                    <input type="date" class="form-control form-control-sm fs-8 border p-2 rounded" wire:model="tempChequeDate">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label fw-bold fs-8 mb-1">Amount (Rs.)</label>
+                                                    <input type="number" class="form-control form-control-sm fw-bold fs-8 text-orange border p-2 rounded" wire:model="tempChequeAmount" placeholder="0.00" step="0.01">
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="d-flex gap-2">
+                                                        <button class="btn btn-orange btn-sm flex-grow-1 fw-bold text-white shadow-sm fs-8" 
+                                                            style="background: #f58320; padding: 0.4rem 0.5rem;"
+                                                            wire:click="addCheque">
+                                                            <i class="bi bi-check-circle me-1"></i>ADD
+                                                        </button>
+                                                        <button class="btn btn-outline-secondary btn-sm flex-grow-1 fw-bold fs-8" 
+                                                            style="padding: 0.4rem 0.5rem;"
+                                                            wire:click="cancelChequeForm">
+                                                            <i class="bi bi-x-circle me-1"></i>CANCEL
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
+                                        @endif
                                     </div>
 
                                     @if(!empty($cheques))
@@ -563,8 +583,9 @@
                                                 <tr>
                                                     <th class="small">Bank</th>
                                                     <th class="small">Cheque #</th>
+                                                    <th class="small">Date</th>
                                                     <th class="small text-end">Amount</th>
-                                                    <th class="small"></th>
+                                                    <th class="small text-center">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -572,9 +593,10 @@
                                                 <tr>
                                                     <td class="small">{{ $chq['bank_name'] }}</td>
                                                     <td class="small">{{ $chq['number'] }}</td>
+                                                    <td class="small">{{ \Carbon\Carbon::parse($chq['date'])->format('d M Y') }}</td>
                                                     <td class="small text-end fw-bold">Rs. {{ number_format($chq['amount'], 2) }}</td>
                                                     <td class="text-center">
-                                                        <button class="btn btn-sm text-danger p-0" wire:click="removeCheque({{ $idx }})">
+                                                        <button class="btn btn-sm text-danger p-0" wire:click="removeCheque({{ $idx }})" title="Remove">
                                                             <i class="bi bi-trash"></i>
                                                         </button>
                                                     </td>
@@ -583,11 +605,22 @@
                                             </tbody>
                                             <tfoot class="table-light">
                                                 <tr>
-                                                    <th colspan="2" class="text-end">Total Cheque Amount:</th>
+                                                    <th colspan="3" class="text-end">Total Cheque Amount:</th>
                                                     <th class="text-end text-orange fw-800">Rs. {{ number_format(collect($cheques)->sum('amount'), 2) }}</th>
                                                     <th></th>
                                                 </tr>
-                                            </tfoot>
+                                                @php
+                                                    $totalCheques = collect($cheques)->sum('amount');
+                                                    $remaining = $grandTotal - $totalCheques;
+                                                @endphp
+                                                @if($remaining > 0)
+                                                <tr class="bg-warning-light">
+                                                    <th colspan="3" class="text-end">Remaining Amount:</th>
+                                                    <th class="text-end text-danger fw-800">Rs. {{ number_format($remaining, 2) }}</th>
+                                                    <th></th>
+                                                </tr>
+                                                @endif
+
                                         </table>
                                     </div>
                                     @endif

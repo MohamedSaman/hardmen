@@ -82,6 +82,7 @@ class StoreBilling extends Component
     public $tempBankName = '';
     public $tempChequeDate = '';
     public $tempChequeAmount = 0;
+    public $expandedChequeForm = false;
 
     // Bank Transfer Payment
     public $bankTransferAmount = 0;
@@ -529,6 +530,15 @@ class StoreBilling extends Component
             return;
         }
 
+        // Calculate total cheques already added + new cheque
+        $totalCheques = collect($this->cheques)->sum('amount') + $this->tempChequeAmount;
+
+        // Validate that total cheques don't exceed grand total
+        if ($totalCheques > $this->grandTotal) {
+            $this->js("Swal.fire('Error!', 'Total cheque amount cannot exceed grand total of Rs. " . number_format($this->grandTotal, 2) . "', 'error');");
+            return;
+        }
+
         $this->cheques[] = [
             'number' => $this->tempChequeNumber,
             'bank_name' => $this->tempBankName,
@@ -536,11 +546,12 @@ class StoreBilling extends Component
             'amount' => $this->tempChequeAmount,
         ];
 
-        // Reset temporary fields
+        // Reset temporary fields and collapse form
         $this->tempChequeNumber = '';
         $this->tempBankName = '';
         $this->tempChequeDate = now()->format('Y-m-d');
         $this->tempChequeAmount = 0;
+        $this->expandedChequeForm = false;
 
         $this->js("Swal.fire('Success!', 'Cheque added successfully!', 'success')");
     }
@@ -551,6 +562,29 @@ class StoreBilling extends Component
         unset($this->cheques[$index]);
         $this->cheques = array_values($this->cheques);
         $this->js("Swal.fire('success', 'Cheque removed successfully!', 'success')");
+    }
+
+    // Toggle Cheque Form Visibility
+    public function toggleChequeForm()
+    {
+        $this->expandedChequeForm = !$this->expandedChequeForm;
+        if (!$this->expandedChequeForm) {
+            // Reset form when closing
+            $this->tempChequeNumber = '';
+            $this->tempBankName = '';
+            $this->tempChequeDate = now()->format('Y-m-d');
+            $this->tempChequeAmount = 0;
+        }
+    }
+
+    // Cancel Cheque Form
+    public function cancelChequeForm()
+    {
+        $this->expandedChequeForm = false;
+        $this->tempChequeNumber = '';
+        $this->tempBankName = '';
+        $this->tempChequeDate = now()->format('Y-m-d');
+        $this->tempChequeAmount = 0;
     }
 
     // Reset customer fields
@@ -840,7 +874,7 @@ class StoreBilling extends Component
         // Validate payment method specific fields
         if ($this->paymentMethod === 'cash') {
             if ($this->amountReceived < $this->grandTotal) {
-                $this->js("Swal.fire('error', 'Amount received cannot be less than total amount.', 'error')");
+                $this->js("Swal.fire('error', 'Amount received must be at least Rs. " . number_format($this->grandTotal, 2) . "', 'error')");
                 return;
             }
         } elseif ($this->paymentMethod === 'cheque') {
@@ -848,9 +882,20 @@ class StoreBilling extends Component
                 $this->js("Swal.fire('error', 'Please add at least one cheque.', 'error')");
                 return;
             }
+            // Validate total cheques don't exceed grand total
+            $totalCheques = collect($this->cheques)->sum('amount');
+            if ($totalCheques > $this->grandTotal) {
+                $this->js("Swal.fire('error', 'Total cheque amount cannot exceed grand total of Rs. " . number_format($this->grandTotal, 2) . "', 'error')");
+                return;
+            }
         } elseif ($this->paymentMethod === 'bank_transfer') {
             if ($this->bankTransferAmount <= 0) {
                 $this->js("Swal.fire('error', 'Please enter bank transfer amount.', 'error')");
+                return;
+            }
+            // Validate bank transfer amount doesn't exceed grand total
+            if ($this->bankTransferAmount > $this->grandTotal) {
+                $this->js("Swal.fire('error', 'Bank transfer amount cannot exceed grand total of Rs. " . number_format($this->grandTotal, 2) . "', 'error')");
                 return;
             }
         }
