@@ -184,19 +184,19 @@
 
         <!-- Equal Size Cards Section -->
         <div class="row">
-            <!-- Sales Overview By Categories Card -->
+            <!-- Sales Overview By Daily Trend Card -->
             <div class="col-lg-6 col-md-12 mb-4">
                 <div class="chart-card">
                     <div class="chart-header d-flex justify-content-between align-items-center flex-wrap">
                         <div class="mb-mobile-2">
-                            <h6 class="mb-1">Sales Overview By Categories</h6>
-                            <p class="text-muted mb-0 small">Compare sales performance by Product Categories</p>
+                            <h6 class="mb-1">Daily Sales Trend</h6>
+                            <p class="text-muted mb-0 small">Sales performance over the last 7 days</p>
                         </div>
                        
                     </div>
                     <!-- Add scrollable wrapper for the chart -->
                     <div class="chart-scroll-container">
-                        <div class="chart-container" style="min-width: {{ count($categorySales) * 60 }}px;">
+                        <div class="chart-container" style="min-width: 300px;">
                             <canvas id="salesChart"></canvas>
                         </div>
                     </div>
@@ -267,32 +267,38 @@
     @push('scripts')
     <script>
         // Prepare data from PHP
-        const categoryLabels = @json(collect($categorySales)->pluck('category'));
-        const categoryTotals = @json(collect($categorySales)->pluck('total_sales'));
+        const dailyLabels = @json(collect($dailySales)->pluck('date'));
+        const dailyTotals = @json(collect($dailySales)->pluck('total_sales'));
 
         // Chart instance
         let salesChartInstance = null;
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize category sales chart
-            initializeCategorySalesChart();
+            // Initialize daily sales chart
+            initializeDailySalesChart();
         });
 
-        function initializeCategorySalesChart() {
+        function initializeDailySalesChart() {
             const ctx = document.getElementById('salesChart');
             if (!ctx) return;
             
             salesChartInstance = new Chart(ctx.getContext('2d'), {
-                type: 'bar',
+                type: 'line',
                 data: {
-                    labels: categoryLabels,
+                    labels: dailyLabels,
                     datasets: [{
-                        label: 'Sales (Rs.)',
-                        backgroundColor: '#f58320',
-                        hoverBackgroundColor: '#e07010',
-                        borderRadius: 6,
-                        data: categoryTotals,
-                        barThickness: 30,
+                        label: 'Daily Sales (Rs.)',
+                        backgroundColor: 'rgba(245, 131, 32, 0.1)',
+                        borderColor: '#f58320',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#f58320',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        data: dailyTotals,
+                        fill: true,
+                        tension: 0.4
                     }]
                 },
                 options: {
@@ -304,7 +310,15 @@
                         }
                     },
                     plugins: {
-                        legend: { display: false },
+                        legend: { 
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: { size: 13, weight: '500' },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
                         tooltip: { 
                             backgroundColor: '#1f2937',
                             padding: 12,

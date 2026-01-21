@@ -57,7 +57,7 @@
         </div>
         <div class="card-body p-0">
             @if (!empty($salesData) && count($salesData) > 0)
-                <div class="table-responsive">
+                <div class="table-responsive" style="min-height: 100px !important;">
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
@@ -266,7 +266,7 @@
                     <!-- Sale Items -->
                     <h6 class="fw-bold text-muted mb-3">Sale Items ({{ count($selectedSale->items ?? []) }})</h6>
                     @if ($selectedSale->items && count($selectedSale->items) > 0)
-                    <div class="table-responsive mb-4">
+                    <div class="table-responsive mb-4" style="min-height: 100px !important;">
                         <table class="table table-sm table-bordered">
                             <thead class="table-light">
                                 <tr>

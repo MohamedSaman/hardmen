@@ -34,7 +34,7 @@ class StaffDashboard extends Component
 
     public $recentSales = [];
     public $productInventory = [];
-    public $brandSales = [];
+    public $dailySales = [];
     public $customerPaymentStats = [];
 
     public $availableStockValue = 0;
@@ -130,8 +130,8 @@ class StaffDashboard extends Component
         // Load product inventory
         $this->loadProductInventory($userId);
 
-        // Load brand-wise sales data
-        $this->loadBrandSales($userId);
+        // Load daily sales data for last 7 days
+        $this->loadDailySales($userId);
 
         // Load customer payment statistics
         $this->loadCustomerPaymentStats($userId);
@@ -185,19 +185,25 @@ class StaffDashboard extends Component
             ->get();
     }
 
-    protected function loadBrandSales($userId)
+    protected function loadDailySales($userId)
     {
-        // Get brand-wise sales for this staff member
-        $this->brandSales = DB::table('sale_items')
-            ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
-            ->join('product_details', 'sale_items.product_id', '=', 'product_details.id')
-            ->leftJoin('brand_lists', 'brand_lists.id', '=', 'product_details.brand_id')
-            ->where('sales.user_id', $userId)
-            ->select('brand_lists.brand_name as brand_name', DB::raw('SUM(sale_items.total) as total_sales'))
-            ->groupBy('brand_lists.brand_name')
-            ->orderBy('total_sales', 'desc')
-            ->get()
-            ->toArray();
+        // Get daily sales for the last 7 days
+        $dailySales = [];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i);
+
+            $sales = Sale::where('user_id', $userId)
+                ->whereDate('created_at', $date->toDateString())
+                ->sum('total_amount');
+
+            $dailySales[] = [
+                'date' => $date->format('M d'),
+                'total_sales' => (float) $sales
+            ];
+        }
+
+        $this->dailySales = $dailySales;
     }
 
     protected function loadCustomerPaymentStats($userId)

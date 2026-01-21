@@ -1,134 +1,141 @@
-<div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
+<div class="container-fluid py-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <h2 class="text-2xl font-bold text-gray-800">Product Returns List</h2>
-            <p class="text-gray-600">View all returned products</p>
+            <h3 class="fw-bold text-dark mb-2">
+                <i class="bi bi-arrow-return-left text-success me-2"></i> Product Returns List
+            </h3>
+            <p class="text-muted mb-0">View and manage all product returns</p>
         </div>
-        <a href="{{ route('staff.return-add') }}" 
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-            Add New Return
-        </a>
     </div>
 
-    <!-- Filters -->
-    <div class="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <!-- Returns Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-                <input type="text" 
-                    wire:model.live="search" 
-                    placeholder="Search product or customer..."
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-list-ul text-primary me-2"></i> Returns List
+                </h5>
+                <span class="badge bg-primary">{{ count($returns) }} records</span>
             </div>
-            <div>
-                <select wire:model.live="statusFilter" 
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="all">All Status</option>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3" style="width: 60%; margin: auto">
+                <!-- 🔍 Search Bar -->
+                <div class="search-bar flex-grow-1">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" wire:model.live="search"
+                            placeholder="Search by product or customer...">
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 ms-3">
+                <label class="text-sm text-muted fw-medium">Status</label>
+                <select wire:model.live="statusFilter" class="form-select form-select-sm" style="width: 120px;">
+                    <option value="all">All</option>
                     <option value="approved">Approved</option>
                     <option value="pending">Pending</option>
                     <option value="rejected">Rejected</option>
                 </select>
             </div>
-            <div>
-                <select wire:model.live="damageFilter" 
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="all">All Conditions</option>
-                    <option value="damaged">Damaged</option>
-                    <option value="good">Good Condition</option>
-                </select>
-            </div>
         </div>
-    </div>
-
-    <!-- Returns Table -->
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Condition</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($returns as $return)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ $return->created_at->format('Y-m-d H:i') }}
+        <div class="card-body p-0 overflow-auto">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">#</th>
+                            <th>Date</th>
+                            <th>Product</th>
+                            <th>Customer</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th>Condition</th>
+                            <th class="text-end pe-4">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($returns as $index => $return)
+                        <tr>
+                            <td class="ps-4 fw-medium text-muted">{{ $index + 1 }}</td>
+                            <td class="text-nowrap">
+                                <span class="text-dark">{{ $return->created_at->format('M d, Y') }}</span>
+                                <small class="text-muted d-block">{{ $return->created_at->format('H:i') }}</small>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">{{ $return->product->name }}</div>
-                                <div class="text-xs text-gray-500">{{ $return->product->barcode }}</div>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ $return->product->name }}</div>
+                                <small class="text-muted"><i class="bi bi-upc me-1"></i>{{ $return->product->code ?? $return->product->barcode }}</small>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ $return->customer->name ?? 'N/A' }}
+                            <td>
+                                <span class="text-dark">{{ $return->customer->name ?? 'N/A' }}</span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ $return->quantity }}
+                            <td>
+                                <span class="badge bg-secondary">{{ $return->quantity }} units</span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                Rs. {{ number_format($return->unit_price, 2) }}
+                            <td>
+                                <span class="text-dark">Rs. {{ number_format($return->unit_price, 2) }}</span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            <td class="fw-bold text-dark">
                                 Rs. {{ number_format($return->total_amount, 2) }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                @if($return->is_damaged)
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                                        Damaged
-                                    </span>
-                                @else
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                        Good
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td>
                                 @if($return->status === 'approved')
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                        Approved
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>Approved
                                     </span>
                                 @elseif($return->status === 'pending')
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                        Pending
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-clock me-1"></i>Pending
                                     </span>
                                 @else
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                                        Rejected
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle me-1"></i>Rejected
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-900">
-                                <div class="max-w-xs truncate" title="{{ $return->reason }}">
-                                    {{ $return->reason }}
+                            <td>
+                                @if($return->is_damaged)
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>Damaged
+                                    </span>
+                                @else
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check2-circle me-1"></i>Good
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="text-truncate" style="max-width: 200px;" title="{{ $return->reason ?? 'N/A' }}">
+                                    {{ $return->reason ?? 'N/A' }}
                                 </div>
                                 @if($return->notes)
-                                    <div class="text-xs text-gray-500 mt-1 max-w-xs truncate" title="{{ $return->notes }}">
-                                        Note: {{ $return->notes }}
-                                    </div>
+                                    <small class="text-muted d-block text-truncate" style="max-width: 200px;" title="{{ $return->notes }}">
+                                        {{ $return->notes }}
+                                    </small>
                                 @endif
                             </td>
                         </tr>
-                    @empty
+                        @empty
                         <tr>
-                            <td colspan="9" class="px-6 py-8 text-center text-gray-500">
+                            <td colspan="10" class="text-center text-muted py-4">
+                                <i class="bi bi-arrow-return-left display-4 d-block mb-2"></i>
                                 No returns found.
                             </td>
                         </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="px-6 py-4 border-t border-gray-200">
-            {{ $returns->links() }}
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if ($returns->hasPages())
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-center">
+                    {{ $returns->links('livewire.custom-pagination') }}
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 </div>

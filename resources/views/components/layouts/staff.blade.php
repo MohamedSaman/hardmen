@@ -16,143 +16,503 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Inter font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Use admin theme tokens */
+        /* Theme tokens: Orange & White theme - MATCHING ADMIN */
         :root {
-            --page-bg: #f7f8fbff;
+            /* Clean Page Background */
+            --page-bg: #f3f4f6;
             --surface: #ffffff;
+
+            /* Professional Brand Palette - Vibrant Orange & Neutral Accents */
             --primary: #f58320;
-            --primary-600: #d16d0e;
-            --primary-100: #fff4e6;
-            --accent: #198754;
-            --muted: #64748b;
-            --muted-2: #475569;
-            --border: #cbd5e1;
-            --muted-3: #e2e8f0;
-            --success-bg: #d1e7dd;
-            --success-text: #0f5132;
-            --warning-bg: #fff3cd;
-            --warning-text: #664d03;
-            --danger-bg: #f8d7da;
-            --danger-text: #842029;
-            --sidebar-bg: #ffffff;
-            --topbar-bg: #ffffff;
-            --text: #1e293b;
-            --avatar-bg: #f58320;
-            --avatar-text: #ffffff;
+            --primary-600: #e07010;
+            --primary-700: #c66008;
+            --primary-50: #fff7ed;
+            --primary-100: #ffedd5;
+
+            /* Functional Colors */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+
+            /* Refined Neutral Palette */
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --text-light: #9ca3af;
+            --border: #e5e7eb;
+            --border-light: #f3f4f6;
+
+            /* Effects */
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius-md: 10px;
+            --radius-lg: 16px;
         }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--page-bg);
-            color: var(--text);
+            color: var(--text-main);
             letter-spacing: -0.01em;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Bring staff layout in line with admin theme */
+        .fw-800 { font-weight: 800 !important; }
+        .text-orange { color: #f58320 !important; }
+
+        /* Ensure dropdowns in table are not clipped */
+        .table-responsive {
+            overflow: visible !important;
+        }
+
+        .dropdown-menu {
+            position: absolute !important;
+            left: auto !important;
+            right: 0 !important;
+            top: 30% !important;
+            margin-top: 0.2rem;
+            min-width: 160px;
+            z-index: 9999 !important;
+            background: #fff !important;
+            box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.22), 0 2px 8px 0 rgba(0, 0, 0, 0.10);
+            border-radius: 8px !important;
+            border: 1px solid #e2e8f0 !important;
+            overflow: visible !important;
+            filter: none !important;
+        }
+
+        .dropdown-menu>li>.dropdown-item {
+            background: #fff !important;
+            z-index: 9999 !important;
+        }
+
+        .dropdown-menu>li>.dropdown-item:active,
+        .dropdown-menu>li>.dropdown-item:focus {
+            background: #f0f7ff !important;
+            color: #222 !important;
+        }
+
+        .dropdown {
+            position: relative !important;
+        }
+
+        .container-fluid,
+        .card,
+        .modal-content {
+            font-size: 13px !important;
+        }
+
+        .table th,
+        .table td {
+            font-size: 12px !important;
+            padding: 0.35rem 0.5rem !important;
+        }
+
+        .modal-header {
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .modal-footer,
+        .card-header,
+        .card-body,
+        .row,
+        .col-md-6,
+        .col-md-4,
+        .col-md-2,
+        .col-md-12 {
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .form-control,
+        .form-select {
+            font-size: 12px !important;
+            padding: 0.35rem 0.5rem !important;
+        }
+
+        .btn,
+        .btn-sm,
+        .btn-primary,
+        .btn-secondary,
+        .btn-outline-danger,
+        .btn-outline-secondary {
+            font-size: 12px !important;
+            padding: 0.25rem 0.5rem !important;
+        }
+
+        .badge {
+            font-size: 11px !important;
+            padding: 0.25em 0.5em !important;
+        }
+
+        .list-group-item,
+        .dropdown-item {
+            font-size: 12px !important;
+            padding: 0.35rem 0.5rem !important;
+        }
+
+        .summary-card,
+        .card {
+            border-radius: 8px !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+        }
+
+        .icon-container {
+            width: 36px !important;
+            height: 36px !important;
+            font-size: 1.1rem !important;
+        }
+
+        /* Sidebar styles */
         .sidebar {
-            width: 265px;
+            width: 270px;
             height: 100vh;
             background: #ffffff;
-            color: #1e293b;
-            padding: 0 0 20px;
+            color: var(--text-main);
+            padding: 0;
             position: fixed;
-            transition: all 0.3s ease;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1040;
             overflow-y: auto;
             overflow-x: hidden;
-            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 1px 0 0 var(--border);
         }
 
-        .sidebar.collapsed { width: 70px; }
-        .sidebar.collapsed .sidebar-title, .sidebar.collapsed .nav-link span { display: none; }
-        .sidebar .nav { padding-bottom: 50px; }
-
-        .sidebar-header { padding: 20px 20px 0; margin-bottom: 5px; }
-        .sidebar-title { font-weight: 600; font-size: 1.2rem; color: #1e293b; }
-
-        .nav-item { margin: 2px 0; }
-        .nav-link { color: #64748b; padding: 8px 20px; transition: all 0.2s; }
-        .nav-link i { margin-right: 10px; width: 20px; text-align: center; font-size: 1.1rem; }
-
-        /* Match admin navlink hover/focus and active styles */
-        .nav-link:focus,
-        .nav-link:hover,
-        .nav-link:focus-visible {
-            color: #f58320;
-            background: #fff4e6;
-            outline: none;
+        /* Add custom scrollbar styling for sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .nav-link.active {
-            background: #fff4e6;
-            color: #f58320;
-            font-weight: 500;
-            border-left: 3px solid #f58320;
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
         }
 
-        .top-bar { height: 60px; background: #ffffff; padding: 0 20px; position: fixed; top:0; right:0; left:250px; z-index:1000; display:flex; align-items:center; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1); }
-        .top-bar.collapsed { left:70px; }
-
-        .admin-info { display:flex; align-items:center; gap:10px; padding:5px; border-radius:5px; color:#1e293b; }
-        .admin-avatar, .staff-avatar, .avatar { width:36px; height:36px; border-radius:50%; background:#f58320; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:600; border:2px solid #f58320; }
-
-        .dropdown-menu { position: absolute !important; left:auto !important; right:0 !important; top:30% !important; z-index:9999 !important; background:#fff !important; box-shadow:0 12px 32px rgba(0,0,0,0.22); border-radius:8px !important; border:1px solid var(--muted-3) !important; }
-
-        .main-content { margin-left:260px; margin-top:60px; padding:20px; background-color:var(--page-bg); min-height:calc(100vh - 60px); width:calc(100% - 250px); transition: all 0.3s ease; }
-        .main-content.collapsed { margin-left:70px; width:calc(100% - 70px); }
-
-        .card, .summary-card { border-radius:8px !important; box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important; }
-
-        .table th, .table td { font-size:12px !important; padding:0.35rem 0.5rem !important; }
-
-        /* Keep important helper classes from previous staff layout */
-        .text-danger { color: var(--danger-text) !important; }
-
-        @media (max-width: 767.98px) {
-            .sidebar { /* responsive adjustments */ }
-            .top-bar { left:0; }
-            .main-content { margin-left: 0; width:100%; }
+        .sidebar::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
         }
-    
-            
 
-        .sidebar.collapsed.scrollable::after {
+        /* Add padding to the bottom of sidebar to ensure last items are visible */
+        .sidebar .nav {
+            padding-bottom: 50px;
+        }
+
+        .sidebar.collapsed {
             width: 70px;
         }
 
-        /* Fix navigation spacing issues */
+        .sidebar.collapsed .sidebar-title,
+        .sidebar.collapsed .nav-link span {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-link.dropdown-toggle::after {
+            display: flex !important;
+            margin-left: 0;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .nav-link i {
+            margin-right: 0;
+            font-size: 1.25rem;
+        }
+
+        .sidebar.collapsed .nav-link {
+            text-align: center;
+            padding: 10px;
+        }
+
+        .sidebar.collapsed .nav-link.dropdown-toggle::after {
+            display: none;
+        }
+
+        .sidebar-header {
+            padding: 20px 20px 0;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-title {
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: #1e293b;
+            letter-spacing: -0.02em;
+        }
+
+        /* Navigation styles */
         .nav-item {
             margin: 2px 0;
-            /* Reduced from 5px to tighten up vertical spacing */
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            padding: 6px 24px;
+            margin: 4px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+        }
+
+        .nav-link.active {
+            background: var(--primary-50);
+            color: var(--primary);
+            border-left: none;
+        }
+
+        .nav-link:hover:not(.active) {
+            color: var(--primary);
+            background: var(--border-light);
+            outline: none;
+        }
+
+        .nav-link i {
+            margin-right: 12px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            transition: transform 0.2s;
+        }
+
+        .nav-link:hover i {
+            transform: scale(1.1);
+        }
+
+        .nav-link.dropdown-toggle::after {
+            margin-left: auto;
+            border: none;
+            content: "\F282";
+            font-family: "bootstrap-icons";
+            font-size: 0.95rem;
+            transition: transform 0.3s ease;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+
+        .nav-link.dropdown-toggle[aria-expanded="true"]::after {
+            transform: rotate(180deg);
+            color: var(--primary);
+        }
+
+        .nav-link.dropdown-toggle:hover::after {
+            color: var(--primary);
         }
 
         #inventorySubmenu .nav-link,
-        #salesSubmenu .nav-link {
-            padding-top: 6px;
-            /* Reduced vertical padding */
-            padding-bottom: 6px;
-        }
-
-        .collapse .nav.flex-column {
-            padding-bottom: 0;
-            /* Remove extra bottom padding from nested menus */
-        }
-
-        .collapse .nav-item:last-child {
-            margin-bottom: 3px;
-            /* Add small space after last submenu item */
+        #hrSubmenu .nav-link,
+        #salesSubmenu .nav-link,
+        #stockSubmenu .nav-link,
+        #purchaseSubmenu .nav-link,
+        #returnSubmenu .nav-link,
+        #banksSubmenu .nav-link,
+        #paymentSubmenu .nav-link,
+        #staffSubmenu .nav-link,
+        #peopleSubmenu .nav-link,
+        #expensesSubmenu .nav-link {
+            padding: 8px 20px;
+            font-size: 0.9rem;
+            margin: 2px 8px;
         }
 
         /* Add these styles to further improve submenu spacing */
         .collapse .nav-item {
-            margin: 1px 0;
-            /* Even more compact spacing for submenu items */
+            margin: 3px 0;
         }
 
         .collapse .nav.flex-column {
-            padding-top: 2px;
-            /* Add small top padding to separate from parent */
+            padding-bottom: 0;
+            padding-top: 5px;
+            padding-left: 12px;
+        }
+
+        .collapse .nav-item:last-child {
+            margin-bottom: 5px;
+        }
+
+        /* Disabled menu item styles */
+        .nav-link.disabled {
+            color: rgba(255, 255, 255, 0.4) !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .nav-link.disabled i {
+            color: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        .nav-link.disabled:hover {
+            background-color: transparent !important;
+            color: rgba(255, 255, 255, 0.4) !important;
+        }
+
+        /* Top bar styles */
+        .top-bar {
+            height: 72px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 0 24px;
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 270px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .top-bar.collapsed {
+            left: 80px;
+        }
+
+        /* Main content area */
+        .main-content {
+            margin-left: 270px;
+            margin-top: 72px;
+            padding: 24px;
+            background-color: var(--page-bg);
+            min-height: calc(100vh - 72px);
+            width: calc(100% - 270px);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .main-content.collapsed {
+            margin-left: 70px;
+            width: calc(100% - 70px);
+        }
+
+        /* Top bar items styling */
+        .topbar-brand {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: -0.02em;
+            margin-right: auto;
+        }
+
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .admin-info:hover {
+            background: var(--border-light);
+        }
+
+        .admin-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .admin-name {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .sidebar-toggle {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--border-light);
+            color: var(--primary);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 250px;
+            }
+
+            .top-bar {
+                left: 250px;
+            }
+
+            .main-content {
+                margin-left: 250px;
+                width: calc(100% - 250px);
+            }
+
+            .top-bar.collapsed {
+                left: 70px;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                transform: translateX(-100%);
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+                z-index: 1030;
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .top-bar {
+                left: 0;
+                padding: 0 16px;
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                margin-top: 72px;
+                padding: 16px;
+            }
+
+            .topbar-brand {
+                display: none;
+            }
         }
     </style>
     @stack('styles')
@@ -166,11 +526,9 @@
             <div class="sidebar-header d-flex justify-content-center">
                 <div class="sidebar-title">
                     <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" width="250">
-                    
-                    
                 </div>
             </div>
-            <hr style="color:#fff;">
+            <hr style="border-color: var(--border); margin: 10px 0;">
 
             <ul class="nav flex-column">
                 {{-- Dashboard --}}
@@ -493,7 +851,7 @@
                 </li>
                 @endif
 
-                {{-- POS --}}
+                {{-- POS 
                 @if(auth()->user()->hasPermission('menu_pos'))
                 <li>
                     <a class="nav-link" href="{{ route('staff.billing') }}">
@@ -501,6 +859,7 @@
                     </a>
                 </li>
                 @endif
+                --}}
 
                 {{-- Reports --}}
                 @if(auth()->user()->hasPermission('menu_reports'))
@@ -530,12 +889,15 @@
 
         <!-- Top Navigation Bar -->
         <nav class="top-bar">
-            <!-- Add toggle button at the start of the navbar -->
-            <button id="sidebarToggler" class="btn btn-sm px-2 py-1 me-auto d-flex align-items-center" style="color:#ffffff; border-color:#ffffff;">
+            <button id="sidebarToggler" class="sidebar-toggle ms-n3">
                 <i class="bi bi-list fs-5"></i>
             </button>
 
-            <div class="dropdown">
+            <div class="topbar-brand">
+                Hardmen
+            </div>
+
+            <div class="dropdown ms-auto">
                 <div class="admin-info dropdown-toggle" id="adminDropdown" role="button" data-bs-toggle="dropdown"
                     aria-expanded="false">
                     <div class="admin-avatar">S</div>

@@ -20,7 +20,9 @@ class ListCustomerReceipt extends Component
     use WithPagination;
 
     public $showPaymentModal = false;
+    public $showReceiptModal = false;
     public $selectedCustomer = null;
+    public $selectedPayment = null;
     public $payments = [];
 
     public function getCustomersProperty()
@@ -83,13 +85,31 @@ class ListCustomerReceipt extends Component
         $this->payments = [];
     }
 
+    public function viewPaymentReceipt($paymentId)
+    {
+        $this->selectedPayment = Payment::with(['customer', 'allocations.sale', 'cheques'])
+            ->find($paymentId);
+
+        // Debug log to check if allocations are loaded
+        \Log::info('Payment Receipt View', [
+            'payment_id' => $paymentId,
+            'allocations_count' => $this->selectedPayment->allocations ? $this->selectedPayment->allocations->count() : 0,
+            'payment_amount' => $this->selectedPayment->amount
+        ]);
+
+        $this->showReceiptModal = true;
+    }
+
+    public function closeReceiptModal()
+    {
+        $this->showReceiptModal = false;
+        $this->selectedPayment = null;
+    }
+
     public function render()
     {
         return view('livewire.admin.list-customer-receipt', [
             'customers' => $this->customers,
-            'showPaymentModal' => $this->showPaymentModal,
-            'selectedCustomer' => $this->selectedCustomer,
-            'payments' => $this->payments,
         ])->layout($this->layout);
     }
 }

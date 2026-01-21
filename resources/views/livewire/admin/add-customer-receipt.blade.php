@@ -35,7 +35,17 @@
         </div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Filter by User</label>
+                    <select class="form-select" wire:model.live="userFilter">
+                        <option value="admin">Admin Only</option>
+                        <option value="all">All Users</option>
+                        @foreach($users as $user)
+                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label fw-semibold">Search Customer</label>
                     <div class="input-group">
                         <span class="input-group-text">
@@ -46,7 +56,7 @@
                             wire:model.live="search">
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label fw-semibold">Selected Customer</label>
                     @if($selectedCustomer)
                     <div class="border rounded p-3 bg-light">
@@ -95,6 +105,7 @@
                         <tr>
                             <th class="ps-4">Customer</th>
                             <th>Contact</th>
+                            <th class="text-center">User</th>
                             <th class="text-center">Due Invoices</th>
                             <th class="text-end">Total Due Amount</th>
                             <th class="text-end pe-4">Action</th>
@@ -119,6 +130,9 @@
                                 @if($customer->email)
                                 <small class="text-muted">{{ $customer->email }}</small>
                                 @endif
+                            </td>
+                            <td class="text-center">
+                                {{ $customer->user->name ?? '-' }}
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-warning">{{ $dueInvoices }}</span>

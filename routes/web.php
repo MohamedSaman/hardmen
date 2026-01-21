@@ -171,6 +171,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         Route::get('/admin/staff/{staffId}/reentry', \App\Livewire\Admin\StockReentry::class)->name('staff.reentry');
         Route::get('/store-billing', StoreBilling::class)->name('store-billing');
         Route::get('/print/sale/{id}', [PrintController::class, 'printSale'])->name('print.sale');
+        Route::get('/print/sale/{id}/download', [PrintController::class, 'downloadSale'])->name('print.sale.download');
         Route::get('/print/quotation/{id}', [PrintController::class, 'printQuotation'])->name('quotation.print');
         Route::get('/due-payments', AdminDuePayments::class)->name('due-payments');
         Route::get('/staff-attendance', StaffAttendance::class)->name('staff-attendance');
@@ -243,6 +244,8 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         Route::get('/pos-sales', PosSales::class)->name('pos-sales');
         Route::get('/sales-list', \App\Livewire\Staff\StaffSalesList::class)->name('sales-list');
         Route::get('/store-billing', StoreBilling::class)->name('store-billing');
+        Route::get('/print/sale/{id}', [PrintController::class, 'printSale'])->name('print.sale');
+        Route::get('/print/sale/{id}/download', [PrintController::class, 'downloadSale'])->name('print.sale.download');
 
         // Customers
         Route::get('/manage-customer', ManageCustomer::class)->name('manage-customer');
@@ -264,12 +267,16 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         // Quotations
         Route::get('/quotation-system', \App\Livewire\Staff\StaffQuotationSystem::class)->name('quotation-system');
         Route::get('/quotation-list', \App\Livewire\Staff\StaffQuotationList::class)->name('quotation-list');
+        Route::get('/print/quotation/{id}', [PrintController::class, 'printQuotation'])->name('print.quotation');
 
         // Returns
         Route::get('/return-add', \App\Livewire\Staff\StaffReturnManagement::class)->name('return-add');
         Route::get('/return-list', \App\Livewire\Staff\StaffReturnList::class)->name('return-list');
         Route::get('/return-supplier', ReturnSupplier::class)->name('return-supplier');
         Route::get('/list-supplier-return', ListSupplierReturn::class)->name('list-supplier-return');
+
+        // Expenses
+        Route::get('/expenses', \App\Livewire\Staff\StaffExpenseManagement::class)->name('expenses');
 
         // Payments
         Route::get('/due-payments', \App\Livewire\Staff\AddPayment::class)->name('due-payments');
@@ -285,7 +292,6 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         Route::get('/return-cheque', ReturnCheque::class)->name('return-cheque');
 
         // Finance
-        Route::get('/expenses', Expenses::class)->name('expenses');
         Route::get('/income', Income::class)->name('income');
         Route::get('/loan-management', LoanManage::class)->name('loan-management');
 

@@ -304,14 +304,36 @@ class StaffSalesList extends Component
         }
     }
 
+    public function printInvoice($saleId)
+    {
+        $sale = Sale::with(['customer', 'items', 'payments', 'returns' => function ($q) {
+            $q->with('product');
+        }])->where('user_id', Auth::id())->find($saleId);
+
+        if (!$sale) {
+            $this->dispatch('showToast', ['type' => 'error', 'message' => 'Sale not found.']);
+            return;
+        }
+
+        // Open print page in new window
+        $printUrl = '/staff/print/sale/' . $sale->id;
+        $this->js("window.open('$printUrl', '_blank', 'width=800,height=600');");
+    }
+
     public function downloadInvoice($saleId)
     {
-        $sale = Sale::with(['customer', 'items', 'user'])
+        $sale = Sale::with(['customer', 'items', 'user', 'returns' => function ($q) {
+            $q->with('product');
+        }])
             ->where('user_id', Auth::id())
             ->find($saleId);
 
         if ($sale) {
-            $pdf = Pdf::loadView('pdf.invoice', ['sale' => $sale]);
+            $pdf = Pdf::loadView('admin.sales.invoice', compact('sale'));
+            $pdf->setPaper('a4', 'portrait');
+            $pdf->setOption('dpi', 150);
+            $pdf->setOption('defaultFont', 'sans-serif');
+
             return response()->streamDownload(
                 fn() => print($pdf->output()),
                 'invoice-' . $sale->invoice_number . '.pdf'

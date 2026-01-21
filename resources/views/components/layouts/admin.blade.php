@@ -327,27 +327,36 @@
         #hrSubmenu .nav-link,
         #salesSubmenu .nav-link,
         #stockSubmenu .nav-link,
-        #purchaseSubmenu .nav-link {
-            padding: 5px 15px;
-            /* Reduced padding for all submenu links */
+        #purchaseSubmenu .nav-link,
+        #returnSubmenu .nav-link,
+        #banksSubmenu .nav-link,
+        #paymentSubmenu .nav-link,
+        #staffSubmenu .nav-link,
+        #peopleSubmenu .nav-link {
+            padding: 8px 20px;
+            /* Better padding for submenu links */
             font-size: 0.9rem;
+            margin: 2px 8px;
+            /* Improved margins for submenu items */
         }
 
         /* Add these styles to further improve submenu spacing */
         .collapse .nav-item {
-            margin: 1px 0;
-            /* Even more compact spacing for submenu items */
+            margin: 3px 0;
+            /* Better spacing for submenu items */
         }
 
         .collapse .nav.flex-column {
             padding-bottom: 0;
             /* Remove extra bottom padding from nested menus */
-            padding-top: 2px;
+            padding-top: 5px;
             /* Add small top padding to separate from parent */
+            padding-left: 12px;
+            /* Add left padding for visual indentation */
         }
 
         .collapse .nav-item:last-child {
-            margin-bottom: 3px;
+            margin-bottom: 5px;
             /* Add small space after last submenu item */
         }
 

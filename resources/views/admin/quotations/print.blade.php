@@ -6,320 +6,363 @@
     <title>Quotation - {{ $quotation->quotation_number }}</title>
     <style>
         @page {
-            margin: 20mm; /* Add some default page margins */
+            margin: 15mm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         body {
-            font-family: "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif;
-            font-size: 11px; /* Smaller base font */
+            font-family: Arial, sans-serif;
+            font-size: 11px;
             line-height: 1.4;
-            color: #333;
-            margin: 0;
-            padding: 0;
+            color: #000;
             background: white;
+            padding: 20px;
         }
 
-        .invoice-container {
+        .quotation-container {
             max-width: 800px;
             margin: 0 auto;
             background: white;
         }
 
-        /* --- NEW HEADER STYLE --- */
-        .header {
+        /* Header with Logo and Company Name */
+        .header-section {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
-        .header h2 {
-            margin: 0;
-            color: #000; /* Black, not green */
+        .logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+
+        .company-name {
             font-size: 24px;
             font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
         }
 
-        .header p {
-            margin: 2px 0;
-            font-size: 11px;
+        .company-tagline {
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 15px;
         }
-        
-        .header .quotation-title {
-            font-size: 18px;
+
+        .quotation-title {
+            font-size: 16px;
             font-weight: bold;
-            margin-top: 15px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #057642; /* Green line from image */
-        }
-        /* --- END NEW HEADER STYLE --- */
-        
-
-        /* --- NEW INFO SECTION STYLE --- */
-        .customer-info {
+            padding: 8px 0;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
             margin-bottom: 20px;
         }
-        
-        .customer-info strong {
+
+        /* Customer and Quotation Info */
+        .info-section {
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            margin-bottom: 15px;
+        }
+
+        .info-label {
             font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .info-details {
+            line-height: 1.6;
         }
 
         .quotation-details {
-             margin-bottom: 25px;
+            margin-top: 10px;
         }
-        
-        /* This table creates the perfect alignment from your image */
-        .details-table {
-            border-collapse: collapse;
-            width: auto; /* Shrink to content */
+
+        .detail-row {
+            display: flex;
+            margin-bottom: 3px;
         }
-        
-        .details-table td {
-            padding: 2px 8px 2px 0;
-            vertical-align: top;
-        }
-        
-        .details-table td:first-child {
-            
+
+        .detail-label {
             font-weight: bold;
-            text-align: left;
+            width: 100px;
+            flex-shrink: 0;
         }
-        /* --- END NEW INFO SECTION STYLE --- */
 
+        .detail-value {
+            flex: 1;
+        }
 
-        table.items-table {
+        /* Items Table */
+        .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 10px 0;
-            font-size: 11px;
-            
+            margin: 20px 0;
         }
 
-        table.items-table th {
-            background: #057642;
-            color: white;
-            padding: 8px 6px;
+        .items-table th {
+            background-color: #f0f0f0;
+            border: 1px solid #000;
+            padding: 8px 5px;
             text-align: left;
             font-weight: bold;
+            font-size: 10px;
         }
 
-        table.items-table td {
-            padding: 8px 6px;
-            border: 1px solid #ddd;
-            vertical-align: top;
+        .items-table td {
+            border: 1px solid #000;
+            padding: 6px 5px;
+            font-size: 10px;
         }
-        
-        tr.items-row:nth-child(even) {
-            background-color: #f8f9fa;
+
+        .text-center {
+            text-align: center;
         }
 
         .text-right {
             text-align: right;
         }
 
-        .text-center {
-            text-align: center;
+        .items-table tbody tr:nth-child(even) {
+            background-color: #fafafa;
         }
-        
-        .amount {
-    font-family: "Inter", "Roboto", "Helvetica Neue", Arial, sans-serif;
-    color: #333;
-}
 
-        /* --- UPDATED TOTALS STYLE --- */
+        /* Totals Section */
         .totals-section {
-            margin-top: 20px;
-            float: right; /* Align block to the right */
-            width: 280px; /* Fixed width */
+            margin: 20px 0;
+            text-align: right;
         }
 
         .totals-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .totals-table td {
-            padding: 5px 0;
-        }
-        
-        .totals-table td:first-child {
-            font-weight: bold;
-            text-align: right;
-            padding-right: 15px;
-        }
-        
-        .totals-table td:last-child {
-            text-align: right;
-            width: 120px; /* Fixed width for values */
-        }
-        
-        .totals-table tr.grand-total td {
-            border-top: 2px solid #333;
-            font-size: 13px;
-            font-weight: bold;
-            padding-top: 8px;
-        }
-        /* --- END UPDATED TOTALS STYLE --- */
-
-        /* Utility to clear floats */
-        .clearfix::after {
-            content: "";
-            display: table;
-            clear: both;
-        }
-        
-        .notes-terms {
-            clear: both; /* Clear the float from totals */
-            padding-top: 30px;
-            font-size: 11px;
+            display: inline-block;
+            min-width: 300px;
         }
 
-        .footer {
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .total-row.grand-total {
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 8px 0;
+            margin-top: 5px;
+        }
+
+        .total-label {
+            font-weight: bold;
+            padding-right: 30px;
+        }
+
+        .total-value {
+            text-align: right;
+            min-width: 100px;
+        }
+
+        /* Terms and Notes */
+        .terms-section {
+            margin: 20px 0;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .section-content {
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+
+        /* Footer Signatures */
+        .signature-section {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-around;
             text-align: center;
-            margin-top: 30px;
+        }
+
+        .signature-box {
+            flex: 1;
+        }
+
+        .signature-line {
+            border-top: 1px solid #000;
+            width: 150px;
+            margin: 40px auto 5px;
+        }
+
+        .signature-label {
+            font-weight: bold;
             font-size: 10px;
-            color: #666;
-            border-top: 1px solid #ddd;
+        }
+
+        /* Company Footer */
+        .company-footer {
+            margin-top: 30px;
+            text-align: center;
             padding-top: 15px;
+            border-top: 1px solid #ddd;
+            font-size: 10px;
+        }
+
+        .company-footer p {
+            margin: 3px 0;
+        }
+
+        .small-text {
+            font-size: 9px;
+            font-style: italic;
         }
 
         @media print {
             body {
                 padding: 0;
-                margin: 0;
-                font-size: 10px;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
             }
-            .invoice-container {
-                border: none;
-                padding: 0;
-                margin: 0;
+            .quotation-container {
+                max-width: 100%;
             }
         }
     </style>
 </head>
 <body>
-    <div class="invoice-container">
-        
-        <div class="header">
-            <h2>HARDMEN (PVT) LTD</h2>
-            <p>421/2, Doolmala, thihariya, Kalagedihena.</p>
-            <p>Phone: (077) 9752950 | Email: Hardmenlanka@gmail.com</p>
+    <div class="quotation-container">
+        {{-- Header Section --}}
+        <div class="header-section">
+            @if(file_exists(public_path('images/HARDMEN.png')))
+            <img src="{{ public_path('images/HARDMEN.png') }}" alt="Company Logo" class="logo">
+            @endif
+            <div class="company-name">HARDMEN (PVT) LTD</div>
+            <div class="company-tagline">TOOLS WITH POWER</div>
             <div class="quotation-title">QUOTATION</div>
         </div>
 
-        <div class="customer-info">
-            <strong>Bill To:</strong><br>
-            <strong>{{ $quotation->customer_name }}</strong><br>
-            @if($quotation->customer_address)
-                {{ $quotation->customer_address }}<br>
-            @endif
-            Tel: {{ $quotation->customer_phone }}<br>
-            @if($quotation->customer_email)
-                Email: {{ $quotation->customer_email }}<br>
-            @endif
-            Customer Type: {{ ucfirst($quotation->customer_type) }}
-        </div>
-        
-        <div class="quotation-details">
-            <table class="details-table">
-                            <strong>Quotation Details:</strong><br>
+        {{-- Customer Information --}}
+        <div class="info-section">
+            <div class="info-row">
+                <div class="info-label">Customer :</div>
+                <div class="info-details">
+                    {{ $quotation->customer_name }}<br>
+                    {{ $quotation->customer_address }}<br>
+                    <strong>Tel:</strong> {{ $quotation->customer_phone }}
+                </div>
+            </div>
 
-                <tr>
-                    <td><strong>Quotation No:</strong></td>
-                    <td>{{ $quotation->quotation_number }}</td>
-                </tr>
-                <tr>
-                    <td><strong>Date:</strong></td>
-                    <td>{{ $quotation->quotation_date->format('M d, Y') }}</td>
-                </tr>
-                <tr>
-                    <td><strong>Valid Until:</strong></td>
-                    <td>{{ \Carbon\Carbon::parse($quotation->valid_until)->format('M d, Y') }}</td>
-                </tr>
-                 <tr>
-                    <td><strong>Status:</strong></td>
-                    <td>{{ ucfirst($quotation->status) }}</td>
-                </tr>
-            </table>
+            <div class="quotation-details">
+                <div class="detail-row">
+                    <div class="detail-label">Quotation #:</div>
+                    <div class="detail-value">{{ $quotation->quotation_number }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Date:</div>
+                    <div class="detail-value">{{ $quotation->quotation_date->format('d/m/Y') }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Valid Until:</div>
+                    <div class="detail-value">{{ \Carbon\Carbon::parse($quotation->valid_until)->format('d/m/Y') }}</div>
+                </div>
+            </div>
         </div>
+
+        {{-- Items Table --}}
         <table class="items-table">
             <thead>
                 <tr>
                     <th width="5%" class="text-center">#</th>
-                    <th width="12%">Item Code</th>
-                    <th>Description</th>
-                    <th width="8%" class="text-center">Qty</th>
-                    <th width="15%" class="text-right">Unit Price (LKR)</th>
-                    <th width="15%" class="text-right">Discount/Unit (LKR)</th>
-                    <th width="15%" class="text-right">Subtotal (LKR)</th>
+                    <th width="40%">DESCRIPTION</th>
+                    <th width="10%" class="text-center">QTY</th>
+                    <th width="15%" class="text-right">UNIT PRICE</th>
+                    <th width="15%" class="text-right">DISCOUNT</th>
+                    <th width="15%" class="text-right">TOTAL</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($quotation->items as $index => $item)
-                <tr class="items-row">
+                <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
-                    <td>{{ $item['product_code'] }}</td>
-                    <td>{{ $item['product_name'] }}</td>
+                    <td>
+                        {{ $item['product_name'] }}<br>
+                        <span style="color: #666; font-size: 9px;">{{ $item['product_code'] }}</span>
+                    </td>
                     <td class="text-center">{{ $item['quantity'] }}</td>
-                    <td class="text-right amount">{{ number_format($item['unit_price'], 2) }}</td>
-                    <td class="text-right amount">{{ number_format($item['discount_per_unit'] ?? 0, 2) }}</td>
-                    <td class="text-right amount">{{ number_format($item['total'], 2) }}</td>
+                    <td class="text-right">Rs.{{ number_format($item['unit_price'], 2) }}</td>
+                    <td class="text-right">Rs.{{ number_format($item['discount_per_unit'] ?? 0, 2) }}</td>
+                    <td class="text-right">Rs.{{ number_format($item['total'], 2) }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
+        {{-- Totals Section --}}
         <div class="totals-section">
-            @php
-                $totalDiscount = $quotation->discount_amount;
-            @endphp
-            <table class="totals-table">
-                <tr>
-                    <td>Subtotal:</td>
-                    <td class="amount">LKR {{ number_format($quotation->subtotal, 2) }}</td>
-                </tr>
-                @if($totalDiscount > 0)
-                <tr>
-                    <td>Discount:</td>
-                    <td class="amount">- LKR {{ number_format($totalDiscount, 2) }}</td>
-                </tr>
+            <div class="totals-table">
+                <div class="total-row">
+                    <div class="total-label">Subtotal</div>
+                    <div class="total-value">Rs.{{ number_format($quotation->subtotal, 2) }}</div>
+                </div>
+                @if($quotation->discount_amount > 0)
+                <div class="total-row">
+                    <div class="total-label">Discount</div>
+                    <div class="total-value">-Rs.{{ number_format($quotation->discount_amount, 2) }}</div>
+                </div>
                 @endif
-                <tr class="grand-total">
-                    <td>Grand Total:</td>
-                    <td class="amount">LKR {{ number_format($quotation->total_amount, 2) }}</td>
-                </tr>
-            </table>
+                <div class="total-row grand-total">
+                    <div class="total-label">Grand Total</div>
+                    <div class="total-value">Rs.{{ number_format($quotation->total_amount, 2) }}</div>
+                </div>
+            </div>
         </div>
 
+        {{-- Terms & Conditions --}}
+        @if($quotation->terms_conditions)
+        <div class="terms-section">
+            <div class="section-title">Terms & Conditions</div>
+            <div class="section-content">{{ $quotation->terms_conditions }}</div>
+        </div>
+        @endif
 
-        <div class="notes-terms">
-            @if($quotation->terms_conditions)
-            <div style="margin-bottom: 15px;">
-                <strong>Terms & Conditions:</strong><br>
-                {!! nl2br(e($quotation->terms_conditions)) !!}
+        {{-- Signature Section --}}
+        <div class="signature-section">
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Checked By</div>
             </div>
-            @endif
-            
-            @if($quotation->notes)
-            <div>
-                <strong>Notes:</strong><br>
-                {!! nl2br(e($quotation->notes)) !!}
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Authorized Officer</div>
             </div>
-            @endif
+            <div class="signature-box">
+                <div class="signature-line"></div>
+                <div class="signature-label">Customer Stamp</div>
+            </div>
         </div>
 
-
-        <div class="footer">
-            <p><strong>Thank you for your business!</strong></p>
-            <p>This is a computer-generated document — no signature required.</p>
-            <p>Quotation generated on: {{ now()->format('d/m/Y H:i') }}</p>
+        {{-- Company Footer --}}
+        <div class="company-footer">
+            <p><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
+            <p><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+            <p class="small-text">This quotation is valid until {{ \Carbon\Carbon::parse($quotation->valid_until)->format('d/m/Y') }}.</p>
         </div>
     </div>
 
     <script>
-        // Automatically open print dialog when page loads
         window.onload = function() {
             window.print();
+            // Close window after printing (optional)
+            // window.onafterprint = function() { window.close(); };
         };
     </script>
 </body>

@@ -47,7 +47,7 @@ class AdminDashboard extends Component
 
     public $recentSales = [];
     public $ProductInventory = [];
-    public $categorySales = []; // Changed from brandSales to categorySales
+    public $dailySales = [];
     public $staffSales = [];
 
     // Expenses
@@ -214,8 +214,8 @@ class AdminDashboard extends Component
         // Fetch Product inventory data
         $this->loadProductInventory();
 
-        // Fetch category sales data (replaced brand sales)
-        $this->loadCategorySales();
+        // Fetch daily sales data for last 7 days
+        $this->loadDailySales();
 
         // Fetch staff sales data
         $this->loadStaffSales();
@@ -262,48 +262,24 @@ class AdminDashboard extends Component
             ->get();
     }
 
-    public function loadCategorySales()
+    public function loadDailySales()
     {
-        try {
-            // Get total sales per category using category_lists table
-            $this->categorySales = DB::table('sale_items')
-                ->join('product_details', 'sale_items.product_id', '=', 'product_details.id')
-                ->join('category_lists', 'product_details.category_id', '=', 'category_lists.id')
-                ->select(
-                    'category_lists.category_name as category',
-                    DB::raw('SUM(sale_items.total) as total_sales')
-                )
-                ->groupBy('category_lists.id', 'category_lists.category_name')
-                ->orderBy('total_sales', 'desc')
-                ->get()
-                ->toArray();
+        // Get daily sales for the last 7 days
+        $dailySales = [];
 
-            // If no categories found, use fallback
-            if (empty($this->categorySales)) {
-                $this->categorySales = $this->getFallbackCategorySales();
-            }
-        } catch (\Exception $e) {
-            // If there's an error (like table doesn't exist), use fallback
-            $this->categorySales = $this->getFallbackCategorySales();
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i);
+
+            $sales = Sale::whereDate('created_at', $date->toDateString())
+                ->sum('total_amount');
+
+            $dailySales[] = [
+                'date' => $date->format('M d'),
+                'total_sales' => (float) $sales
+            ];
         }
-    }
 
-    private function getFallbackCategorySales()
-    {
-        // Fallback: Use brands if categories are not available
-        return DB::table('sale_items')
-            ->join('product_details', 'sale_items.product_id', '=', 'product_details.id')
-            ->join('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
-            ->select(
-                'brand_lists.brand_name as category',
-                DB::raw(
-                    'SUM(sale_items.total) as total_sales'
-                )
-            )
-            ->groupBy('brand_lists.id', 'brand_lists.brand_name')
-            ->orderBy('total_sales', 'desc')
-            ->get()
-            ->toArray();
+        $this->dailySales = $dailySales;
     }
 
     public function loadStaffSales()

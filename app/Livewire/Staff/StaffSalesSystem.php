@@ -47,23 +47,18 @@ class StaffSalesSystem extends Component
 
     public function loadCustomers()
     {
-        $walkingCustomer = Customer::where('name', 'Walking Customer')->first();
-        $staffCustomers = Customer::where('created_by', Auth::id())->orderBy('name')->get();
-
-        // Combine Walking Customer (if exists) with staff's own customers
-        if ($walkingCustomer) {
-            $this->customers = collect([$walkingCustomer])->merge($staffCustomers);
-        } else {
-            $this->customers = $staffCustomers;
-        }
+        // Only load customers created by the logged-in staff user
+        // Exclude "Walking Customer"
+        $this->customers = Customer::where('user_id', Auth::id())
+            ->where('name', '!=', 'Walking Customer')
+            ->orderBy('name')
+            ->get();
     }
 
     public function setDefaultCustomer()
     {
-        $walkingCustomer = Customer::where('name', 'Walking Customer')->first();
-        if ($walkingCustomer) {
-            $this->customerId = $walkingCustomer->id;
-        }
+        // Don't set any default customer - let user select one
+        $this->customerId = '';
     }
 
     public function addToCart($product)
@@ -116,7 +111,7 @@ class StaffSalesSystem extends Component
         }
 
         $this->cart[$index]['quantity'] = $quantity;
-        $this->cart[$index]['total'] = $quantity * $this->cart[$index]['price'];
+        $this->cart[$index]['total'] = $quantity * (float)$this->cart[$index]['price'];
     }
 
     public function updatePrice($index, $price)
@@ -220,7 +215,7 @@ class StaffSalesSystem extends Component
                 'email' => $this->customerEmail,
                 'address' => $this->customerAddress,
                 'type' => $this->customerType,
-                'created_by' => Auth::id(),
+                'user_id' => Auth::id(),
             ]);
 
             $this->loadCustomers();
@@ -237,6 +232,51 @@ class StaffSalesSystem extends Component
                 'message' => 'Error creating customer: ' . $e->getMessage()
             ]);
         }
+    }
+
+    public function downloadInvoice()
+    {
+        if (!$this->createdSale) {
+            $this->js("Swal.fire('error', 'No sale found to download.', 'error')");
+            return;
+        }
+
+        $sale = Sale::with(['customer', 'items'])->find($this->createdSale->id);
+
+        if (!$sale) {
+            $this->js("Swal.fire('error', 'Sale not found.', 'error')");
+            return;
+        }
+
+        $pdf = PDF::loadView('admin.sales.invoice', compact('sale'));
+        $pdf->setPaper('a4', 'portrait');
+        $pdf->setOption('dpi', 150);
+        $pdf->setOption('defaultFont', 'sans-serif');
+
+        return response()->streamDownload(
+            function () use ($pdf) {
+                echo $pdf->output();
+            },
+            'invoice-' . $sale->invoice_number . '.pdf'
+        );
+    }
+
+    public function closeModal()
+    {
+        $this->showSaleModal = false;
+        $this->createdSale = null;
+        // Reset all fields when closing modal
+        $this->reset(['cart', 'search', 'customerId', 'notes', 'discount', 'discountType', 'paidAmount']);
+        $this->loadCustomers();
+        $this->setDefaultCustomer();
+    }
+
+    public function createNewSale()
+    {
+        $this->reset(['cart', 'search', 'customerId', 'notes', 'discount', 'discountType', 'paidAmount', 'createdSale']);
+        $this->loadCustomers();
+        $this->setDefaultCustomer();
+        $this->showSaleModal = false;
     }
 
     public function validateAndCreateSale()
@@ -282,74 +322,79 @@ class StaffSalesSystem extends Component
     public function createSale()
     {
         try {
-            DB::transaction(function () {
-                // Calculate totals
-                $subtotal = collect($this->cart)->sum('total');
-                $discountAmount = $this->discountType === 'percentage'
-                    ? ($subtotal * $this->discount) / 100
-                    : $this->discount;
-                $grandTotal = max(0, $subtotal - $discountAmount);
-                $dueAmount = max(0, $grandTotal - $this->paidAmount);
+            DB::beginTransaction();
 
-                // Determine payment status
-                $paymentStatus = 'pending';
-                if ($this->paidAmount >= $grandTotal) {
-                    $paymentStatus = 'paid';
-                } elseif ($this->paidAmount > 0) {
-                    $paymentStatus = 'partial';
-                }
+            // Calculate totals
+            $subtotal = collect($this->cart)->sum('total');
+            $discountAmount = $this->discountType === 'percentage'
+                ? ($subtotal * $this->discount) / 100
+                : $this->discount;
+            $grandTotal = max(0, $subtotal - $discountAmount);
+            $dueAmount = max(0, $grandTotal - $this->paidAmount);
 
-                // Create sale
-                $sale = Sale::create([
-                    'invoice_number' => $this->generateInvoiceNumber(),
-                    'customer_id' => $this->customerId,
-                    'user_id' => Auth::id(),
-                    'sale_type' => 'staff',
-                    'total_amount' => $grandTotal,
-                    'discount' => $discountAmount,
-                    'payment_type' => 'cash',
-                    'payment_status' => $paymentStatus,
-                    'paid_amount' => $this->paidAmount,
-                    'due_amount' => $dueAmount,
-                    'notes' => $this->notes,
-                    'status' => 'completed',
-                ]);
+            // Determine payment status and payment type
+            $paymentStatus = 'pending';
+            $paymentType = 'partial';
 
-                // Create sale items and update staff product quantities
-                foreach ($this->cart as $item) {
-                    SaleItem::create([
-                        'sale_id' => $sale->id,
-                        'product_id' => $item['id'],
-                        'product_name' => $item['name'],
-                        'quantity' => $item['quantity'],
-                        'unit_price' => $item['price'],
-                        'total_price' => $item['total'],
-                    ]);
+            if ($this->paidAmount >= $grandTotal) {
+                $paymentStatus = 'paid';
+                $paymentType = 'full';
+            } elseif ($this->paidAmount > 0) {
+                $paymentStatus = 'partial';
+                $paymentType = 'partial';
+            }
 
-                    // Reduce staff product allocation using FIFO
-                    $this->reduceStaffProduct($item['id'], $item['quantity']);
-                }
-
-                $this->createdSale = $sale->load(['customer', 'items', 'user']);
-                $this->showSaleModal = true;
-
-                // Clear cart
-                $this->cart = [];
-                $this->paidAmount = 0;
-                $this->notes = '';
-                $this->discount = 0;
-                $this->setDefaultCustomer();
-
-                $this->dispatch('showToast', [
-                    'type' => 'success',
-                    'message' => 'Sale created successfully!'
-                ]);
-            });
-        } catch (\Exception $e) {
-            $this->dispatch('showToast', [
-                'type' => 'error',
-                'message' => 'Error creating sale: ' . $e->getMessage()
+            // Create sale
+            $sale = Sale::create([
+                'sale_id' => Sale::generateSaleId(),
+                'invoice_number' => $this->generateInvoiceNumber(),
+                'customer_id' => $this->customerId,
+                'user_id' => Auth::id(),
+                'sale_type' => 'staff',
+                'subtotal' => $subtotal,
+                'discount_amount' => $discountAmount,
+                'total_amount' => $grandTotal,
+                'payment_type' => $paymentType,
+                'payment_status' => $paymentStatus,
+                'due_amount' => $dueAmount,
+                'notes' => $this->notes,
+                'status' => 'confirm',
             ]);
+
+            // Create sale items and update staff product quantities
+            foreach ($this->cart as $item) {
+                SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item['id'],
+                    'product_code' => $item['code'] ?? '',
+                    'product_name' => $item['name'],
+                    'product_model' => $item['model'] ?? '',
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['price'],
+                    'discount_per_unit' => 0,
+                    'total_discount' => 0,
+                    'total' => $item['total'],
+                ]);
+
+                // Reduce staff product allocation using FIFO
+                $this->reduceStaffProduct($item['id'], $item['quantity']);
+            }
+
+            DB::commit();
+
+            // Load the created sale with relationships
+            $this->createdSale = Sale::with(['customer', 'items', 'user'])->find($sale->id);
+            $this->showSaleModal = true;
+
+            // Show success message
+            $this->dispatch('showToast', [
+                'type' => 'success',
+                'message' => 'Sale created successfully! Invoice #' . $sale->invoice_number
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $errorMessage = addslashes($e->getMessage());
+            $this->js("Swal.fire('error', 'Failed to create sale: {$errorMessage}', 'error')");
         }
     }
 
@@ -392,29 +437,6 @@ class StaffSalesSystem extends Component
         }
 
         return $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-    }
-
-    public function downloadInvoice()
-    {
-        if ($this->createdSale) {
-            $pdf = Pdf::loadView('pdf.invoice', ['sale' => $this->createdSale]);
-            return response()->streamDownload(
-                fn() => print($pdf->output()),
-                'invoice-' . $this->createdSale->invoice_number . '.pdf'
-            );
-        }
-    }
-
-    public function createNewSale()
-    {
-        $this->showSaleModal = false;
-        $this->createdSale = null;
-    }
-
-    public function closeModal()
-    {
-        $this->showSaleModal = false;
-        $this->createdSale = null;
     }
 
     public function render()

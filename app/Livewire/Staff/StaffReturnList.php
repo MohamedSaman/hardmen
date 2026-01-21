@@ -6,7 +6,11 @@ use App\Models\StaffReturn;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 
+#[Layout('components.layouts.staff')]
+#[Title('Return List')]
 class StaffReturnList extends Component
 {
     use WithPagination;

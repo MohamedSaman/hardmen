@@ -185,8 +185,9 @@ class StaffQuotationSystem extends Component
             $this->customerId = $customer->id;
             $this->selectedCustomer = $customer;
             $this->closeCustomerModal();
+            $this->js("Swal.fire('Success!', 'Customer created successfully!', 'success');");
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to create customer: ' . $e->getMessage());
+            $this->js("Swal.fire('Error!', 'Failed to create customer: " . addslashes($e->getMessage()) . "', 'error');");
         }
     }
 
@@ -390,13 +391,19 @@ class StaffQuotationSystem extends Component
     {
         // Validate required fields
         if (empty($this->cart)) {
-            session()->flash('error', 'Please add at least one product to the quotation.');
+            $this->js("Swal.fire('Error!', 'Please add at least one product to the quotation.', 'error');");
             return;
         }
 
         // Validate customer is selected - check if customerId has a valid value
         if (empty($this->customerId) || $this->customerId === '') {
-            session()->flash('error', 'Please select a customer for the quotation.');
+            $this->js("Swal.fire('Error!', 'Please select a customer for the quotation.', 'error');");
+            return;
+        }
+
+        // Validate valid until date
+        if (empty($this->validUntil)) {
+            $this->js("Swal.fire('Error!', 'Please select a valid until date.', 'error');");
             return;
         }
 
@@ -407,7 +414,7 @@ class StaffQuotationSystem extends Component
             $customer = Customer::find($this->customerId);
 
             if (!$customer) {
-                session()->flash('error', 'Customer not found.');
+                $this->js("Swal.fire('Error!', 'Customer not found.', 'error');");
                 return;
             }
 
@@ -458,16 +465,9 @@ class StaffQuotationSystem extends Component
                 'user_id' => Auth::id(),
             ]);
 
-            // Update sold_quantity in staff_products for each item in the quotation
-            foreach ($this->cart as $cartItem) {
-                $staffProduct = \App\Models\StaffProduct::where('staff_id', Auth::id())
-                    ->where('product_id', $cartItem['id'])
-                    ->first();
-
-                if ($staffProduct) {
-                    $staffProduct->increment('sold_quantity', $cartItem['quantity']);
-                }
-            }
+            $this->js("Swal.fire('Success!', 'Quotation created successfully!', 'success');");
+            // NOTE: Quotations don't reduce stock - only sales do
+            // Staff products sold_quantity is NOT updated for quotations
 
             DB::commit();
 
@@ -477,61 +477,85 @@ class StaffQuotationSystem extends Component
             $this->showQuotationModal = true;
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', 'Failed to create quotation: ' . $e->getMessage());
+            $this->js("Swal.fire('Error!', 'Failed to create quotation: " . addslashes($e->getMessage()) . "', 'error');");
         }
     }
 
     // Download Quotation
     public function downloadQuotation()
     {
-        if (!$this->lastQuotationId) {
-            session()->flash('error', 'No quotation found to download.');
+        if (!$this->createdQuotation) {
+            $this->js("Swal.fire('Error!', 'No quotation found to download.', 'error');");
             return;
         }
 
-        $quotation = Quotation::find($this->lastQuotationId);
+        try {
+            $quotation = Quotation::find($this->createdQuotation->id);
 
-        if (!$quotation) {
-            session()->flash('error', 'Quotation not found.');
-            return;
+            if (!$quotation) {
+                $this->js("Swal.fire('Error!', 'Quotation not found.', 'error');");
+                return;
+            }
+
+            $pdf = PDF::loadView('admin.quotations.print', compact('quotation'));
+            $pdf->setPaper('a4', 'portrait');
+            $pdf->setOption('dpi', 150);
+            $pdf->setOption('defaultFont', 'sans-serif');
+
+            return response()->streamDownload(
+                function () use ($pdf) {
+                    echo $pdf->output();
+                },
+                'quotation-' . $quotation->quotation_number . '.pdf'
+            );
+        } catch (\Exception $e) {
+            $this->js("Swal.fire('Error!', 'Failed to generate PDF: " . addslashes($e->getMessage()) . "', 'error');");
         }
-
-        $pdf = PDF::loadView('admin.quotations.print', compact('quotation'));
-
-        return response()->streamDownload(
-            function () use ($pdf) {
-                echo $pdf->output();
-            },
-            'quotation-' . $quotation->quotation_number . '.pdf'
-        );
     }
 
     // Print Quotation
     public function printQuotation()
     {
-        if (!$this->lastQuotationId) {
-            session()->flash('error', 'No quotation found to print.');
+        if (!$this->createdQuotation) {
+            $this->js("Swal.fire('Error!', 'No quotation found to print.', 'error');");
             return;
         }
 
-        $quotation = Quotation::find($this->lastQuotationId);
+        $quotation = Quotation::find($this->createdQuotation->id);
 
         if (!$quotation) {
-            session()->flash('error', 'Quotation not found.');
+            $this->js("Swal.fire('Error!', 'Quotation not found.', 'error');");
             return;
         }
 
-        $pdf = PDF::loadView('admin.quotations.print', compact('quotation'));
-
-        return $pdf->download('quotation-' . $quotation->quotation_number . '.pdf');
+        // Open print page in new window
+        $printUrl = '/admin/print/quotation/' . $quotation->id;
+        $this->js("window.open('$printUrl', '_blank', 'width=800,height=600');");
     }
 
-    // Close Modal and reset only necessary fields
+    // Close Modal and reset all fields
     public function closeModal()
     {
         $this->showQuotationModal = false;
         $this->lastQuotationId = null;
         $this->createdQuotation = null;
+
+        // Reset all fields when closing modal
+        $this->reset([
+            'cart',
+            'search',
+            'searchResults',
+            'customerId',
+            'notes',
+            'termsConditions',
+            'additionalDiscount',
+            'additionalDiscountType'
+        ]);
+
+        // Reload defaults
+        $this->validUntil = now()->addDays(30)->format('Y-m-d');
+        $this->termsConditions = "1. This quotation is valid for 30 days.\n2. Prices are subject to change.";
+        $this->loadCustomers();
     }
 
     // Continue creating new quotation (reset everything)

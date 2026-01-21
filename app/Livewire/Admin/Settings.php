@@ -48,7 +48,7 @@ class Settings extends Component
     public $isEditExpense = false;
     public $editingExpenseId = null;
     public $deleteExpenseId = null;
-    
+
     // New Expense Category Management
     public $showCategoryModal = false;
     public $newExpenseCategory = '';
@@ -59,7 +59,7 @@ class Settings extends Component
     public $deleteCategoryTypeId = null;
 
     protected $listeners = [
-        'deleteConfirmed' => 'deleteConfiguration', 
+        'deleteConfirmed' => 'deleteConfiguration',
         'deleteExpenseConfirmed' => 'deleteExpense',
         'deleteCategoryTypeConfirmed' => 'deleteCategoryType'
     ];
@@ -197,7 +197,7 @@ class Settings extends Component
     {
         try {
             $deleteId = $id ?? $this->deleteId;
-            
+
             if (!$deleteId) {
                 throw new \Exception('No configuration selected for deletion.');
             }
@@ -220,10 +220,10 @@ class Settings extends Component
         $staff = User::findOrFail($staffId);
         $this->selectedStaffId = $staffId;
         $this->selectedStaffName = $staff->name;
-        
+
         // Load current permissions for this staff
         $this->staffPermissions = StaffPermission::getUserPermissions($staffId);
-        
+
         $this->showPermissionModal = true;
     }
 
@@ -266,7 +266,16 @@ class Settings extends Component
 
     public function selectAllPermissions()
     {
-        $this->staffPermissions = array_keys($this->availablePermissions);
+        // Only select permissions that are both available and in categories
+        $displayedPermissions = [];
+        foreach ($this->permissionCategories as $category => $permissions) {
+            foreach ($permissions as $permKey) {
+                if (isset($this->availablePermissions[$permKey])) {
+                    $displayedPermissions[] = $permKey;
+                }
+            }
+        }
+        $this->staffPermissions = $displayedPermissions;
     }
 
     public function clearAllPermissions()
@@ -300,12 +309,12 @@ class Settings extends Component
         $expense = Expense::findOrFail($id);
         $this->editingExpenseId = $id;
         $this->expenseCategory = $expense->category;
-        
+
         // Load types for this category
         $this->expenseTypes = ExpenseCategory::where('expense_category', $this->expenseCategory)
             ->pluck('type')
             ->toArray();
-            
+
         $this->expenseType = $expense->expense_type;
         $this->expenseAmount = $expense->amount;
         $this->expenseDate = $expense->date->format('Y-m-d');
@@ -392,7 +401,7 @@ class Settings extends Component
     {
         try {
             $deleteId = $id ?? $this->deleteExpenseId;
-            
+
             if (!$deleteId) {
                 throw new \Exception('No expense selected for deletion.');
             }
@@ -476,7 +485,7 @@ class Settings extends Component
     {
         try {
             $deleteId = $id ?? $this->deleteCategoryTypeId;
-            
+
             if (!$deleteId) {
                 throw new \Exception('No category type selected for deletion.');
             }

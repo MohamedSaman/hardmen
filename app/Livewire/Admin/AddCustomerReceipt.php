@@ -9,6 +9,7 @@ use App\Models\Sale;
 use App\Models\Payment;
 use App\Models\Cheque;
 use App\Models\ReturnsProduct;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +26,7 @@ class AddCustomerReceipt extends Component
     use WithPagination;
 
     public $search = '';
+    public $userFilter = 'admin';
     public $selectedCustomer = null;
     public $customerSales = [];
     public $selectedInvoices = [];
@@ -96,6 +98,14 @@ class AddCustomerReceipt extends Component
     }
 
     public function updatedSearch()
+    {
+        $this->resetPage();
+        $this->selectedCustomer = null;
+        $this->customerSales = [];
+        $this->resetPaymentData();
+    }
+
+    public function updatedUserFilter()
     {
         $this->resetPage();
         $this->selectedCustomer = null;
@@ -776,12 +786,42 @@ class AddCustomerReceipt extends Component
                 $q->where('payment_status', 'pending')
                     ->orWhere('payment_status', 'partial');
             });
+
+            // Filter by user if not 'all'
+            if ($this->userFilter !== 'all') {
+                if ($this->userFilter === 'admin') {
+                    // Show only admin sales (where user_id is null or user role is admin)
+                    $query->where(function ($q) {
+                        $q->whereNull('user_id')
+                            ->orWhereHas('user', function ($userQuery) {
+                                $userQuery->where('role', 'admin');
+                            });
+                    });
+                } else {
+                    // Filter by specific user ID
+                    $query->where('user_id', $this->userFilter);
+                }
+            }
         }])
             ->whereHas('sales', function ($query) {
                 $query->where(function ($q) {
                     $q->where('payment_status', 'pending')
                         ->orWhere('payment_status', 'partial');
                 });
+
+                // Apply the same user filter to whereHas
+                if ($this->userFilter !== 'all') {
+                    if ($this->userFilter === 'admin') {
+                        $query->where(function ($q) {
+                            $q->whereNull('user_id')
+                                ->orWhereHas('user', function ($userQuery) {
+                                    $userQuery->where('role', 'admin');
+                                });
+                        });
+                    } else {
+                        $query->where('user_id', $this->userFilter);
+                    }
+                }
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -794,10 +834,18 @@ class AddCustomerReceipt extends Component
             ->paginate(10);
     }
 
+    public function getUsersProperty()
+    {
+        return User::where('role', 'staff')
+            ->orderBy('name')
+            ->get();
+    }
+
     public function render()
     {
         return view('livewire.admin.add-customer-receipt', [
-            'customers' => $this->customers
+            'customers' => $this->customers,
+            'users' => $this->users
         ])->layout($this->layout);
     }
 }

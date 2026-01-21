@@ -711,8 +711,8 @@
                 <div class="chart-card mb-3">
                     <div class="chart-header d-flex justify-content-between align-items-center flex-wrap">
                         <div>
-                            <h6 class="mb-1">Brand-wise Sales</h6>
-                            <p class="text-muted mb-0 small">Your sales performance by Product brands</p>
+                            <h6 class="mb-1">Daily Sales Trend</h6>
+                            <p class="text-muted mb-0 small">Your sales performance over the last 7 days</p>
                         </div>
                         <div class="mt-2 mt-sm-0">
                             {{-- <select class="form-select form-select-sm w-auto" id="chart-time-range">
@@ -724,7 +724,7 @@
                     </div>
                     <!-- Add scrollable wrapper for the chart -->
                     <div class="chart-scroll-container">
-                        <div class="chart-container" style="min-width: {{ max(300, count($brandSales) * 60) }}px;">
+                        <div class="chart-container" style="min-width: 300px;">
                             <canvas id="salesChart"></canvas>
                         </div>
                     </div>
@@ -963,13 +963,22 @@
         const isMobile = window.innerWidth < 768;
 
         const chart = new Chart(ctx, {
-            type: 'bar',
+            type: 'line',
             data: {
-                labels: @json(collect($brandSales)->pluck('brand')),
+                labels: @json(collect($dailySales)->pluck('date')),
                 datasets: [{
-                    label: 'Sales by Brand',
-                    backgroundColor: '#0d6efd',
-                    data: @json(collect($brandSales)->pluck('total_sales'))
+                    label: 'Daily Sales',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderColor: '#0d6efd',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#0d6efd',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    data: @json(collect($dailySales)->pluck('total_sales')),
+                    fill: true,
+                    tension: 0.4
                 }]
             },
             options: {
@@ -977,9 +986,25 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: isMobile ? 11 : 13
+                            },
+                            padding: 15,
+                            usePointStyle: true
+                        }
                     },
                     tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 13
+                        },
+                        bodyFont: {
+                            size: 12
+                        },
                         callbacks: {
                             label: function(context) {
                                 return 'Rs.' + new Intl.NumberFormat().format(context.raw);
@@ -1012,10 +1037,10 @@
                         },
                         ticks: {
                             font: {
-                                size: isMobile ? 8 : 12
+                                size: isMobile ? 10 : 12
                             },
-                            maxRotation: 45,
-                            minRotation: 45
+                            maxRotation: 0,
+                            minRotation: 0
                         }
                     }
                 }
@@ -1042,7 +1067,8 @@
         window.addEventListener('resize', function() {
             const isMobile = window.innerWidth < 768;
             chart.options.scales.y.ticks.font.size = isMobile ? 10 : 12;
-            chart.options.scales.x.ticks.font.size = isMobile ? 8 : 12;
+            chart.options.scales.x.ticks.font.size = isMobile ? 10 : 12;
+            chart.options.plugins.legend.labels.font.size = isMobile ? 11 : 13;
             chart.update();
         });
     });

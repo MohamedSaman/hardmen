@@ -60,26 +60,11 @@ class StaffPermission extends Model
             // Products Menu (if staff needs to view products)
             'menu_products' => 'Products Menu',
             'menu_products_list' => 'List Products',
-            'menu_products_brand' => 'Product Brands',
-            'menu_products_category' => 'Product Categories',
-
-            // Purchase Menu
-            'menu_purchase' => 'Purchase Menu',
-            'menu_purchase_order' => 'Purchase Order List',
-            'menu_purchase_grn' => 'GRN (Goods Received Note)',
 
             // Return Menu
             'menu_return' => 'Return Menu',
             'menu_return_customer_add' => 'Add Customer Return',
             'menu_return_customer_list' => 'List Customer Returns',
-            'menu_return_supplier_add' => 'Add Supplier Return',
-            'menu_return_supplier_list' => 'List Supplier Returns',
-
-            // Cheque/Banks Menu
-            'menu_banks' => 'Cheque/Banks Menu',
-            'menu_banks_deposit' => 'Deposit By Cash',
-            'menu_banks_cheque_list' => 'Cheque List',
-            'menu_banks_return_cheque' => 'Return Cheque',
 
             // Expenses Menu
             'menu_expenses' => 'Expenses Menu',
@@ -87,15 +72,7 @@ class StaffPermission extends Model
 
             // People Menu
             'menu_people' => 'People Menu',
-            'menu_people_suppliers' => 'Manage Suppliers',
             'menu_people_customers' => 'Manage Customers',
-            'menu_people_staff' => 'List Staff',
-
-            // Reports
-            'menu_reports' => 'Reports',
-
-            // Analytics
-            'menu_analytics' => 'Analytics',
         ];
     }
 
@@ -132,26 +109,11 @@ class StaffPermission extends Model
             'Products Management' => [
                 'menu_products',
                 'menu_products_list',
-                'menu_products_brand',
-                'menu_products_category',
-            ],
-            'Purchase Management' => [
-                'menu_purchase',
-                'menu_purchase_order',
-                'menu_purchase_grn',
             ],
             'Return Management' => [
                 'menu_return',
                 'menu_return_customer_add',
                 'menu_return_customer_list',
-                'menu_return_supplier_add',
-                'menu_return_supplier_list',
-            ],
-            'Cheque & Banks' => [
-                'menu_banks',
-                'menu_banks_deposit',
-                'menu_banks_cheque_list',
-                'menu_banks_return_cheque',
             ],
             'Expenses Management' => [
                 'menu_expenses',
@@ -159,13 +121,7 @@ class StaffPermission extends Model
             ],
             'People Management' => [
                 'menu_people',
-                'menu_people_suppliers',
                 'menu_people_customers',
-                'menu_people_staff',
-            ],
-            'Reports & Analytics' => [
-                'menu_reports',
-                'menu_analytics',
             ],
         ];
     }

@@ -36,7 +36,6 @@
                             <select class="form-select shadow-sm" wire:model.live="customerId">
                                 <option value="">-- Select a Customer --</option>
                                 @foreach($customers as $customer)
-                                    <option value="">-- Select a Customer --</option>
                                     <option value="{{ $customer->id }}">
                                         {{ $customer->name }}
                                         @if($customer->phone)
@@ -62,28 +61,29 @@
 
         {{-- Add Products --}}
         <div class="col-md-6 mb-4">
-            <div class="card h-100 shadow-sm border-1">
+            <div class="card shadow-sm border-1">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0 fw-semibold">
                         <i class="bi bi-search me-2 text-success"></i> Add Products
                     </h5>
                 </div>
 
-                <div class="card-body">
+                <div class="card-body" style="position: relative;">
                     {{-- Search Field --}}
-                    <div class="mb-3">
+                    <div class="mb-3" style="position: relative; z-index: 10;">
                         <input type="text" class="form-control shadow-sm"
                             wire:model.live="search"
                             placeholder="Search by product name, code, or model...">
                     </div>
 
-                    {{-- Search Results --}}
+                    {{-- Search Results Dropdown --}}
                     @if($search && count($searchResults) > 0)
-                        <div class="search-results border rounded bg-white shadow-sm" style="max-height: 300px; overflow-y: auto;">
+                        <div class="search-results-dropdown border rounded shadow-lg" style="position: absolute; top: 55px; left: 15px; right: 15px; max-height: 400px; overflow-y: auto; background: white; z-index: 1050; min-width: 300px;">
                             @foreach($searchResults as $product)
-                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center"
-                                    wire:key="product-{{ $product['id'] }}">
-                                    <div>
+                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center search-result-item"
+                                    wire:key="product-{{ $product['id'] }}"
+                                    style="cursor: pointer; transition: background-color 0.2s;">
+                                    <div class="flex-grow-1">
                                         <h6 class="mb-1 fw-semibold">{{ $product['name'] }}</h6>
                                         <p class="text-muted small mb-0">
                                             Code: {{ $product['code'] }} | Model: {{ $product['model'] }}
@@ -92,15 +92,22 @@
                                             Rs.{{ number_format($product['price'], 2) }} | Stock: {{ $product['stock'] }}
                                         </p>
                                     </div>
-                                    <button class="btn btn-sm btn-success" wire:click="addToCart({{ json_encode($product) }})">
+                                    <button class="btn btn-sm btn-success ms-2" wire:click="addToCart({{ json_encode($product) }})">
                                         <i class="bi bi-plus-circle"></i> Add
                                     </button>
                                 </div>
                             @endforeach
                         </div>
                     @elseif($search && count($searchResults) == 0)
-                        <div class="alert alert-info mb-0">
+                        <div class="alert alert-info mb-3" style="position: absolute; top: 55px; left: 15px; right: 15px; z-index: 1050;">
                             <i class="bi bi-info-circle me-2"></i> No products found
+                        </div>
+                    @endif
+
+                    @if(!$search)
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-search display-5 mb-3"></i>
+                            <p>Start typing to search for products...</p>
                         </div>
                     @endif
                 </div>
@@ -149,16 +156,9 @@
                                                     wire:change="updateUnitPrice({{ $index }}, $event.target.value)">
                                             </td>
                                             <td>
-                                                <div class="input-group input-group-sm">
-                                                    <button class="btn btn-outline-secondary" wire:click="decrementQuantity({{ $index }})">
-                                                        <i class="bi bi-dash"></i>
-                                                    </button>
-                                                    <input type="number" class="form-control text-center" value="{{ $item['quantity'] }}"
-                                                        wire:change="updateQuantity({{ $index }}, $event.target.value)">
-                                                    <button class="btn btn-outline-secondary" wire:click="incrementQuantity({{ $index }})">
-                                                        <i class="bi bi-plus"></i>
-                                                    </button>
-                                                </div>
+                                                <input type="number" class="form-control form-control-sm text-center" 
+                                                    value="{{ $item['quantity'] }}" min="1"
+                                                    wire:change="updateQuantity({{ $index }}, $event.target.value)">
                                             </td>
                                             <td>
                                                 <input type="number" class="form-control form-control-sm" step="0.01"
@@ -236,7 +236,7 @@
 
     {{-- Terms & Conditions --}}
     <div class="row mb-4">
-        <div class="col-12">
+        <div class="col-6">
             <div class="card shadow-sm border-1">
                 <div class="card-header">
                     <h5 class="card-title mb-0 fw-semibold">
@@ -249,11 +249,9 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    {{-- Notes --}}
-    <div class="row mb-4">
-        <div class="col-12">
+        {{-- Notes --}}
+        <div class="col-6">
             <div class="card shadow-sm border-1">
                 <div class="card-header">
                     <h5 class="card-title mb-0 fw-semibold">
@@ -287,46 +285,156 @@
         <div class="modal show d-block" style="background: rgba(0,0,0,0.5);">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title">
-                            <i class="bi bi-check-circle me-2"></i> Quotation Created Successfully
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" wire:click="closeModal"></button>
+                    <div class="modal-body p-0">
+                        <div class="quotation-preview p-4" id="quotationPrintContent">
+
+                            {{-- Screen Only Header --}}
+                            <div class="screen-only-header mb-4">
+                                <div class="text-end">
+                                    <button type="button" class="btn-close" wire:click="closeModal"></button>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    {{-- Left: Logo --}}
+                                    <div style="flex: 0 0 150px;">
+                                        <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height:80px;">
+                                    </div>
+
+                                    {{-- Center: Company Name --}}
+                                    <div class="text-center" style="flex: 1;">
+                                        <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">HARDMEN (PVT) LTD</h2>
+                                        <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
+                                    </div>
+
+                                    {{-- Right: Quotation --}}
+                                    <div class="text-end" style="flex: 0 0 150px;">
+                                        <h5 class="mb-0 fw-bold"></h5>
+                                        <h6 class="mb-0 text-muted">QUOTATION</h6>
+                                    </div>
+                                </div>
+                                <hr class="my-2" style="border-top: 2px solid #000;">
+                            </div>
+
+                            {{-- Customer & Quotation Details Side by Side --}}
+                            <div class="row mb-3 invoice-info-row">
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>Customer :</strong></p>
+                                    <p class="mb-0">{{ $createdQuotation->customer_name }}</p>
+                                    <p class="mb-0">{{ $createdQuotation->customer_address }}</p>
+                                    <p class="mb-0"><strong>Tel:</strong> {{ $createdQuotation->customer_phone }}</p>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <table class="table-borderless ms-auto" style="width: auto; display: inline-table;">
+                                        <tr>
+                                            <td class="pe-3"><strong>Quotation #</strong></td>
+                                            <td>{{ $createdQuotation->quotation_number }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="pe-3"><strong>Date</strong></td>
+                                            <td>{{ $createdQuotation->quotation_date->format('d/m/Y') }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="pe-3"><strong>Valid Until</strong></td>
+                                            <td>{{ $createdQuotation->valid_until->format('d/m/Y') }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {{-- Items Table --}}
+                            <div class="table-responsive mb-3">
+                                <table class="table table-bordered invoice-table">
+                                    <thead>
+                                        <tr>
+                                            <th width="40" class="text-center">#</th>
+                                            <th>DESCRIPTION</th>
+                                            <th width="80" class="text-center">QTY</th>
+                                            <th width="120" class="text-end">UNIT PRICE</th>
+                                            <th width="100" class="text-end">DISCOUNT</th>
+                                            <th width="120" class="text-end">TOTAL</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($createdQuotation->items as $index => $item)
+                                        <tr>
+                                            <td class="text-center">{{ $index + 1 }}</td>
+                                            <td>{{ $item['product_name'] }}<br><small class="text-muted">{{ $item['product_code'] }}</small></td>
+                                            <td class="text-center">{{ $item['quantity'] }}</td>
+                                            <td class="text-end">Rs.{{ number_format($item['unit_price'], 2) }}</td>
+                                            <td class="text-end">Rs.{{ number_format($item['discount_per_unit'], 2) }}</td>
+                                            <td class="text-end">Rs.{{ number_format($item['total'], 2) }}</td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="totals-row">
+                                            <td colspan="5" class="text-end"><strong>Subtotal</strong></td>
+                                            <td class="text-end"><strong>Rs.{{ number_format($createdQuotation->subtotal, 2) }}</strong></td>
+                                        </tr>
+                                        @if($createdQuotation->discount_amount > 0)
+                                        <tr class="totals-row">
+                                            <td colspan="5" class="text-end"><strong>Discount</strong></td>
+                                            <td class="text-end"><strong>-Rs.{{ number_format($createdQuotation->discount_amount, 2) }}</strong></td>
+                                        </tr>
+                                        @endif
+                                        <tr class="totals-row grand-total">
+                                            <td colspan="5" class="text-end"><strong>Grand Total</strong></td>
+                                            <td class="text-end"><strong>Rs.{{ number_format($createdQuotation->total_amount, 2) }}</strong></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            {{-- Terms & Conditions --}}
+                            @if($createdQuotation->terms_conditions)
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Terms & Conditions:</h6>
+                                <p style="white-space: pre-line; font-size: 0.9rem;">{{ $createdQuotation->terms_conditions }}</p>
+                            </div>
+                            @endif
+
+                            {{-- Notes --}}
+                            @if($createdQuotation->notes)
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Notes:</h6>
+                                <p style="white-space: pre-line; font-size: 0.9rem;">{{ $createdQuotation->notes }}</p>
+                            </div>
+                            @endif
+
+                            {{-- Footer Note --}}
+                            <div class="invoice-footer mt-4">
+                                <div class="row text-center mb-3">
+                                    <div class="col-4">
+                                        <p class=""><strong>.............................</strong></p>
+                                        <p class="mb-2"><strong>Checked By</strong></p>
+                                    </div>
+                                    <div class="col-4">
+                                        <p class=""><strong>.............................</strong></p>
+                                        <p class="mb-2"><strong>Authorized Officer</strong></p>
+                                    </div>
+                                    <div class="col-4">
+                                        <p class=""><strong>.............................</strong></p>
+                                        <p class="mb-2"><strong>Customer Stamp</strong></p>
+                                    </div>
+                                </div>
+                                <div class="border-top pt-3">
+                                    <p class="text-center"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
+                                    <p class="text-center"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                    <p class="text-center mt-2" style="font-size: 11px;"><strong>This quotation is valid until {{ $createdQuotation->valid_until->format('d/m/Y') }}.</strong></p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="modal-body">
-                        <div class="alert alert-success">
-                            <i class="bi bi-check-circle me-2"></i>
-                            Quotation <strong>#{{ $createdQuotation->quotation_number }}</strong> has been created successfully!
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <p><strong>Customer:</strong> {{ $createdQuotation->customer_name }}</p>
-                                <p><strong>Quotation Date:</strong> {{ $createdQuotation->quotation_date->format('d-m-Y') }}</p>
-                            </div>
-                            <div class="col-md-6">
-                                <p><strong>Valid Until:</strong> {{ $createdQuotation->valid_until->format('d-m-Y') }}</p>
-                                <p><strong>Total Amount:</strong> <span class="text-success fw-bold">Rs.{{ number_format($createdQuotation->total_amount, 2) }}</span></p>
-                            </div>
-                        </div>
-
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            The quotation is ready for download or printing.
-                        </div>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" wire:click="closeModal">Close</button>
-                        <button class="btn btn-info" wire:click="downloadQuotation">
-                            <i class="bi bi-download me-1"></i> Download PDF
+                    {{-- Footer Buttons --}}
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-outline-primary me-2" onclick="window.open('/staff/print/quotation/{{ $createdQuotation->id }}', '_blank')">
+                            <i class="bi bi-printer me-2"></i>Print
                         </button>
-                        <button class="btn btn-primary" wire:click="printQuotation">
-                            <i class="bi bi-printer me-1"></i> Print
+                        <button type="button" class="btn btn-success" wire:click="downloadQuotation">
+                            <i class="bi bi-download me-2"></i>Download PDF
                         </button>
-                        <button class="btn btn-success" wire:click="createNewQuotation">
-                            <i class="bi bi-plus-circle me-1"></i> Create Another
+                        <button type="button" class="btn btn-secondary" wire:click="closeModal">
+                            <i class="bi bi-x-circle me-2"></i>Close
                         </button>
                     </div>
                 </div>
@@ -399,4 +507,111 @@
         </div>
     @endif
 </div>
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check for flash messages and show Swal alerts
+        @if (session()->has('success'))
+            Swal.fire('Success!', '{{ session('success') }}', 'success');
+        @endif
+
+        @if (session()->has('error'))
+            Swal.fire('Error!', '{{ session('error') }}', 'error');
+        @endif
+    });
+
+    // Listen for Livewire events to show Swal alerts
+    Livewire.on('showSuccess', (message) => {
+        Swal.fire('Success!', message, 'success');
+    });
+
+    Livewire.on('showError', (message) => {
+        Swal.fire('Error!', message, 'error');
+    });
+</script>
+@endpush
+
+@push('styles')
+<style>
+    .search-results-dropdown {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .search-result-item {
+        transition: background-color 0.2s ease;
+    }
+
+    .search-result-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+
+    /* Quotation/Invoice Styles */
+    .quotation-preview {
+        background: white;
+        font-family: Arial, sans-serif;
+    }
+
+    .invoice-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .invoice-table th,
+    .invoice-table td {
+        padding: 8px;
+        border: 1px solid #ddd;
+    }
+
+    .invoice-table th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+
+    .totals-row td {
+        border-top: 1px solid #000;
+    }
+
+    .grand-total td {
+        font-size: 1.1em;
+        background-color: #f8f9fa;
+        border-top: 2px solid #000 !important;
+    }
+
+    .invoice-info-row {
+        font-size: 0.9rem;
+    }
+
+    @media print {
+        .screen-only-header .btn-close {
+            display: none !important;
+        }
+
+        .modal-footer {
+            display: none !important;
+        }
+
+        body * {
+            visibility: hidden;
+        }
+
+        #quotationPrintContent,
+        #quotationPrintContent * {
+            visibility: visible;
+        }
+
+        #quotationPrintContent {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+    }
+</style>
+@endpush
 

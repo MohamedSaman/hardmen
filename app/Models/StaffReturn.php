@@ -11,6 +11,7 @@ class StaffReturn extends Model
 
     protected $fillable = [
         'staff_id',
+        'sale_id',
         'product_id',
         'customer_id',
         'quantity',
@@ -34,6 +35,14 @@ class StaffReturn extends Model
     public function staff()
     {
         return $this->belongsTo(User::class, 'staff_id');
+    }
+
+    /**
+     * Get the sale this return is for.
+     */
+    public function sale()
+    {
+        return $this->belongsTo(Sale::class);
     }
 
     /**

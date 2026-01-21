@@ -173,6 +173,16 @@ class AddPayment extends Component
                 'due_payment_attachment' => $attachmentPath,
                 'status' => 'pending',
                 'payment_date' => now(),
+                'customer_id' => $sale->customer_id,
+            ]);
+
+            // Create payment allocation record
+            DB::table('payment_allocations')->insert([
+                'payment_id' => $payment->id,
+                'sale_id' => $this->selectedSaleId,
+                'allocated_amount' => $this->paymentAmount,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             // Update sale due amount
