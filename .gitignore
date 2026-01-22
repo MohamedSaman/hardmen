@@ -1,3 +1,5 @@
+
+/storage/logs/*.log
 /.phpunit.cache
 /node_modules
 /public/hot
@@ -16,3 +18,8 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+/storage/*.log
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*.php
+/bootstrap/cache/*.php
