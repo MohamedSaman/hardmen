@@ -1,3 +1,5 @@
+/public/build/
+/usn-parts/
 
 /storage/logs/*.log
 /.phpunit.cache
