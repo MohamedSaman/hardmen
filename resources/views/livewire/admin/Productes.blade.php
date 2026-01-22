@@ -71,9 +71,7 @@
         .table th {
             border-top: none;
             font-weight: 600;
-            color: #ffffff;
-            background: #f58320;
-            background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);
+            
             font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;

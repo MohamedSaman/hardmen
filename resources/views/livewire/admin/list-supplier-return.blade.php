@@ -486,7 +486,7 @@
     .table th {
         border-top: none;
         font-weight: 600;
-        color: #ffffff;
+        
         
         text-transform: uppercase;
         letter-spacing: 0.5px;

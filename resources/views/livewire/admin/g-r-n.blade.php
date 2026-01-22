@@ -84,7 +84,7 @@
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
-                        <thead class="table-light">
+                        <thead class="table" style="color: black !important;">
                             <tr>
                                 <th class="ps-4">PO Number</th>
                                 <th>Supplier</th>
@@ -369,7 +369,7 @@
         .table th {
             border-top: none;
             font-weight: 600;
-            color: #ffffff;
+            
             
             
             font-size: 0.85rem;

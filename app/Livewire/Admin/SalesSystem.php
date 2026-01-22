@@ -487,8 +487,11 @@ class SalesSystem extends Component
                 try {
                     $fifoResult = FIFOStockService::deductStock($item['id'], $item['quantity']);
 
+                    // Use the manually updated price from cart, or fall back to FIFO selling price
+                    $cartUnitPrice = $item['price'] ?? $fifoResult['deductions'][0]['selling_price'] ?? 0;
+
                     // Create sale items based on batch deductions
-                    // Each batch deduction creates a separate sale item with its selling price
+                    // Use the manually updated cart price instead of FIFO batch price
                     foreach ($fifoResult['deductions'] as $deduction) {
                         SaleItem::create([
                             'sale_id' => $sale->id,
@@ -497,10 +500,10 @@ class SalesSystem extends Component
                             'product_name' => $item['name'],
                             'product_model' => $item['model'],
                             'quantity' => $deduction['quantity'],
-                            'unit_price' => $deduction['selling_price'], // Use batch selling price
+                            'unit_price' => $cartUnitPrice, // Use manually updated cart price
                             'discount_per_unit' => $item['discount'],
                             'total_discount' => $item['discount'] * $deduction['quantity'],
-                            'total' => ($deduction['selling_price'] - $item['discount']) * $deduction['quantity']
+                            'total' => ($cartUnitPrice - $item['discount']) * $deduction['quantity']
                         ]);
                     }
 

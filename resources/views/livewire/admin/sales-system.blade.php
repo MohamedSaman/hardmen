@@ -366,38 +366,34 @@
     @if($showSaleModal && $createdSale)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-body p-0">
-                    <div class="sale-preview p-4" id="saleReceiptPrintContent">
-
-                        {{-- Screen Only Header --}}
-                        <div class="screen-only-header mb-4">
-                            <div class="text-end">
-                                <button type="button" class="btn-close" wire:click="createNewSale"></button>
-                            </div>
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                {{-- Left: Logo --}}
-                                <div style="flex: 0 0 150px;">
-                                    <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height:80px;">
-                                </div>
-
-                                {{-- Center: Company Name --}}
-                                <div class="text-center" style="flex: 1;">
-                                    <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">HARDMEN (PVT) LTD</h2>
-                                    <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
-                                </div>
-
-                                {{-- Right:  & Invoice --}}
-                                <div class="text-end" style="flex: 0 0 150px;">
-                                    <h5 class="mb-0 fw-bold"></h5>
-                                    <h6 class="mb-0 text-muted">INVOICE</h6>
-                                </div>
-                            </div>
-                            <hr class="my-2" style="border-top: 2px solid #000;">
+            <div class="modal-content rounded-0" id="printableInvoice">
+                {{-- Screen Only Header (visible on screen, hidden on print) --}}
+                <div class="screen-only-header p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        {{-- Left: Logo --}}
+                        <div style="flex: 0 0 150px;">
+                            <img src="{{ asset('images/HARDMEN.png') }}" alt="Logo" class="img-fluid" style="max-height:80px;">
                         </div>
 
-                        {{-- Customer & Sale Details Side by Side --}}
-                        <div class="row mb-3 invoice-info-row">
+                        {{-- Center: Company Name --}}
+                        <div class="text-center" style="flex: 1;">
+                            <h2 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: 2px;">HARDMEN (PVT) LTD</h2>
+                            <p class="mb-0 text-muted small">TOOLS WITH POWER</p>
+                        </div>
+
+                        {{-- Right: Invoice Label --}}
+                        <div class="text-end" style="flex: 0 0 150px;">
+                            <h5 class="mb-0 fw-bold"></h5>
+                            <h6 class="mb-0 text-muted">INVOICE</h6>
+                        </div>
+                    </div>
+                    <hr class="my-2" style="border-top: 2px solid #000;">
+                </div>
+
+                <div class="modal-body p-4">
+                    <div class="sale-preview" id="saleReceiptPrintContent">
+                        {{-- ==================== CUSTOMER + INVOICE INFO ==================== --}}
+                        <div class="row mb-3">
                             <div class="col-6">
                                 <p class="mb-1"><strong>Customer :</strong></p>
                                 <p class="mb-0">{{ $createdSale->customer->name }}</p>
@@ -416,39 +412,39 @@
                                     </tr>
                                     <tr>
                                         <td class="pe-3"><strong>Date</strong></td>
-                                        <td>{{ $createdSale->created_at->format('d/m/Y') }}</td>
+                                        <td>{{ $createdSale->created_at->format('M d, Y') }}</td>
                                     </tr>
                                     <tr>
                                         <td class="pe-3"><strong>Time</strong></td>
-                                        <td>{{ $createdSale->created_at->format('H:i') }}</td>
+                                        <td>{{ $createdSale->created_at->format('H:i A') }}</td>
                                     </tr>
                                 </table>
                             </div>
                         </div>
 
-                        {{-- Items Table --}}
+                        {{-- ==================== ITEMS TABLE ==================== --}}
                         <div class="table-responsive mb-3">
                             <table class="table table-bordered invoice-table">
                                 <thead>
                                     <tr>
-                                        <th width="40" class="text-center">#</th>
-                                        <th>ITEM CODE</th>
-                                        <th>DESCRIPTION</th>
-                                        <th width="80" class="text-center">QTY</th>
-                                        <th width="120" class="text-end">UNIT PRICE</th>
-                                        <th width="120" class="text-end">UNIT DISCOUNT</th>
-                                        <th width="120" class="text-end">SUBTOTAL</th>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th class="text-center">Code</th>
+                                        <th class="text-center">Qty</th>
+                                        <th class="text-end">Unit Price</th>
+                                        <th class="text-end">Discount</th>
+                                        <th class="text-end">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($createdSale->items as $index => $item)
                                     <tr>
-                                        <td class="text-center">{{ $index + 1 }}</td>
-                                        <td>{{ $item->product_code }}</td>
+                                        <td>{{ $index + 1 }}</td>
                                         <td>{{ $item->product_name }}</td>
+                                        <td class="text-center">{{ $item->product_code }}</td>
                                         <td class="text-center">{{ $item->quantity }}</td>
                                         <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
-                                        <td class="text-end">- Rs.{{ number_format($item->discount_per_unit, 2) }}</td>
+                                        <td class="text-end">Rs.{{ number_format($item->discount_per_unit * $item->quantity, 2) }}</td>
                                         <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
                                     </tr>
                                     @endforeach
@@ -460,29 +456,28 @@
                                     });
                                     @endphp
                                     <tr class="totals-row">
-                                        <td colspan="6" class="text-end"><strong>Subtotal</strong></td>
-                                        <td class="text-end"><strong>Rs.{{ number_format($createdSale->subtotal + $itemDiscountTotal, 2) }}</strong></td>
+                                        <td colspan="5" class="text-end"><strong>Subtotal</strong></td>
+                                        <td colspan="2" class="text-end"><strong>Rs.{{ number_format($createdSale->subtotal, 2) }}</strong></td>
                                     </tr>
                                     @php
                                     $totalDiscount = ($createdSale->discount_amount + $itemDiscountTotal);
                                     @endphp
                                     @if($totalDiscount > 0)
                                     <tr class="totals-row">
-                                        <td colspan="6" class="text-end"><strong>Discount</strong></td>
-                                        <td class="text-end"><strong>-Rs.{{ number_format($totalDiscount, 2) }}</strong></td>
+                                        <td colspan="5" class="text-end"><strong>Total Discount</strong></td>
+                                        <td colspan="2" class="text-end"><strong class="text-danger">- Rs.{{ number_format($totalDiscount, 2) }}</strong></td>
                                     </tr>
                                     @endif
                                     <tr class="totals-row grand-total">
-                                        <td colspan="6" class="text-end"><strong>Grand Total</strong></td>
-                                        <td class="text-end"><strong>Rs.{{ number_format($createdSale->total_amount, 2) }}</strong></td>
+                                        <td colspan="5" class="text-end"><strong>Grand Total</strong></td>
+                                        <td colspan="2" class="text-end"><strong>Rs.{{ number_format($createdSale->total_amount, 2) }}</strong></td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
 
-                        {{-- Footer Note --}}
-                        {{-- Footer Note --}}
-                        <div class="invoice-footer mt-4">
+                        {{-- ==================== FOOTER ==================== --}}
+                        <div class="invoice-footer mt-4 border-top pt-4">
                             <div class="row text-center mb-3">
                                 <div class="col-4">
                                     <p class=""><strong>.............................</strong></p>
@@ -510,7 +505,10 @@
                 </div>
 
                 {{-- Footer Buttons --}}
-                <div class="modal-footer justify-content-center">
+                <div class="modal-footer justify-content-center bg-light">
+                    <button type="button" class="btn btn-outline-secondary me-2" wire:click="createNewSale">
+                        <i class="bi bi-x-circle me-2"></i>Close
+                    </button>
                     <button type="button" class="btn btn-outline-primary me-2" onclick="openPrintWindow({{ $createdSale->id }})">
                         <i class="bi bi-printer me-2"></i>Print
                     </button>
@@ -656,8 +654,7 @@
     }
 
     .sale-preview table th {
-        background-color: #038d4fff;
-        color: white;
+        
         border: none;
     }
 

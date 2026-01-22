@@ -336,17 +336,17 @@
                     </div>
 
                     {{-- ==================== ITEMS TABLE ==================== --}}
-                    <div class="table-responsive mb-3" style="min-height: 10px;">
-                        <table class="table table-bordered table-sm">
+                    <div class="table-responsive mb-3" style="min-height: 10px; overflow-x: visible !important;">
+                        <table class="table table-bordered table-sm" style="min-width: 100%; width: 100%;">
                             <thead class="table-light">
                                 <tr>
-                                    <th>#</th>
-                                    <th>Product</th>
-                                    <th class="text-center">Code</th>
-                                    <th class="text-center">Quantity</th>
-                                    <th class="text-end">Unit Price</th>
-                                    <th class="text-end">Discount</th>
-                                    <th class="text-end">Total</th>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 25%;">Product</th>
+                                    <th class="text-center" style="width: 10%;">Code</th>
+                                    <th class="text-center" style="width: 12%;">Quantity</th>
+                                    <th class="text-end" style="width: 15%;">Unit Price</th>
+                                    <th class="text-end" style="width: 15%;">Discount</th>
+                                    <th class="text-end" style="width: 18%;">Total</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -616,6 +616,13 @@
             vertical-align: middle;
         }
 
+        /* Ensure table columns are visible in screen view */
+        .table .text-end {
+            display: table-cell !important;
+            visibility: visible !important;
+            text-align: right !important;
+        }
+
         /* Print styles */
         @page {
             size: A4;
@@ -750,6 +757,7 @@
                 width: 100% !important;
                 margin-bottom: 10px !important;
                 font-size: 9pt !important;
+                table-layout: auto !important;
             }
 
             .table th,
@@ -758,6 +766,8 @@
                 padding: 4px 6px !important;
                 color: #000 !important;
                 background: transparent !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
             }
 
             .table-light th,
@@ -771,6 +781,14 @@
 
             .table-sm {
                 font-size: 8pt !important;
+            }
+
+            /* Show all table columns */
+            .table th,
+            .table td {
+                display: table-cell !important;
+                visibility: visible !important;
+                min-width: 30px !important;
             }
 
             .table-borderless td {
@@ -849,6 +867,7 @@
             /* Prevent page breaks */
             .table-responsive {
                 page-break-inside: avoid !important;
+                overflow: visible !important;
             }
 
             /* Ensure single page */
