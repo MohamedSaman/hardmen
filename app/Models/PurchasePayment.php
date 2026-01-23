@@ -24,12 +24,13 @@ class PurchasePayment extends Model
         'cheque_date',
         'cheque_status',
         'bank_transaction',
-        'notes',
         'overpayment_used',
     ];
 
     protected $casts = [
         'overpayment_used' => 'decimal:2',
+        'payment_date' => 'date',
+        'cheque_date' => 'date',
     ];
 
     public function supplier()
