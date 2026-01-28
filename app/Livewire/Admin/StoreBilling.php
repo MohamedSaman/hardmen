@@ -14,6 +14,7 @@ use App\Models\SaleItem;
 use App\Models\Payment;
 use App\Models\Cheque;
 use App\Models\POSSession;
+use App\Models\ProductStock;
 use App\Services\FIFOStockService;
 
 use Illuminate\Support\Facades\Auth;
@@ -50,6 +51,9 @@ class StoreBilling extends Component
     public $categories = [];
     public $selectedCategory = null;
     public $products = [];
+
+    // UI: sliding category panel for POS (opened via top-left icon)
+    public $showCategoryPanel = false;
 
     // Cart Items
     public $cart = [];
@@ -231,9 +235,14 @@ class StoreBilling extends Component
      */
     public function loadProducts()
     {
-        $query = ProductDetail::with(['stock', 'price', 'category'])
-            ->whereHas('stock', function ($q) {
-                $q->where('available_stock', '>', 0);
+        // Fetch products which have stock either as single stock record or variant stocks
+        $query = ProductDetail::with(['stock', 'price', 'category', 'variant', 'stocks', 'prices'])
+            ->where(function ($q) {
+                $q->whereHas('stock', function ($sq) {
+                    $sq->where('available_stock', '>', 0);
+                })->orWhereHas('stocks', function ($sq) {
+                    $sq->where('available_stock', '>', 0);
+                });
             });
 
         if ($this->selectedCategory) {
@@ -248,23 +257,67 @@ class StoreBilling extends Component
             });
         }
 
-        $this->products = $query->take(20)->get()->map(function ($product) {
-            $priceValue = $this->priceType === 'retail'
-                ? ($product->price->retail_price ?? 0)
-                : ($product->price->wholesale_price ?? 0);
+        $items = [];
 
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'code' => $product->code,
-                'model' => $product->model,
-                'price' => $priceValue,
-                'retail_price' => $product->price->retail_price ?? 0,
-                'wholesale_price' => $product->price->wholesale_price ?? 0,
-                'stock' => $product->stock->available_stock ?? 0,
-                'image' => $product->image
-            ];
-        })->toArray();
+        $products = $query->take(50)->get(); // fetch more to allow expansion into variants
+
+        foreach ($products as $product) {
+            // If product has variant stocks/values, expand each variant as its own product entry
+            if (($product->variant_id ?? null) !== null && $product->stocks && $product->stocks->isNotEmpty()) {
+                foreach ($product->stocks as $stock) {
+                    if (($stock->available_stock ?? 0) <= 0) continue;
+
+                    // find matching price record for this variant value if exists
+                    $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
+
+                    $priceValue = $this->priceType === 'retail'
+                        ? ($priceRecord->retail_price ?? 0)
+                        : ($priceRecord->wholesale_price ?? 0);
+
+                    $items[] = [
+                        'id' => $product->id . '::' . $stock->variant_value, // unique id per variant
+                        'product_id' => $product->id,
+                        'variant_id' => $stock->variant_id,
+                        'variant_value' => $stock->variant_value,
+                        'name' => $product->name . ' (' . $stock->variant_value . ')',
+                        'code' => $product->code,
+                        'model' => $product->model,
+                        'price' => $priceValue,
+                        'retail_price' => $priceRecord->retail_price ?? 0,
+                        'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                        'stock' => $stock->available_stock ?? 0,
+                        'image' => $product->image,
+                    ];
+                }
+            } else {
+                // Single-priced product (or variant-less), display normally
+                $priceRecord = $product->price;
+                $priceValue = $this->priceType === 'retail'
+                    ? ($priceRecord->retail_price ?? 0)
+                    : ($priceRecord->wholesale_price ?? 0);
+
+                $stockQty = $product->stock->available_stock ?? 0;
+
+                // If a product has variant configuration but no variant stocks, fall back to single view
+                $items[] = [
+                    'id' => $product->id,
+                    'product_id' => $product->id,
+                    'variant_id' => $product->variant_id,
+                    'variant_value' => null,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'model' => $product->model,
+                    'price' => $priceValue,
+                    'retail_price' => $priceRecord->retail_price ?? 0,
+                    'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                    'stock' => $stockQty,
+                    'image' => $product->image,
+                ];
+            }
+        }
+
+        // Limit to 20 items to keep UI performant
+        $this->products = array_values(array_slice($items, 0, 20));
     }
 
     /**
@@ -272,8 +325,12 @@ class StoreBilling extends Component
      */
     public function selectCategory($categoryId)
     {
+        // Set selected category and refresh product list
         $this->selectedCategory = $categoryId;
         $this->loadProducts();
+
+        // Close the sliding category panel automatically
+        $this->showCategoryPanel = false;
     }
 
     /**
@@ -283,6 +340,15 @@ class StoreBilling extends Component
     {
         $this->selectedCategory = null;
         $this->loadProducts();
+
+        // Close the panel when user chooses "All Products"
+        $this->showCategoryPanel = false;
+    }
+
+    // Toggle the sliding category panel (used by the top-left icon)
+    public function toggleCategoryPanel()
+    {
+        $this->showCategoryPanel = ! $this->showCategoryPanel;
     }
 
     /**
@@ -683,14 +749,20 @@ class StoreBilling extends Component
                 return $item;
             })->toArray();
         } else {
-            $discountPrice = ProductDetail::find($product['id'])->price->discount_price ?? 0;
+            // Determine base product id (handles variant entries where 'product_id' is provided)
+            $baseProductId = $product['product_id'] ?? $product['id'];
+
+            $discountPrice = ProductDetail::find($baseProductId)->price->discount_price ?? 0;
 
             $newItem = [
                 'key' => uniqid('cart_'),  // Add unique key to maintain state
-                'id' => $product['id'],
+                'id' => $product['id'], // unique id (if variant: productId::variantValue)
+                'product_id' => $baseProductId,
+                'variant_id' => $product['variant_id'] ?? null,
+                'variant_value' => $product['variant_value'] ?? null,
                 'name' => $product['name'],
-                'code' => $product['code'],
-                'model' => $product['model'],
+                'code' => $product['code'] ?? null,
+                'model' => $product['model'] ?? null,
                 'price' => $product['price'],
                 'quantity' => 1,
                 'discount' => $discountPrice,
@@ -820,6 +892,84 @@ class StoreBilling extends Component
         }
     }
 
+    // ------------------ Item & Sale Discount Modals ------------------
+    public $showItemDiscountModal = false;
+    public $itemDiscountType = 'fixed'; // 'fixed' or 'percentage'
+    public $itemDiscountValue = 0;
+    public $itemDiscountIndex = null;
+
+    public $showSaleDiscountModal = false;
+    public $saleDiscountType = 'fixed';
+    public $saleDiscountValue = 0;
+
+    public function openItemDiscountModal($index)
+    {
+        if (!isset($this->cart[$index])) {
+            return;
+        }
+
+        $this->itemDiscountIndex = $index;
+        $this->itemDiscountType = 'fixed';
+        $this->itemDiscountValue = $this->cart[$index]['discount'] ?? 0;
+        $this->showItemDiscountModal = true;
+    }
+
+    public function applyItemDiscount()
+    {
+        if ($this->itemDiscountIndex === null || !isset($this->cart[$this->itemDiscountIndex])) {
+            $this->showItemDiscountModal = false;
+            return;
+        }
+
+        $this->validate([
+            'itemDiscountValue' => 'required|numeric|min:0'
+        ]);
+
+        $index = $this->itemDiscountIndex;
+        $price = $this->cart[$index]['price'];
+
+        if ($this->itemDiscountType === 'percentage') {
+            $discountAmount = ($price * $this->itemDiscountValue) / 100;
+        } else {
+            $discountAmount = $this->itemDiscountValue;
+        }
+
+        // Ensure discount doesn't exceed price
+        $discountAmount = min($discountAmount, $price);
+
+        $this->cart[$index]['discount'] = round($discountAmount, 2);
+        $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
+
+        $this->showItemDiscountModal = false;
+        $this->itemDiscountIndex = null;
+    }
+
+    public function openSaleDiscountModal()
+    {
+        $this->saleDiscountType = $this->additionalDiscountType ?? 'fixed';
+        $this->saleDiscountValue = $this->additionalDiscount ?? 0;
+        $this->showSaleDiscountModal = true;
+    }
+
+    public function applySaleDiscount()
+    {
+        $this->validate([
+            'saleDiscountValue' => 'required|numeric|min:0'
+        ]);
+
+        if ($this->saleDiscountType === 'percentage') {
+            $this->additionalDiscountType = 'percentage';
+            $this->additionalDiscount = min($this->saleDiscountValue, 100);
+        } else {
+            $this->additionalDiscountType = 'fixed';
+            $this->additionalDiscount = min($this->saleDiscountValue, $this->subtotalAfterItemDiscounts);
+        }
+
+        $this->showSaleDiscountModal = false;
+    }
+
+    // -----------------------------------------------------------------
+
     public function toggleDiscountType()
     {
         $this->additionalDiscountType = $this->additionalDiscountType === 'percentage' ? 'fixed' : 'percentage';
@@ -935,6 +1085,17 @@ class StoreBilling extends Component
     public function createSale()
     {
         try {
+            Log::info('createSale: starting', [
+                'cart' => $this->cart,
+                'subtotal' => $this->subtotal,
+                'grandTotal' => $this->grandTotal,
+                'paymentMethod' => $this->paymentMethod,
+                'totalPaid' => $this->totalPaidAmount,
+                'amountReceived' => $this->amountReceived,
+                'cheques' => $this->cheques,
+                'bankTransfer' => ['amount' => $this->bankTransferAmount, 'ref' => $this->bankTransferReferenceNumber]
+            ]);
+
             DB::beginTransaction();
 
             // Get customer data
@@ -965,12 +1126,15 @@ class StoreBilling extends Component
 
             // Create sale items and update stock
             foreach ($this->cart as $item) {
+                // Resolve base product id (handle variant entries where 'product_id' exists)
+                $baseProductId = $item['product_id'] ?? $item['id'];
+
                 SaleItem::create([
                     'sale_id' => $sale->id,
-                    'product_id' => $item['id'],
-                    'product_code' => $item['code'],
+                    'product_id' => $baseProductId,
+                    'product_code' => $item['code'] ?? '',
                     'product_name' => $item['name'],
-                    'product_model' => $item['model'],
+                    'product_model' => $item['model'] ?? null,
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['price'],
                     'discount_per_unit' => $item['discount'],
@@ -978,11 +1142,41 @@ class StoreBilling extends Component
                     'total' => $item['total']
                 ]);
 
-                // Update product stock
-                $product = ProductDetail::find($item['id']);
-                if ($product && $product->stock) {
-                    $product->stock->available_stock -= $item['quantity'];
-                    $product->stock->save();
+                // Update product stock: if variant specified, update ProductStock for specific variant
+                if (!empty($item['variant_value']) || !empty($item['variant_id'])) {
+                    $variantValue = $item['variant_value'] ?? null;
+                    $variantId = $item['variant_id'] ?? null;
+
+                    $stockRecord = ProductStock::where('product_id', $baseProductId)
+                        ->when($variantId, function ($q) use ($variantId) {
+                            return $q->where('variant_id', $variantId);
+                        })
+                        ->when($variantValue, function ($q) use ($variantValue) {
+                            return $q->where('variant_value', $variantValue);
+                        })
+                        ->first();
+
+                    if ($stockRecord) {
+                        $stockRecord->available_stock = max(0, $stockRecord->available_stock - $item['quantity']);
+                        $stockRecord->total_stock = max(0, $stockRecord->total_stock - $item['quantity']);
+                        $stockRecord->save();
+                    } else {
+                        // Fallback to product's general stock if variant stock missing
+                        $product = ProductDetail::find($baseProductId);
+                        if ($product && $product->stock) {
+                            $product->stock->available_stock = max(0, $product->stock->available_stock - $item['quantity']);
+                            $product->stock->total_stock = max(0, $product->stock->total_stock - $item['quantity']);
+                            $product->stock->save();
+                        }
+                    }
+                } else {
+                    // No variant — update main stock row
+                    $product = ProductDetail::find($baseProductId);
+                    if ($product && $product->stock) {
+                        $product->stock->available_stock = max(0, $product->stock->available_stock - $item['quantity']);
+                        $product->stock->total_stock = max(0, $product->stock->total_stock - $item['quantity']);
+                        $product->stock->save();
+                    }
                 }
             }
 
@@ -1075,7 +1269,15 @@ class StoreBilling extends Component
             $this->js("Swal.fire('success', '$statusMessage', 'success')");
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->js("Swal.fire('error', 'Failed to create sale: " . $e->getMessage() . "', 'error')");
+            Log::error('createSale failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'cart' => $this->cart,
+                'paymentMethod' => $this->paymentMethod,
+                'amountReceived' => $this->amountReceived,
+                'totalPaidAmount' => $this->totalPaidAmount,
+            ]);
+            $this->js("Swal.fire('error', 'Failed to create sale: " . addslashes($e->getMessage()) . " (see server logs)', 'error')");
         }
     }
 

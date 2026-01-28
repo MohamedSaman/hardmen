@@ -63,43 +63,49 @@
         </div>
     </div>
 
+    <!-- Sliding category panel (overlay) -->
+    <div class="category-panel-backdrop {{ $showCategoryPanel ? 'show' : '' }}" wire:click.self="$set('showCategoryPanel', false)"></div>
+    <aside class="category-panel {{ $showCategoryPanel ? 'show' : '' }}" aria-hidden="{{ $showCategoryPanel ? 'false' : 'true' }}">
+        <div class="p-3 d-flex justify-content-between align-items-center border-bottom">
+            <h6 class="mb-0 fw-bold"><i class="bi bi-grid me-2 text-orange"></i>Categories</h6>
+            <button class="btn btn-sm btn-light" wire:click="$set('showCategoryPanel', false)"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="p-3" style="overflow-y: auto; height: calc(100vh - 70px);">
+            <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ !$selectedCategory ? 'text-white' : 'btn-light' }}"
+                style="{{ !$selectedCategory ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
+                wire:click="showAllProducts">
+                <span><i class="bi bi-collection me-2"></i>All Products</span>
+                <i class="bi bi-chevron-right"></i>
+            </button>
+
+            @foreach($categories as $category)
+            <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ $selectedCategory == $category->id ? 'text-white' : 'btn-light' }}"
+                style="{{ $selectedCategory == $category->id ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
+                wire:click="selectCategory({{ $category->id }})">
+                <span>{{ $category->category_name }}</span>
+            </button>
+            @endforeach
+        </div>
+    </aside>
+
     {{-- Main POS Layout --}}
     <div class="row g-0" style="min-height: calc(100vh - 95px);">
         
-        {{-- LEFT SIDEBAR - Categories --}}
-        
-        <div class="col-md-2 bg-white border-start d-flex flex-column" style="max-height: calc(100vh - 95px);">
-            {{-- Categories --}}
-            <div class="p-3 flex-grow-1" style="overflow-y: auto;">
-                <h6 class="mb-3 fw-bold">
-                    <i class="bi bi-grid me-2" style="color: #f58320;"></i>Categories
-                </h6>
-                
-                {{-- All Products Button --}}
-                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ !$selectedCategory ? 'text-white' : 'btn-light' }}"
-                    style="{{ !$selectedCategory ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
-                    wire:click="showAllProducts">
-                    <span><i class="bi bi-collection me-2"></i>All Products</span>
-                    <i class="bi bi-chevron-right"></i>
-                </button>
-
-                {{-- Category List --}}
-                @foreach($categories as $category)
-                <button class="btn w-100 mb-2 text-start d-flex justify-content-between align-items-center {{ $selectedCategory == $category->id ? 'text-white' : 'btn-light' }}"
-                    style="{{ $selectedCategory == $category->id ? 'background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);' : '' }}"
-                    wire:click="selectCategory({{ $category->id }})">
-                    <span>{{ $category->category_name }}</span>
-                </button>
-                @endforeach
-            </div>
-        </div>
 
         {{-- CENTER - Search & Products Grid --}}
-        <div class="col-md-7 bg-light d-flex flex-column" style="max-height: calc(100vh - 95px);">
+        <div class="col-md-9 bg-light d-flex flex-column" style="max-height: calc(100vh - 95px);">
             {{-- Search Bar & View Toggle --}}
             <div class="p-3 bg-white border-bottom">
                 <div class="mb-3">
                     <div class="input-group">
+                        <button class="btn btn-light border-end-0" type="button" title="Categories" wire:click="toggleCategoryPanel" style="border-top-left-radius:0; border-bottom-left-radius:0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="text-orange">
+                                <rect x="1" y="1" width="6" height="6" rx="1" />
+                                <rect x="9" y="1" width="6" height="6" rx="1" />
+                                <rect x="1" y="9" width="6" height="6" rx="1" />
+                                <rect x="9" y="9" width="6" height="6" rx="1" />
+                            </svg>
+                        </button>
                         <span class="input-group-text bg-white border-end-0">
                             <i class="bi bi-search text-muted"></i>
                         </span>
@@ -137,7 +143,7 @@
                 {{-- GRID VIEW --}}
                 <div class="row g-2">
                     @forelse($products as $product)
-                    <div style="flex: 0 0 calc(25% - 0.5rem); padding: 0.25rem;">
+                    <div class="products-grid-item">
                         @php
                             $isOutOfStock = ($product['stock'] ?? 0) <= 0;
                         @endphp
@@ -161,22 +167,22 @@
                                 @if($isOutOfStock)
                                     <span class="badge bg-danger" style="font-size: 0.75rem; padding: 0.4rem 0.6rem;">OUT OF STOCK</span>
                                 @else
-                                    <span class="badge bg-info" style="font-size: 0.75rem; padding: 0.4rem 0.6rem;">STOCK: {{ $product['stock'] }}</span>
+                                    <span class="badge bg-success" style="font-size: 0.75rem; padding: 0.4rem 0.6rem;">IN STOCK</span>
                                 @endif
                             </div>
 
-                            {{-- Image Container (Full Width) --}}
-                            <div style="width: 100%; height: 150px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f8f9fa;">
+                            {{-- Image Container (Centered on white background) --}}
+                            <div style="width: 100%; height: 150px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;">
                                 @if(isset($product['image']) && $product['image'])
                                 <img src="{{ strpos($product['image'], 'http') === 0 || strpos($product['image'], 'data:') === 0 ? $product['image'] : asset('images/default.png') }}" 
                                     alt="{{ $product['name'] }}"
                                     class="img-fluid"
-                                    style="height: 100%; width: 100%; object-fit: cover; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
+                                    style="max-height: 120px; width: auto; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
                                 @else
                                 <img src="{{ asset('images/default.png') }}" 
                                     alt="Default Product Image"
                                     class="img-fluid"
-                                    style="height: 100%; width: 100%; object-fit: cover; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
+                                    style="max-height: 120px; width: auto; {{ $isOutOfStock ? 'filter: grayscale(100%);' : '' }}">
                                 @endif
                             </div>
 
@@ -196,15 +202,17 @@
                                 </p>
                                 @endif
 
-                                {{-- Price and Action (Footer) --}}
+                                {{-- Price and Stock (Footer) --}}
                                 <div class="mt-auto pt-2" style="border-top: 1px solid #e0e0e0; padding-top: 0.75rem;">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <span class="fw-bold" style="color: #f58320; font-size: 1rem;">Rs. {{ number_format($product['price'], 0) }}</span>
-                                        <button class="btn btn-sm btn-outline-primary rounded-circle p-1" 
-                                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
-                                            @if(!$isOutOfStock) wire:click.stop="addToCart({{ json_encode($product) }})" @endif>
-                                            <i class="bi bi-bag-plus" style="font-size: 1rem;"></i>
-                                        </button>
+                                        <div>
+                                            <div class="fw-bold text-primary" style="font-size: 1.05rem;">Rs. {{ number_format($product['price'] ?? 0, 2) }}</div>
+                                        </div>
+
+                                        <div class="text-success text-end small">
+                                            <strong>{{ number_format($product['stock'] ?? 0) }}</strong>
+                                            <div class="d-block">units</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -369,6 +377,11 @@
                                         @input="if($event.target.value > {{ $item['stock'] }}) { Swal.fire('Warning!', 'Maximum available quantity is {{ $item['stock'] }} units.', 'warning'); $event.target.value = {{ $item['stock'] }}; }"
                                         wire:change="updateQuantity({{ $index }}, $event.target.value)">
                                 </div>
+
+                                {{-- Item Discount Button --}}
+                                <div class="ms-2 d-flex align-items-center">
+                                    <a href="#" class="text-primary small fw-semibold" wire:click.prevent="openItemDiscountModal({{ $index }})">+ DISCOUNT</a>
+                                </div>
                             </div>
                         </div>
 
@@ -404,40 +417,24 @@
                 </div>
                 @endif
                 
-                {{-- Additional Discount Input --}}
+                {{-- Sale Discount (replaces Additional Discount input) --}}
                 <div class="mb-2 mt-2">
                     <label class="form-label small fw-semibold mb-1">
-                        <i class="bi bi-tag me-1" style="color: #f58320;"></i>Additional Discount
+                        <i class="bi bi-tag me-1" style="color: #f58320;"></i>Discount
                     </label>
-                    <div class="input-group input-group-sm">
-                        <input type="number" class="form-control" wire:model.live="additionalDiscount" 
-                            placeholder="0" step="0.01" min="0"
-                            style="border-right: none;"
-                            @input="$event.target.value = parseInt($event.target.value) || ''">
-                        <button class="btn btn-outline-secondary" type="button" wire:click="toggleDiscountType" 
-                            style="border-left: none; border-right: none; background: white;">
-                            @if($additionalDiscountType === 'percentage')
-                                <i class="bi bi-percent fw-bold" style="color: #f58320;"></i>
-                            @else
-                                <span class="fw-bold" style="color: #f58320;">Rs.</span>
-                            @endif
-                        </button>
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" wire:click="openSaleDiscountModal">Apply Discount</button>
                         @if($additionalDiscount > 0)
-                        <button class="btn btn-outline-danger" type="button" wire:click="removeAdditionalDiscount" title="Remove discount">
-                            <i class="bi bi-x"></i>
-                        </button>
+                        <small class="text-muted d-block mt-1">
+                            Current: 
+                            @if($additionalDiscountType === 'percentage')
+                                {{ $additionalDiscount }}% = Rs. {{ number_format($additionalDiscountAmount, 2) }}
+                            @else
+                                Rs. {{ number_format($additionalDiscountAmount, 2) }}
+                            @endif
+                        </small>
                         @endif
                     </div>
-                    @if($additionalDiscount > 0)
-                    <small class="text-muted d-block mt-1">
-                        Discount: 
-                        @if($additionalDiscountType === 'percentage')
-                            {{ $additionalDiscount }}% = Rs. {{ number_format($additionalDiscountAmount, 2) }}
-                        @else
-                            Rs. {{ number_format($additionalDiscountAmount, 2) }}
-                        @endif
-                    </small>
-                    @endif
                 </div>
                 
                 <div class="d-flex justify-content-between mb-3 pt-2 border-top">
@@ -705,6 +702,80 @@
     </div>
     @endif
 
+    {{-- Item Discount Modal --}}
+    @if($showItemDiscountModal)
+    <div class="modal fade show d-block discount-modal" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content rounded-3 border-0 shadow-lg">
+                <div class="modal-header text-white" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
+                    <h5 class="modal-title fw-bold">Apply Discount to Cart Discount</h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="$set('showItemDiscountModal', false)"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Discount Type</label>
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="itemDiscountTypeFixed" value="fixed" wire:model="itemDiscountType">
+                                <label class="form-check-label" for="itemDiscountTypeFixed">Fixed Amount (Rs)</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="itemDiscountTypePercentage" value="percentage" wire:model="itemDiscountType">
+                                <label class="form-check-label" for="itemDiscountTypePercentage">Percentage (%)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">{{ $itemDiscountType === 'percentage' ? 'Discount Percentage' : 'Discount Amount' }}</label>
+                        <input type="number" class="form-control" wire:model.lazy="itemDiscountValue" placeholder="{{ $itemDiscountType === 'percentage' ? 'Enter percentage' : 'Enter amount' }}" step="0.01" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light justify-content-end">
+                    <button type="button" class="btn btn-secondary me-2" wire:click="$set('showItemDiscountModal', false)">Cancel</button>
+                    <button type="button" class="btn btn-primary text-white" wire:click="applyItemDiscount">Apply Discount</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Sale Discount Modal --}}
+    @if($showSaleDiscountModal)
+    <div class="modal fade show d-block discount-modal" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-3 border-0 shadow-lg">
+                <div class="modal-header text-white" style="background: linear-gradient(135deg, #f58320 0%, #d16d0e 100%);">
+                    <h5 class="modal-title fw-bold">Apply Discount to Cart Discount</h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="$set('showSaleDiscountModal', false)"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Discount Type</label>
+                        <div class="d-flex gap-3 align-items-center">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="saleDiscountTypeFixed" value="fixed" wire:model="saleDiscountType">
+                                <label class="form-check-label" for="saleDiscountTypeFixed">Fixed Amount (Rs)</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" id="saleDiscountTypePercentage" value="percentage" wire:model="saleDiscountType">
+                                <label class="form-check-label" for="saleDiscountTypePercentage">Percentage (%)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">{{ $saleDiscountType === 'percentage' ? 'Discount Percentage' : 'Discount Amount' }}</label>
+                        <input type="number" class="form-control" wire:model.lazy="saleDiscountValue" placeholder="{{ $saleDiscountType === 'percentage' ? 'Enter percentage' : 'Enter amount' }}" step="0.01" min="0">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light justify-content-end">
+                    <button type="button" class="btn btn-secondary me-2" wire:click="$set('showSaleDiscountModal', false)">Cancel</button>
+                    <button type="button" class="btn btn-primary text-white" wire:click="applySaleDiscount">Apply Discount</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Add Customer Modal --}}
     @if($showCustomerModal)
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -956,11 +1027,55 @@
 </div>
 
 @push('styles')
-<style>
+    <style>
     .pos-container {
         background-color: #f4f6f9;
         padding: 20px;
         font-family: 'Inter', sans-serif;
+    }
+
+    /* Sliding category panel styles */
+    .category-toggle-btn {
+        position: fixed;
+        top: 14px;
+        left: 14px;
+        z-index: 1055;
+        background: #fff;
+        border: 1px solid rgba(0,0,0,0.06);
+        border-radius: 8px;
+        padding: 8px 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        cursor: pointer;
+    }
+
+    .category-panel-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 250ms ease, visibility 250ms ease;
+        z-index: 1050;
+    }
+    .category-panel-backdrop.show { opacity: 1; visibility: visible; }
+
+    .category-panel {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        width: 50%;
+        max-width: 420px;
+        background: #fff;
+        transform: translateX(-110%);
+        transition: transform 300ms ease;
+        z-index: 1060;
+        box-shadow: 4px 0 18px rgba(0,0,0,0.08);
+    }
+    .category-panel.show { transform: translateX(0); }
+
+    @media (max-width: 768px) {
+        .category-panel { width: 85%; }
     }
 
     .fw-800 { font-weight: 800 !important; }
@@ -1020,7 +1135,7 @@
         border-radius: 5px;
     }
     
-    kbd {
+    .kbd {
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
         color: #6c757d;
@@ -1030,11 +1145,41 @@
     
     .product-card {
         border-radius: 8px;
+        transition: transform 150ms ease, box-shadow 150ms ease;
+        overflow: hidden;
     }
     
     .product-card:active {
         transform: scale(0.98);
     }
+
+    /* Grid item width to show 5 products per row (desktop) */
+    .products-grid-item {
+        flex: 0 0 calc(20% - 0.5rem);
+        padding: 0.25rem;
+    }
+
+    /* Responsive breakpoints */
+    @media (max-width: 1200px) {
+        /* 4 per row */
+        .products-grid-item { flex: 0 0 calc(25% - 0.5rem); }
+    }
+    @media (max-width: 992px) {
+        /* 3 per row */
+        .products-grid-item { flex: 0 0 calc(33.333% - 0.5rem); }
+    }
+    @media (max-width: 576px) {
+        /* 2 per row */
+        .products-grid-item { flex: 0 0 calc(50% - 0.5rem); }
+    }
+    @media (max-width: 420px) {
+        /* 1 per row */
+        .products-grid-item { flex: 0 0 calc(100% - 0.5rem); }
+    }
+
+    /* Price and Stock colors for product cards */
+    .product-card .text-primary { color: #1e64ff !important; }
+    .product-card .text-success { color: #10b981 !important; }
 
     /* Payment Modal Animations */
     .payment-option {
@@ -1060,6 +1205,22 @@
     .modal.show {
         animation: fadeIn 0.3s ease;
     }
+
+    /* Discount modal tweaks */
+    .discount-modal .form-check-inline .form-check-label {
+        cursor: pointer;
+    }
+    .discount-modal .modal-body .form-label {
+        color: #333;
+    }
+    .discount-modal .modal-footer {
+        justify-content: flex-end;
+    }
+    .discount-modal .btn-primary {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    .discount-modal .modal-title { font-size: 1rem; }
     
     @keyframes fadeIn {
         from {

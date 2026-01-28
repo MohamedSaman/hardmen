@@ -570,6 +570,13 @@
                                 </a>
                             </li>
                             @endif
+                            @if(auth()->user()->hasPermission('menu_products_variant'))
+                            <li class="nav-item">
+                                <a class="nav-link py-2" href="{{ route('admin.manage-variants') }}">
+                                    <i class="bi bi-layers"></i> <span>Product Variant</span>
+                                </a>
+                            </li>
+                            @endif
                         </ul>
                     </div>
                 </li>

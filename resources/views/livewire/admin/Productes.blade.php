@@ -358,7 +358,12 @@
         /* Table responsive for dropdowns */
         .table-responsive {
             overflow: visible !important;
+            
         }
+        .table-responsive.view{
+            min-height: 100px !important;
+        }
+
 
         .table td .dropdown {
             position: static;
@@ -487,7 +492,7 @@
                 </div>
             </div>
 
-            <div class="inventory-header w-100 mb-3">
+            <div class="inventory-header w-100 mb-1">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center w-100 gap-3">
 
                     <div class="search-bar flex-grow-1">
@@ -553,9 +558,7 @@
                                             <th>Model</th>
                                             <th>Stock</th>
                                             <th>Status</th>
-                                            <th >Supplier Price</th>
-                                            <th >Wholesale Price</th>
-                                            <th >Retail Price</th>
+                                            
                                             @if (!$isStaff)
                                             <th class="text-end pe-5">Actions</th>
                                             @endif
@@ -600,18 +603,6 @@
                                                 @else
                                                 <span class="badge bg-danger">Inactive</span>
                                                 @endif
-                                            </td>
-                                            <td class="text-end" wire:click="viewProductDetails({{ $product->id }})">
-                                                <span class="fw-bold text-dark">Rs.{{
-                                                    number_format($product->supplier_price, 2) }}</span>
-                                            </td>
-                                            <td class="text-end" wire:click="viewProductDetails({{ $product->id }})">
-                                                <span class="fw-bold text-primary">Rs.{{
-                                                    number_format($product->wholesale_price, 2) }}</span>
-                                            </td>
-                                            <td class="text-end pe-3" wire:click="viewProductDetails({{ $product->id }})">
-                                                <span class="fw-bold text-success">Rs.{{
-                                                    number_format($product->retail_price, 2) }}</span>
                                             </td>
 
                                             @if (!$isStaff)
@@ -814,9 +805,9 @@
                                     </div>
 
                                     <!-- Product Details -->
-                                    <div class="card border-0 shadow-sm mb-3">
+                                    <div class="card border-0 shadow-sm mb-1">
                                         <div class="card-body p-3">
-                                            <h6 class="fw-bold text-dark mb-3">
+                                            <h6 class="fw-bold text-dark mb-1">
                                                 <i class="bi bi-info-circle-fill text-primary me-2"></i>Product Information
                                             </h6>
                                             <div class="row g-2">
@@ -875,40 +866,54 @@
                                     </div>
 
                                     <h4 class="fw-bold text-dark mb-1">{{ $viewProduct->name }}</h4>
-                                    <p class="text-muted mb-3">
+                                    <p class="text-muted mb-1">
                                         <i class="bi bi-upc-scan me-1"></i>
                                         <span class="font-monospace">{{ $viewProduct->code }}</span>
                                     </p>
 
+                                    @php
+                                        // Compute totals: for variant products sum all variant stocks (available & damaged),
+                                        // otherwise use the single stock record
+                                        $available = 0;
+                                        $damaged = 0;
+                                        if ($viewProduct) {
+                                            if (method_exists($viewProduct, 'hasVariants') && $viewProduct->hasVariants()) {
+                                                $available = $viewProduct->stocks->sum('available_stock');
+                                                $damaged = $viewProduct->stocks->sum('damage_stock');
+                                            } else {
+                                                $available = $viewProduct->stock->available_stock ?? 0;
+                                                $damaged = $viewProduct->stock->damage_stock ?? 0;
+                                            }
+                                        }
+                                    @endphp
+
                                     <div class="row g-2 mb-3">
-                                        <div class="col-6">
+                                        <div class="col-md-6">
                                             <div class="card border-0 shadow-sm bg-white">
-                                                <div class="card-body p-3">
+                                                <div class="card-body p-3 text-center">
                                                     <div class="text-primary mb-1">
                                                         <i class="bi bi-box-seam fs-4"></i>
                                                     </div>
-                                                    <h5 class="fw-bold mb-0">{{ $viewProduct->stock->available_stock ??
-                                                        0 }}</h5>
-                                                    <small class="text-muted">In Stock</small>
+                                                    <h5 class="fw-bold mb-0">{{ $available }}</h5>
+                                                    <small class="text-muted">Available Stock</small>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-6">
+
+                                        <div class="col-md-6">
                                             <div class="card border-0 shadow-sm bg-white">
-                                                <div class="card-body p-3">
-                                                    <div class="text-success mb-1">
-                                                        <i class="bi bi-currency-dollar fs-4"></i>
+                                                <div class="card-body p-3 text-center">
+                                                    <div class="text-danger mb-1">
+                                                        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
                                                     </div>
-                                                    <h5 class="fw-bold mb-0">Rs.{{
-                                                        number_format($viewProduct->price->selling_price ?? 0, 2) }}
-                                                    </h5>
-                                                    <small class="text-muted">Selling Price</small>
+                                                    <h5 class="fw-bold mb-0">{{ $damaged }}</h5>
+                                                    <small class="text-muted">Damaged Stock</small>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    @if(($viewProduct->stock->available_stock ?? 0) > 0)
+                                    @if(($available ?? 0) > 0)
                                     <div class="alert alert-success border-0 shadow-sm mb-0" role="alert">
                                         <i class="bi bi-check-circle-fill me-2"></i>
                                         <strong>Available</strong> - Ready to sell
@@ -925,7 +930,7 @@
                             <div class="col-lg-8">
                                 <div class="p-4">
                                     <div class="info-section mb-4">
-                                        <div class="section-header d-flex align-items-center mb-3">
+                                        <div class="section-header d-flex align-items-center mb-1">
                                             <div class="icon-box bg-primary bg-opacity-10 text-primary rounded-circle me-3"
                                                 style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                                                 <i class="bi bi-info-circle-fill"></i>
@@ -974,48 +979,126 @@
                                     </div>
 
                                     <div class="info-section mb-4">
-                                        <div class="section-header d-flex align-items-center mb-3">
+                                        <div class="section-header d-flex align-items-center mb-1">
                                             <div class="icon-box bg-success bg-opacity-10 text-success rounded-circle me-3"
                                                 style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                                                 <i class="bi bi-currency-dollar"></i>
                                             </div>
                                             <h6 class="fw-bold mb-0 text-dark">Pricing Information</h6>
                                         </div>
+                                        @if(!$viewProduct || !$viewProduct->hasVariants())
                                         <div class="row g-3">
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <div class="price-card text-center p-3 border rounded-3 h-100">
-                                                    <small class="text-muted d-block mb-2">Supplier Price</small>
+                                                    <small class="text-muted d-block mb-2">Cost (Supplier)</small>
                                                     <h4 class="fw-bold text-secondary mb-0">
-                                                        Rs.{{ number_format($viewProduct->price->supplier_price ?? 0, 2)
-                                                        }}
+                                                        Rs.{{ number_format($viewProduct->price->supplier_price ?? 0, 2) }}
                                                     </h4>
                                                 </div>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <div class="price-card text-center p-3 border rounded-3 h-100">
+                                                    <small class="text-muted d-block mb-2">Wholesale Price</small>
+                                                    <h4 class="fw-bold text-secondary mb-0">
+                                                        Rs.{{ number_format($viewProduct->price->wholesale_price ?? 0, 2) }}
+                                                    </h4>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="price-card text-center p-3 border rounded-3 h-100">
+                                                    <small class="text-muted d-block mb-2">Distributor Price</small>
+                                                    <h4 class="fw-bold text-secondary mb-0">
+                                                        Rs.{{ number_format($viewProduct->price->distributor_price ?? 0, 2) }}
+                                                    </h4>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
                                                 <div
                                                     class="price-card text-center p-3 border border-success rounded-3 bg-success bg-opacity-10 h-100">
-                                                    <small class="text-success d-block mb-2 fw-semibold">Selling
+                                                    <small class="text-success d-block mb-2 fw-semibold">Retail
                                                         Price</small>
                                                     <h4 class="fw-bold text-success mb-0">
-                                                        Rs.{{ number_format($viewProduct->price->selling_price ?? 0, 2)
-                                                        }}
-                                                    </h4>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="price-card text-center p-3 border rounded-3 h-100">
-                                                    <small class="text-muted d-block mb-2">Discount Price</small>
-                                                    <h4 class="fw-bold text-danger mb-0">
-                                                        Rs.{{ number_format($viewProduct->price->discount_price ?? 0, 2)
-                                                        }}
+                                                        Rs.{{ number_format($viewProduct->price->retail_price ?? 0, 2) }}
                                                     </h4>
                                                 </div>
                                             </div>
                                         </div>
+                                        @else
+                                        <div class="card mb-1">
+                                            <div class="card-header bg-light">
+                                                <h6 class="mb-0 fw-semibold">Variant Prices & Stock</h6>
+                                            </div>
+                                            <div class="card-body p-0">
+                                                <div class="table-responsive view">
+                                                    <table class="table table-hover mb-0">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th>Value</th>
+                                                                <th>Cost</th>
+                                                                <th>Wholesale</th>
+                                                                <th>Distributor</th>
+                                                                <th>Retail</th>
+                                                                <th>Available</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @php
+                                                                // Prefer sorted values prepared by the component
+                                                                $variantValues = $viewProduct->sorted_variant_values ?? [];
+
+                                                                if (empty($variantValues)) {
+                                                                    if ($viewProduct->variant && is_array($viewProduct->variant->variant_values)) {
+                                                                        $variantValues = $viewProduct->variant->variant_values;
+                                                                    } elseif (isset($viewProduct->prices)) {
+                                                                        $variantValues = $viewProduct->prices->pluck('variant_value')->unique()->toArray();
+                                                                    }
+
+                                                                    // Sort here as a fallback: numeric when possible, otherwise natural
+                                                                    if (!empty($variantValues)) {
+                                                                        $allNumeric = true;
+                                                                        foreach ($variantValues as $v) {
+                                                                            if (!is_numeric($v) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $v)) {
+                                                                                $allNumeric = false;
+                                                                                break;
+                                                                            }
+                                                                        }
+
+                                                                        if ($allNumeric) {
+                                                                            usort($variantValues, function ($a, $b) {
+                                                                                return floatval($a) <=> floatval($b);
+                                                                            });
+                                                                        } else {
+                                                                            natcasesort($variantValues);
+                                                                            $variantValues = array_values($variantValues);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            @endphp
+
+                                                            @foreach($variantValues as $value)
+                                                            @php
+                                                                $price = $viewProduct->prices->firstWhere('variant_value', $value) ?? null;
+                                                                $stock = $viewProduct->stocks->firstWhere('variant_value', $value) ?? null;
+                                                            @endphp
+                                                            <tr>
+                                                                <td>{{ $value }}</td>
+                                                                <td>Rs.{{ number_format($price->supplier_price ?? 0, 2) }}</td>
+                                                                <td>Rs.{{ number_format($price->wholesale_price ?? 0, 2) }}</td>
+                                                                <td>Rs.{{ number_format($price->distributor_price ?? 0, 2) }}</td>
+                                                                <td>Rs.{{ number_format($price->retail_price ?? 0, 2) }}</td>
+                                                                <td>{{ $stock->available_stock ?? 0 }}</td>
+                                                            </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endif
                                     </div>
 
                                     <div class="info-section mb-4">
-                                        <div class="section-header d-flex align-items-center mb-3">
+                                        <div class="section-header d-flex align-items-center mb-1">
                                             <div class="icon-box bg-warning bg-opacity-10 text-warning rounded-circle me-3"
                                                 style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                                                 <i class="bi bi-boxes"></i>
@@ -1026,16 +1109,14 @@
                                             <div class="col-md-6">
                                                 <div class="stock-card p-3 border rounded-3 text-center">
                                                     <i class="bi bi-box-seam text-success fs-3 mb-2"></i>
-                                                    <h5 class="fw-bold mb-1">{{ $viewProduct->stock->available_stock ??
-                                                        0 }}</h5>
+                                                    <h5 class="fw-bold mb-1">{{ $available ?? ($viewProduct->stock->available_stock ?? 0) }}</h5>
                                                     <small class="text-muted">Available Stock</small>
                                                 </div>
                                             </div>
                                             <div class="col-md-6">
                                                 <div class="stock-card p-3 border rounded-3 text-center">
                                                     <i class="bi bi-exclamation-triangle text-danger fs-3 mb-2"></i>
-                                                    <h5 class="fw-bold mb-1">{{ $viewProduct->stock->damage_stock ?? 0
-                                                        }}</h5>
+                                                    <h5 class="fw-bold mb-1">{{ $damaged ?? ($viewProduct->stock->damage_stock ?? 0) }}</h5>
                                                     <small class="text-muted">Damaged Stock</small>
                                                 </div>
                                             </div>
@@ -1044,7 +1125,7 @@
 
                                     @if($viewProduct->description)
                                     <div class="info-section">
-                                        <div class="section-header d-flex align-items-center mb-3">
+                                        <div class="section-header d-flex align-items-center mb-1">
                                             <div class="icon-box bg-info bg-opacity-10 text-info rounded-circle me-3"
                                                 style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                                                 <i class="bi bi-card-text"></i>
@@ -1080,7 +1161,7 @@
         <!-- Create Product Modal -->
         <div wire:ignore.self class="modal fade" id="createProductModal" tabindex="-1"
             aria-labelledby="createProductModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title fw-bold">
@@ -1098,7 +1179,7 @@
                             <div class="card-body p-4">
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="code" class="form-label fw-semibold">Code:</label>
                                             <input type="text" class="form-control" id="code" wire:model="code">
                                             @error('code')
@@ -1107,7 +1188,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="name" class="form-label fw-semibold">Name:</label>
                                             <input type="text" class="form-control" id="name" wire:model="name">
                                             @error('name')
@@ -1116,7 +1197,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="model" class="form-label fw-semibold">Model:</label>
                                             <input type="text" class="form-control" id="model" wire:model="model">
                                             @error('model')
@@ -1137,7 +1218,7 @@
                             <div class="card-body p-4">
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="brand" class="form-label fw-semibold">Brand:</label>
                                             <select class="form-select" id="brand" wire:model="brand">
                                                 <option value="">Select Brand</option>
@@ -1155,7 +1236,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="category" class="form-label fw-semibold">Category:</label>
                                             <select class="form-select" id="category" wire:model="category">
                                                 <option value="">Select Category</option>
@@ -1173,7 +1254,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="supplier" class="form-label fw-semibold">Supplier:</label>
                                             <select class="form-select" id="supplier" wire:model="supplier">
                                                 <option value="">Select Supplier</option>
@@ -1203,7 +1284,7 @@
                             <div class="card-body p-4">
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="image" class="form-label fw-semibold">Image:</label>
                                             <input type="text" class="form-control" id="image" wire:model="image">
                                             @error('image')
@@ -1214,7 +1295,7 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-md-12">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="description" class="form-label fw-semibold">Description:</label>
                                             <textarea class="form-control" id="description" rows="3"
                                                 wire:model="description"></textarea>
@@ -1234,11 +1315,41 @@
                                 </h5>
                             </div>
                             <div class="card-body p-4">
+                                <!-- Pricing Mode Selection -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">Pricing Mode:</label>
+                                        <div class="btn-group w-100" role="group">
+                                            <input type="radio" class="btn-check" id="pricing_mode_single" 
+                                                wire:model.live="pricing_mode" value="single" checked>
+                                            <label class="btn btn-outline-primary" for="pricing_mode_single">
+                                                <i class="bi bi-tag me-2"></i>Single Price
+                                            </label>
+                                            
+                                            <input type="radio" class="btn-check" id="pricing_mode_variant" 
+                                                wire:model.live="pricing_mode" value="variant">
+                                            <label class="btn btn-outline-primary" for="pricing_mode_variant">
+                                                <i class="bi bi-tags me-2"></i>Variant-Based Pricing
+                                            </label>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">
+                                            @if($pricing_mode === 'single')
+                                                Single price applies to all units of this product
+                                            @else
+                                                Different prices for each variant (e.g., size, color)
+                                            @endif
+                                        </small>
+                                    </div>
+                                </div>
+
+                                @if($pricing_mode === 'single')
+                                <!-- Single Price Mode -->
                                 <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="supplier_price" class="form-label fw-semibold">Supplier
-                                                Price:</label>
+                                    <div class="col-md-3">
+                                        <div class="mb-1">
+                                            <label for="supplier_price" class="form-label fw-semibold">
+                                                <i class="bi bi-cash-stack text-secondary"></i> Cost Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control"
@@ -1249,10 +1360,11 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="retail_price" class="form-label fw-semibold">Retail
-                                                Price:</label>
+                                    <div class="col-md-3">
+                                        <div class="mb-1">
+                                            <label for="retail_price" class="form-label fw-semibold">
+                                                <i class="bi bi-shop text-success"></i> Retail Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control" id="retail_price"
@@ -1263,10 +1375,11 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="wholesale_price" class="form-label fw-semibold">Wholesale
-                                                Price:</label>
+                                    <div class="col-md-3">
+                                        <div class="mb-1">
+                                            <label for="wholesale_price" class="form-label fw-semibold">
+                                                <i class="bi bi-boxes text-info"></i> Wholesale Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
                                                 <input type="number" step="0.01" class="form-control" id="wholesale_price"
@@ -1277,16 +1390,17 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="discount_price" class="form-label fw-semibold">Discount
-                                                Price:</label>
+                                    <div class="col-md-3">
+                                        <div class="mb-1">
+                                            <label for="distributor_price" class="form-label fw-semibold">
+                                                <i class="bi bi-truck text-warning"></i> Distributor Price:
+                                            </label>
                                             <div class="input-group">
                                                 <span class="input-group-text">Rs.</span>
-                                                <input type="number" step="0.01" class="form-control"
-                                                    id="discount_price" wire:model="discount_price">
+                                                <input type="number" step="0.01" class="form-control" id="distributor_price"
+                                                    wire:model="distributor_price">
                                             </div>
-                                            @error('discount_price')
+                                            @error('distributor_price')
                                             <span class="text-danger small">* {{ $message }}</span>
                                             @enderror
                                         </div>
@@ -1294,7 +1408,7 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="available_stock" class="form-label fw-semibold">Available
                                                 Stock:</label>
                                             <input type="number" class="form-control" id="available_stock"
@@ -1305,7 +1419,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="damage_stock" class="form-label fw-semibold">Damage
                                                 Stock:</label>
                                             <input type="number" class="form-control" id="damage_stock"
@@ -1316,6 +1430,160 @@
                                         </div>
                                     </div>
                                 </div>
+                                @else
+                                <!-- Variant-Based Pricing Mode -->
+                                <div class="alert alert-info border-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>Note:</strong> Select an existing variant type to manage prices and stock for each value.
+                                    <a href="{{ route('admin.manage-variants') }}" target="_blank" class="alert-link">
+                                        <i class="bi bi-plus-circle me-1"></i>Manage Variants
+                                    </a>
+                                </div>
+
+                                <!-- Select Existing Variant -->
+                                <div class="row mb-4">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-folder2-open text-primary me-2"></i>Select Variant Type:
+                                        </label>
+                                        <select class="form-select form-select-lg" 
+                                            wire:model="variant_id" wire:change="selectVariant($event.target.value)">
+                                            <option value="">-- Choose a variant --</option>
+                                            @foreach($availableVariants as $variant)
+                                            <option value="{{ $variant['id'] }}">
+                                                {{ $variant['variant_name'] }} ({{ count($variant['variant_values'] ?? []) }} values)
+                                            </option>
+                                            @endforeach
+                                        </select>
+                                        @error('variant_id')
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <!-- Pricing Table for Each Value (shown when variant is selected) -->
+                                @if(!empty($variant_id) && count($variant_prices) > 0)
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-cash-coin me-2"></i>Pricing & Stock for Each Value
+                                        </h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-hover mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th class="text-center">Value</th>
+                                                        <th class="text-center">Cost Price</th>
+                                                        <th class="text-center">Wholesale</th>
+                                                        <th class="text-center">Distributor</th>
+                                                        <th class="text-center">Retail</th>
+                                                        <th class="text-center">Stock</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php
+                                                        $variantPriceKeys = array_keys($variant_prices ?? []);
+                                                        // Determine if keys are numeric-like
+                                                        $allNumericKeys = !empty($variantPriceKeys);
+                                                        foreach ($variantPriceKeys as $k) {
+                                                            if (!is_numeric($k) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $k)) {
+                                                                $allNumericKeys = false;
+                                                                break;
+                                                            }
+                                                        }
+                                                        if ($allNumericKeys) {
+                                                            usort($variantPriceKeys, function ($a, $b) {
+                                                                return floatval($a) <=> floatval($b);
+                                                            });
+                                                        } else {
+                                                            natcasesort($variantPriceKeys);
+                                                            $variantPriceKeys = array_values($variantPriceKeys);
+                                                        }
+                                                    @endphp
+
+                                                    @foreach($variantPriceKeys as $value)
+                                                    @php $prices = $variant_prices[$value] ?? []; @endphp
+                                                    <tr wire:key="variant-price-{{ $value }}">
+                                                        <td class="text-center align-middle">
+                                                            <strong class="text-primary">{{ $variant_key_map[$value] ?? $value }}</strong>
+                                                        </td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.supplier_price"
+                                                                    placeholder="0.00" id="supplier_{{ $value }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.supplier_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.wholesale_price"
+                                                                    placeholder="0.00" id="wholesale_{{ $value }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.wholesale_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.distributor_price"
+                                                                    placeholder="0.00" id="distributor_{{ $loop->index }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.distributor_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.retail_price"
+                                                                    placeholder="0.00" id="retail_{{ $loop->index }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.retail_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        <td>
+                                                            <input type="number" class="form-control form-control-sm" 
+                                                                wire:model.defer="variant_prices.{{ $value }}.stock"
+                                                                placeholder="0" id="stock_{{ $loop->index }}">
+                                                            @error("variant_prices.{$value}.stock")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                    </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                @elseif(!empty($variant_id))
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Loading variant data or the selected variant has no values.
+                                </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                @elseif(!empty($variant_id))
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Loading variant data...
+                                </div>
+                                @endif
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -1434,7 +1702,7 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-1">
                             <label for="importFile" class="form-label fw-semibold">
                                 <i class="bi bi-upload me-2"></i>Select Excel File
                             </label>
@@ -1487,7 +1755,7 @@
         <!-- Edit Product Modal -->
         <div wire:ignore.self wire:key="edit-modal-{{ $editId ?? 'new' }}" class="modal fade" id="editProductModal"
             tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title fw-bold">
@@ -1506,7 +1774,7 @@
                             <div class="card-body p-4">
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editCode" class="form-label fw-semibold">Code:</label>
                                             <input type="text" class="form-control" id="editCode" wire:model="editCode">
                                             @error('editCode')
@@ -1516,7 +1784,7 @@
                                     </div>
 
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editName" class="form-label fw-semibold">Name:</label>
                                             <input type="text" class="form-control" id="editName" wire:model="editName">
                                             @error('editName')
@@ -1526,7 +1794,7 @@
                                     </div>
 
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editModel" class="form-label fw-semibold">Model:</label>
                                             <input type="text" class="form-control" id="editModel"
                                                 wire:model="editModel">
@@ -1548,7 +1816,7 @@
                             <div class="card-body p-4">
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editCategory" class="form-label fw-semibold">Category:</label>
                                             <select class="form-select" id="editCategory" wire:model="editCategory">
                                                 <option value="">Select Category</option>
@@ -1563,7 +1831,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editBrand" class="form-label fw-semibold">Brand:</label>
                                             <select class="form-select" id="editBrand" wire:model="editBrand">
                                                 <option value="">Select Brand</option>
@@ -1590,7 +1858,7 @@
                             <div class="card-body p-4">
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editImage" class="form-label fw-semibold">Image:</label>
                                             <input type="text" class="form-control" id="editImage"
                                                 wire:model="editImage">
@@ -1602,7 +1870,7 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-md-12">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editDescription"
                                                 class="form-label fw-semibold">Description:</label>
                                             <textarea class="form-control" id="editDescription" rows="3"
@@ -1623,9 +1891,10 @@
                                 </h5>
                             </div>
                             <div class="card-body p-4">
+                                @if($pricing_mode === 'single')
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editSupplierPrice" class="form-label fw-semibold">Supplier
                                                 Price:</label>
                                             <div class="input-group">
@@ -1639,7 +1908,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editRetailPrice" class="form-label fw-semibold">Retail
                                                 Price:</label>
                                             <div class="input-group">
@@ -1653,7 +1922,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editWholesalePrice" class="form-label fw-semibold">Wholesale
                                                 Price:</label>
                                             <div class="input-group">
@@ -1667,7 +1936,7 @@
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editDiscountPrice" class="form-label fw-semibold">Discount
                                                 Price:</label>
                                             <div class="input-group">
@@ -1683,7 +1952,7 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="editStatus" class="form-label fw-semibold">Status:</label>
                                             <select class="form-select" id="editStatus" wire:model="editStatus">
                                                 <option value="active">Active</option>
@@ -1695,6 +1964,145 @@
                                         </div>
                                     </div>
                                 </div>
+                                @else
+
+                                <div class="alert alert-info border-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>Note:</strong> Select an existing variant type to edit prices and stock for each value.
+                                </div>
+
+                                <div class="row mb-4">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-folder2-open text-primary me-2"></i>Select Variant Type:
+                                        </label>
+                                        <select class="form-select form-select-lg" 
+                                            wire:model.live="variant_id" wire:change="selectVariant($event.target.value)">
+                                            <option value="">-- Choose a variant --</option>
+                                            @foreach($availableVariants as $variant)
+                                            <option value="{{ $variant['id'] }}">
+                                                {{ $variant['variant_name'] }} ({{ count($variant['variant_values'] ?? []) }} values)
+                                            </option>
+                                            @endforeach
+                                        </select>
+                                        @error('variant_id')
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                @if(!empty($variant_id) && count($variant_prices) > 0)
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Edit Variant Pricing & Stock</h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered table-hover mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th class="text-center">Value</th>
+                                                        <th class="text-center">Cost Price</th>
+                                                        <th class="text-center">Wholesale</th>
+                                                        <th class="text-center">Distributor</th>
+                                                        <th class="text-center">Retail</th>
+                                                        <th class="text-center">Stock</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @php
+                                                        $variantPriceKeys = array_keys($variant_prices ?? []);
+                                                        // Determine if keys are numeric-like
+                                                        $allNumericKeys = !empty($variantPriceKeys);
+                                                        foreach ($variantPriceKeys as $k) {
+                                                            if (!is_numeric($k) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $k)) {
+                                                                $allNumericKeys = false;
+                                                                break;
+                                                            }
+                                                        }
+                                                        if ($allNumericKeys) {
+                                                            usort($variantPriceKeys, function ($a, $b) {
+                                                                return floatval($a) <=> floatval($b);
+                                                            });
+                                                        } else {
+                                                            natcasesort($variantPriceKeys);
+                                                            $variantPriceKeys = array_values($variantPriceKeys);
+                                                        }
+                                                    @endphp
+
+                                                    @foreach($variantPriceKeys as $value)
+                                                    @php $prices = $variant_prices[$value] ?? []; @endphp
+                                                    <tr wire:key="edit-variant-price-{{ $value }}">
+                                                        <td class="text-center align-middle">
+                                                            <strong class="text-primary">{{ $variant_key_map[$value] ?? $value }}</strong>
+                                                        </td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.supplier_price"
+                                                                    placeholder="0.00" id="edit_supplier_{{ $value }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.supplier_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.wholesale_price"
+                                                                    placeholder="0.00" id="edit_wholesale_{{ $value }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.wholesale_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.distributor_price"
+                                                                    placeholder="0.00" id="edit_distributor_{{ $loop->index }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.distributor_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">Rs.</span>
+                                                                <input type="number" step="0.01" class="form-control" 
+                                                                    wire:model.defer="variant_prices.{{ $value }}.retail_price"
+                                                                    placeholder="0.00" id="edit_retail_{{ $loop->index }}">
+                                                            </div>
+                                                            @error("variant_prices.{$value}.retail_price")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                        <td>
+                                                            <input type="number" class="form-control form-control-sm" 
+                                                                wire:model.defer="variant_prices.{{ $value }}.stock"
+                                                                placeholder="0" id="edit_stock_{{ $loop->index }}">
+                                                            @error("variant_prices.{$value}.stock")
+                                                            <span class="text-danger small">* {{ $message }}</span>
+                                                            @enderror
+                                                        </td>
+                                                    </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                @elseif(!empty($variant_id))
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Loading variant data...
+                                </div>
+                                @endif
+
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -1757,7 +2165,7 @@
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="alert alert-info border-0 mb-3">
+                                <div class="alert alert-info border-0 mb-1">
                                     <i class="bi bi-info-circle me-2"></i>
                                     <strong>Note:</strong>
                                     <ul class="mb-0 mt-2">
@@ -1769,7 +2177,7 @@
                                 <div class="row">
                                     {{-- Damage Stock Input --}}
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="damageQuantity" class="form-label fw-semibold">
                                                 <i class="bi bi-exclamation-triangle text-danger me-1"></i> Damage Quantity:
                                             </label>
@@ -1795,7 +2203,7 @@
 
                                     {{-- Available Stock Input --}}
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-1">
                                             <label for="availableQuantity" class="form-label fw-semibold">
                                                 <i class="bi bi-box-seam text-success me-1"></i> Available Quantity:
                                             </label>

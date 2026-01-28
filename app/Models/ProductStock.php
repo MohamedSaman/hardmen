@@ -10,7 +10,16 @@ class ProductStock extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['product_id', 'available_stock', 'damage_stock', 'total_stock', 'sold_count', 'restocked_quantity'];
+    protected $fillable = [
+        'product_id',
+        'variant_id',
+        'variant_value',
+        'available_stock',
+        'damage_stock',
+        'total_stock',
+        'sold_count',
+        'restocked_quantity'
+    ];
 
     protected $casts = [
         'available_stock' => 'integer',
@@ -26,6 +35,14 @@ class ProductStock extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(ProductDetail::class, 'product_id');
+    }
+
+    /**
+     * Get the variant this stock belongs to (nullable for single stock)
+     */
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class, 'variant_id');
     }
 
     /**

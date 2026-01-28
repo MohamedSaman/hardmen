@@ -964,6 +964,11 @@
                                     <i class="bi bi-tags-fill"></i> <span>Product Category</span>
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2" href="{{ route('admin.manage-variants') }}">
+                                    <i class="bi bi-layers"></i> <span>Product Variant</span>
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </li>
