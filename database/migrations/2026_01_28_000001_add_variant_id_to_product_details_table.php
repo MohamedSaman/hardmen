@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('product_details', function (Blueprint $table) {
-            $table->foreignId('variant_id')
-                ->nullable()
-                ->constrained('product_variants')
-                ->nullOnDelete()
-                ->after('supplier_id');
-        });
+        if (!Schema::hasColumn('product_details', 'variant_id')) {
+            Schema::table('product_details', function (Blueprint $table) {
+                $table->foreignId('variant_id')
+                    ->nullable()
+                    ->constrained('product_variants')
+                    ->nullOnDelete()
+                    ->after('supplier_id');
+            });
+        }
     }
 
     /**

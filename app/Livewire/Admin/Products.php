@@ -761,7 +761,7 @@ class Products extends Component
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             $this->js("Swal.fire('Error!', 'Failed to import products: " . addslashes($e->getMessage()) . "', 'error')");
         }
     }
@@ -924,8 +924,7 @@ class Products extends Component
         // Build validation rules and validate the form data
         $rules = $this->updateRules();
 
-        // Treat the form as variant-based if the UI has variant inputs present (handles cases
-        // where pricing_mode may not reflect a user-intent to update variant rows)
+        // Treat the form as variant-based if the UI has variant inputs present
         $hasVariantInput = !empty($this->variant_id) && !empty($this->variant_prices);
         $isVariantMode = $this->pricing_mode === 'variant' || $hasVariantInput;
 
@@ -949,8 +948,11 @@ class Products extends Component
         $validatedData = $this->validate($rules, [], $this->attributes());
 
         try {
+            DB::beginTransaction();
+
             $product = ProductDetail::findOrFail($this->editId);
 
+            // Update basic product details
             $product->update([
                 'code' => $this->editCode,
                 'name' => $this->editName,
@@ -963,7 +965,7 @@ class Products extends Component
                 'status' => $this->editStatus,
             ]);
 
-            // Determine effective pricing mode to avoid accidental deletions
+            // Determine effective pricing mode
             $hasVariantInput = !empty($this->variant_id) && !empty($this->variant_prices);
             $effectiveMode = $hasVariantInput || $this->pricing_mode === 'variant' ? 'variant' : 'single';
 
@@ -976,51 +978,72 @@ class Products extends Component
             ]);
 
             if ($effectiveMode === 'single') {
-                // Update single price/stock
+                // ====== SINGLE PRICING MODE ======
                 $product->update(['variant_id' => null]);
 
-                $product->price()->updateOrCreate([], [
-                    'supplier_price' => $this->editSupplierPrice,
-                    'selling_price' => $this->editRetailPrice,
-                    'retail_price' => $this->editRetailPrice,
-                    'wholesale_price' => $this->editWholesalePrice,
-                    'discount_price' => $this->editDiscountPrice,
+                // Delete all variant prices/stocks first (clean slate)
+                ProductPrice::where('product_id', $product->id)
+                    ->where('pricing_mode', 'variant')
+                    ->delete();
+
+                ProductStock::where('product_id', $product->id)
+                    ->whereNotNull('variant_id')
+                    ->delete();
+
+                // Update or create single price
+                ProductPrice::updateOrCreate(
+                    [
+                        'product_id' => $product->id,
+                        'pricing_mode' => 'single',
+                        'variant_id' => null,
+                        'variant_value' => null,
+                    ],
+                    [
+                        'supplier_price' => $this->editSupplierPrice ?? 0,
+                        'selling_price' => $this->editRetailPrice ?? 0,
+                        'retail_price' => $this->editRetailPrice ?? 0,
+                        'wholesale_price' => $this->editWholesalePrice ?? 0,
+                        'distributor_price' => 0,
+                        'discount_price' => $this->editDiscountPrice ?? 0,
+                    ]
+                );
+
+                // Update or create single stock (preserve existing available_stock)
+                ProductStock::updateOrCreate(
+                    [
+                        'product_id' => $product->id,
+                        'variant_id' => null,
+                        'variant_value' => null,
+                    ],
+                    [
+                        'damage_stock' => $this->editDamageStock ?? 0,
+                        // Don't override available_stock or total_stock here
+                    ]
+                );
+
+                Log::info('updateProduct: Updated to single pricing mode', [
+                    'product_id' => $product->id,
                 ]);
-
-                $product->stock()->updateOrCreate([], [
-                    'damage_stock' => $this->editDamageStock,
-                ]);
-
-                // Remove any leftover variant prices/stocks only if user explicitly switched to single
-                if ($this->pricing_mode === 'single' && empty($this->variant_prices)) {
-                    if ($this->original_pricing_mode === 'variant') {
-                        ProductPrice::where('product_id', $product->id)->whereNotNull('variant_value')->delete();
-                        ProductStock::where('product_id', $product->id)->whereNotNull('variant_value')->delete();
-
-                        Log::info('updateProduct: variant rows deleted after switching to single', [
-                            'product_id' => $product->id,
-                            'original_pricing_mode' => $this->original_pricing_mode,
-                        ]);
-                    } else {
-                        // User remained in single mode and there were no variant inputs — nothing to delete.
-                        Log::info('updateProduct: skipping variant deletion (no explicit switch)', [
-                            'product_id' => $product->id,
-                            'original_pricing_mode' => $this->original_pricing_mode,
-                        ]);
-                    }
-                }
             } else {
-                // Variant-based update: set product variant and persist per-value prices/stocks
+                // ====== VARIANT PRICING MODE ======
                 $product->update(['variant_id' => $this->variant_id]);
 
-                // Track processed variant values so we remove only obsolete rows
+                // Delete single price/stock records (clean slate for variants)
+                ProductPrice::where('product_id', $product->id)
+                    ->where('pricing_mode', 'single')
+                    ->whereNull('variant_id')
+                    ->delete();
+
+                ProductStock::where('product_id', $product->id)
+                    ->whereNull('variant_id')
+                    ->delete();
+
+                // Track processed variant values for cleanup
                 $processedValues = [];
 
                 foreach ($this->variant_prices as $k => $vals) {
                     // Map sanitized key back to original display value and normalize
                     $variantValue = trim((string) ($this->variant_key_map[$k] ?? $k));
-
-                    // keep a normalized list for deletion comparison
                     $processedValues[] = $variantValue;
 
                     Log::info('updateProduct: upserting variant', [
@@ -1031,6 +1054,7 @@ class Products extends Component
                         'values' => $vals,
                     ]);
 
+                    // Update or create variant price
                     ProductPrice::updateOrCreate(
                         [
                             'product_id' => $product->id,
@@ -1044,9 +1068,11 @@ class Products extends Component
                             'selling_price' => $vals['retail_price'] ?? 0,
                             'wholesale_price' => $vals['wholesale_price'] ?? 0,
                             'distributor_price' => $vals['distributor_price'] ?? 0,
+                            'discount_price' => 0,
                         ]
                     );
 
+                    // Update or create variant stock
                     ProductStock::updateOrCreate(
                         [
                             'product_id' => $product->id,
@@ -1055,29 +1081,41 @@ class Products extends Component
                         ],
                         [
                             'available_stock' => $vals['stock'] ?? 0,
+                            'damage_stock' => 0,
+                            'total_stock' => $vals['stock'] ?? 0,
+                            'sold_count' => 0,
                         ]
                     );
                 }
 
-                // Remove any variant price/stock rows that were removed in the UI (limit to same variant)
+                // Clean up obsolete variant prices/stocks (removed from UI)
                 if (!empty($processedValues)) {
-                    ProductPrice::where('product_id', $product->id)
+                    $deletedPrices = ProductPrice::where('product_id', $product->id)
                         ->where('pricing_mode', 'variant')
                         ->where('variant_id', $this->variant_id)
                         ->whereNotIn('variant_value', $processedValues)
                         ->delete();
 
-                    ProductStock::where('product_id', $product->id)
+                    $deletedStocks = ProductStock::where('product_id', $product->id)
                         ->where('variant_id', $this->variant_id)
                         ->whereNotIn('variant_value', $processedValues)
                         ->delete();
+
+                    Log::info('updateProduct: Cleaned up obsolete variant data', [
+                        'product_id' => $product->id,
+                        'deleted_prices' => $deletedPrices,
+                        'deleted_stocks' => $deletedStocks,
+                    ]);
                 }
 
-                // Remove any single price/stock records
-                // (avoid duplicate single-row price when switching modes)
-                $product->price()->delete();
-                $product->stock()->whereNull('variant_value')->delete();
+                Log::info('updateProduct: Updated to variant pricing mode', [
+                    'product_id' => $product->id,
+                    'variant_id' => $this->variant_id,
+                    'processed_values' => $processedValues,
+                ]);
             }
+
+            DB::commit();
 
             // Clear cache for client-side refresh
             ProductApiController::clearCache();
@@ -1086,17 +1124,21 @@ class Products extends Component
             $this->js("Swal.fire('Success!', 'Product updated successfully!', 'success')");
             $this->dispatch('refreshPage');
         } catch (\Exception $e) {
+            DB::rollBack();
+
             Log::error('updateProduct failed', [
                 'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'product_id' => $this->editId ?? null,
                 'pricing_mode' => $this->pricing_mode,
                 'variant_id' => $this->variant_id,
                 'variant_prices' => $this->variant_prices,
             ]);
 
-            $this->js("Swal.fire('Error!', 'Failed to update product. Please try again. (See server logs)', 'error')");
+            $this->js("Swal.fire('Error!', 'Failed to update product: " . addslashes($e->getMessage()) . "', 'error')");
         }
     }
+
 
     // 🔹 Confirm Delete Product
     public function confirmDeleteProduct($id)
@@ -1542,7 +1584,6 @@ class Products extends Component
                     'user_name' => $sale->sale && $sale->sale->user ? $sale->sale->user->name : 'N/A'
                 ];
             })->toArray();
-
         } catch (\Exception $e) {
             $this->salesHistory = [];
         }

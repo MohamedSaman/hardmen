@@ -1971,12 +1971,14 @@
                                     <strong>Note:</strong> Select an existing variant type to edit prices and stock for each value.
                                 </div>
 
+                                {{-- Variant selector (show when there are available variants) --}}
+                                @if(!empty($availableVariants))
                                 <div class="row mb-4">
                                     <div class="col-md-12">
                                         <label class="form-label fw-semibold">
                                             <i class="bi bi-folder2-open text-primary me-2"></i>Select Variant Type:
                                         </label>
-                                        <select class="form-select form-select-lg" 
+                                        <select class="form-select form-select-lg"
                                             wire:model.live="variant_id" wire:change="selectVariant($event.target.value)">
                                             <option value="">-- Choose a variant --</option>
                                             @foreach($availableVariants as $variant)
@@ -1990,8 +1992,103 @@
                                         @enderror
                                     </div>
                                 </div>
+                                @endif
 
-                                @if(!empty($variant_id) && count($variant_prices) > 0)
+                                {{-- If the product has exactly one variant value, show inline editable inputs immediately --}}
+                                @if(count($variant_prices) === 1)
+                                @php
+                                    $variantPriceKeys = array_keys($variant_prices ?? []);
+                                    $singleKey = $variantPriceKeys[0] ?? null;
+                                    $singlePrices = $singleKey ? ($variant_prices[$singleKey] ?? []) : [];
+                                    $variantName = '';
+                                    foreach($availableVariants as $v) {
+                                        if(($v['id'] ?? null) == $variant_id) { $variantName = $v['variant_name']; break; }
+                                    }
+                                @endphp
+
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-folder2-open text-primary me-2"></i>Variant Type:
+                                            <strong class="ms-2">{{ $variantName ?: 'Variant' }}</strong>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semibold">Cost Price:</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">Rs.</span>
+                                            <input type="number" step="0.01" class="form-control"
+                                                wire:model.defer="variant_prices.{{ $singleKey }}.supplier_price"
+                                                placeholder="0.00">
+                                        </div>
+                                        @error("variant_prices.{$singleKey}.supplier_price")
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semibold">Retail Price:</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">Rs.</span>
+                                            <input type="number" step="0.01" class="form-control"
+                                                wire:model.defer="variant_prices.{{ $singleKey }}.retail_price"
+                                                placeholder="0.00">
+                                        </div>
+                                        @error("variant_prices.{$singleKey}.retail_price")
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semibold">Wholesale Price:</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">Rs.</span>
+                                            <input type="number" step="0.01" class="form-control"
+                                                wire:model.defer="variant_prices.{{ $singleKey }}.wholesale_price"
+                                                placeholder="0.00">
+                                        </div>
+                                        @error("variant_prices.{$singleKey}.wholesale_price")
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semibold">Distributor Price:</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">Rs.</span>
+                                            <input type="number" step="0.01" class="form-control"
+                                                wire:model.defer="variant_prices.{{ $singleKey }}.distributor_price"
+                                                placeholder="0.00">
+                                        </div>
+                                        @error("variant_prices.{$singleKey}.distributor_price")
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Available Stock:</label>
+                                        <input type="number" class="form-control" 
+                                            wire:model.defer="variant_prices.{{ $singleKey }}.stock" placeholder="0">
+                                        @error("variant_prices.{$singleKey}.stock")
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Damage Stock:</label>
+                                        <input type="number" class="form-control" 
+                                            wire:model.defer="variant_prices.{{ $singleKey }}.damage_stock" placeholder="0">
+                                        @error("variant_prices.{$singleKey}.damage_stock")
+                                        <span class="text-danger small">* {{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                @elseif(!empty($variant_id) && count($variant_prices) > 0)
                                 <div class="card">
                                     <div class="card-header bg-light">
                                         <h6 class="mb-0">Edit Variant Pricing & Stock</h6>
