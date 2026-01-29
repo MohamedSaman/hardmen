@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -47,11 +48,16 @@ return new class extends Migration
         // Add variant columns to product_stocks if they don't exist
         if (!Schema::hasColumn('product_stocks', 'variant_id')) {
             Schema::table('product_stocks', function (Blueprint $table) {
-                // Drop old constraint if it exists
+                // Drop old constraint if it exists using a direct DB check to avoid SQL errors
+                DB::statement('SET FOREIGN_KEY_CHECKS=0;');
                 try {
-                    $table->dropUnique('unique_product_variant_stock');
-                } catch (\Exception $e) {
-                    // Constraint doesn't exist, continue
+                    $indexExists = DB::select("SHOW INDEX FROM product_stocks WHERE Key_name = 'unique_product_variant_stock'");
+
+                    if (!empty($indexExists)) {
+                        DB::statement('ALTER TABLE product_stocks DROP INDEX unique_product_variant_stock');
+                    }
+                } finally {
+                    DB::statement('SET FOREIGN_KEY_CHECKS=1;');
                 }
 
                 $table->foreignId('variant_id')->nullable()->after('product_id')

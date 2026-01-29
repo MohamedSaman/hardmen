@@ -24,8 +24,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Layout;
-use App\Imports\ProductsImport;
-use App\Exports\ProductsTemplateExport;
+use App\Imports\ProductsImportWithVariants;
+use App\Exports\ProductsImportTemplateExport;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Controllers\ProductApiController;
 use App\Models\ProductBatch;
@@ -37,7 +37,6 @@ use Illuminate\Support\Facades\Auth;
 class Products extends Component
 {
     use WithDynamicLayout;
-
     use WithPagination, WithFileUploads;
 
     public $search = '';
@@ -414,6 +413,7 @@ class Products extends Component
             'isStaff' => $this->isStaff(),
         ])->layout($this->layout);
     }
+
     public function updatedPerPage()
     {
         $this->resetPage();
@@ -690,7 +690,7 @@ class Products extends Component
         }
     }
 
-    // 🔹 Import Products from Excel
+    // 🔹 Import Products from Excel - UPDATED METHOD
     public function importProducts()
     {
         // Validate file
@@ -703,8 +703,8 @@ class Products extends Component
         ]);
 
         try {
-            // Create import instance
-            $import = new ProductsImport();
+            // Use the new import class with foreign key resolution
+            $import = new ProductsImportWithVariants();
 
             // Import the file
             Excel::import($import, $this->importFile->getRealPath());
@@ -712,14 +712,23 @@ class Products extends Component
             // Get import statistics
             $successCount = $import->getSuccessCount();
             $skipCount = $import->getSkipCount();
-            $failures = $import->failures();
+            $errors = $import->getErrors();
 
             // Build success message
             $message = "Import completed! ";
             $message .= "✅ {$successCount} product(s) imported successfully. ";
 
             if ($skipCount > 0) {
-                $message .= "⚠️ {$skipCount} product(s) skipped (duplicates or errors). ";
+                $message .= "⚠️ {$skipCount} product(s) skipped. ";
+            }
+
+            // Log errors for review
+            if (!empty($errors)) {
+                Log::warning("Import completed with errors", [
+                    'success_count' => $successCount,
+                    'skip_count' => $skipCount,
+                    'errors' => $errors
+                ]);
             }
 
             // Reset file input
@@ -748,14 +757,19 @@ class Products extends Component
                 confirmButtonText: 'OK'
             })");
         } catch (\Exception $e) {
-            $this->js("Swal.fire('Error!', 'Failed to import products: {$e->getMessage()}', 'error')");
+            Log::error("Import failed with exception", [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $this->js("Swal.fire('Error!', 'Failed to import products: " . addslashes($e->getMessage()) . "', 'error')");
         }
     }
 
     // 🔹 Download Excel Template
     public function downloadTemplate()
     {
-        return Excel::download(new ProductsTemplateExport(), 'products_import_template.xlsx');
+        return Excel::download(new ProductsImportTemplateExport(), 'products_import_template.xlsx');
     }
 
     // 🔹 Reset form fields
@@ -1528,7 +1542,6 @@ class Products extends Component
                     'user_name' => $sale->sale && $sale->sale->user ? $sale->sale->user->name : 'N/A'
                 ];
             })->toArray();
-            // dd(array_column($this->salesHistory, 'sale_status'));
 
         } catch (\Exception $e) {
             $this->salesHistory = [];
