@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductDetail extends Model
@@ -23,6 +24,7 @@ class ProductDetail extends Model
         'brand_id',
         'category_id',
         'supplier_id',
+        'variant_id',
     ];
 
     public function price(): HasOne
@@ -49,6 +51,39 @@ class ProductDetail extends Model
     {
         return $this->belongsTo(ProductSupplier::class, 'supplier_id');
     }
+
+    /**
+     * Get the variant this product uses
+     */
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class, 'variant_id');
+    }
+
+    /**
+     * Get all prices for this product (including variant prices)
+     */
+    public function prices(): HasMany
+    {
+        return $this->hasMany(ProductPrice::class, 'product_id');
+    }
+
+    /**
+     * Get all stock records for this product (including variant stocks)
+     */
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(ProductStock::class, 'product_id');
+    }
+
+    /**
+     * Check if product has variants
+     */
+    public function hasVariants(): bool
+    {
+        return $this->variant_id !== null;
+    }
+
     public function returns()
     {
         return $this->hasMany(ReturnsProduct::class, 'product_id');

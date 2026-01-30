@@ -8,6 +8,7 @@ use Livewire\WithFileUploads;
 use App\Models\ProductDetail;
 use App\Models\ProductPrice;
 use App\Models\ProductStock;
+use App\Models\ProductVariant;
 use App\Models\BrandList;
 use App\Models\CategoryList;
 use App\Models\ProductSupplier;
@@ -23,8 +24,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Layout;
-use App\Imports\ProductsImport;
-use App\Exports\ProductsTemplateExport;
+use App\Imports\ProductsImportWithVariants;
+use App\Exports\ProductsImportTemplateExport;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Controllers\ProductApiController;
 use App\Models\ProductBatch;
@@ -36,14 +37,28 @@ use Illuminate\Support\Facades\Auth;
 class Products extends Component
 {
     use WithDynamicLayout;
-
     use WithPagination, WithFileUploads;
 
     public $search = '';
 
     // Create form fields
     public $code, $name, $model, $brand, $category, $image, $description, $barcode, $status, $supplier;
-    public $supplier_price, $retail_price, $wholesale_price, $discount_price, $available_stock, $damage_stock;
+    public $supplier_price, $retail_price, $wholesale_price, $distributor_price, $discount_price, $available_stock, $damage_stock;
+
+    // Pricing mode: 'single' or 'variant'
+    public $pricing_mode = 'single';
+
+    // Variant configuration
+    public $variant_id = null; // Selected variant for this product
+
+    // Variant prices - each value has its own price set
+    public $variant_prices = []; // e.g., ['v_4' => ['supplier' => 100, 'retail' => 200...], 'v_6' => [...]]
+
+    // Map sanitized variant key => original display value (e.g. 'v_4_5' => '4.5')
+    public $variant_key_map = []; // used to display original labels when keys are sanitized
+
+    // Available variants to select from
+    public $availableVariants = [];
 
     // Import file
     public $importFile;
@@ -52,6 +67,9 @@ class Products extends Component
     public $editId, $editCode, $editName, $editModel, $editBrand, $editCategory, $editImage, $existingImage,
         $editDescription, $editBarcode, $editStatus, $editSupplierPrice, $editRetailPrice, $editWholesalePrice,
         $editDiscountPrice, $editDamageStock;
+
+    // Track original pricing mode when opening edit modal so we don't accidentally delete variant rows
+    public $original_pricing_mode = 'single';
 
     // Stock Adjustment fields
     public $adjustmentProductId, $adjustmentProductName, $adjustmentAvailableStock, $adjustmentDamageStock,
@@ -72,6 +90,83 @@ class Products extends Component
     {
         $this->setDefaultIds();
         $this->setDefaultValues();
+        $this->loadAvailableVariants();
+    }
+
+    /**
+     * Load available variants from database
+     */
+    public function loadAvailableVariants()
+    {
+        $this->availableVariants = ProductVariant::where('status', 'active')->get()->toArray();
+    }
+
+    /**
+     * Handle variant selection change
+     */
+    public function updatedVariantId($value)
+    {
+        // Keep lifecycle behavior (when Livewire sets the property)
+        $this->initializeVariant($value);
+    }
+
+    /**
+     * Public wrapper to be called from the template when a user selects a variant.
+     * Avoids calling a lifecycle hook directly from Blade (Livewire restriction).
+     */
+    public function selectVariant($value)
+    {
+        // Ensure the property is updated so other lifecycle hooks / bindings remain consistent
+        $this->variant_id = $value;
+
+        // Delegate to shared initializer
+        $this->initializeVariant($value);
+    }
+
+    /**
+     * Initialize variant state (used by lifecycle and wrapper).
+     */
+    private function initializeVariant($value)
+    {
+        if (empty($value)) {
+            $this->variant_prices = [];
+            $this->variant_key_map = [];
+            return;
+        }
+
+        // Load selected variant
+        $variant = ProductVariant::find($value);
+
+        // Debug: log variant selection for troubleshooting
+        Log::info('initializeVariant called', [
+            'variant_id' => $value,
+            'found_variant' => $variant ? true : false,
+            'variant_values' => $variant ? $variant->variant_values : null,
+        ]);
+
+        if ($variant) {
+            // Get variant values and sort them (numeric when possible)
+            $values = is_array($variant->variant_values) ? $variant->variant_values : [];
+            $sorted = $this->sortVariantValues($values);
+
+            // Initialize prices for selected variant values in sorted order
+            $this->variant_prices = [];
+            $this->variant_key_map = [];
+            foreach ($sorted as $val) {
+                $key = $this->sanitizeVariantKey($val);
+                $this->variant_key_map[$key] = (string) $val;
+                $this->variant_prices[$key] = [
+                    'supplier_price' => 0,
+                    'retail_price' => 0,
+                    'wholesale_price' => 0,
+                    'distributor_price' => 0,
+                    'stock' => 0,
+                ];
+            }
+        } else {
+            $this->variant_prices = [];
+            $this->variant_key_map = [];
+        }
     }
 
     /**
@@ -147,7 +242,60 @@ class Products extends Component
         $this->supplier_price = 0;
         $this->retail_price = 0;
         $this->wholesale_price = 0;
+        $this->distributor_price = 0;
         $this->discount_price = 0;
+    }
+
+    /**
+     * Sort variant values for consistent display order.
+     * Numeric-like values are sorted numerically (4, 4.5, 6), otherwise natural case-insensitive order.
+     *
+     * @param array $values
+     * @return array
+     */
+    private function sortVariantValues(array $values): array
+    {
+        $values = array_values($values);
+
+        if (empty($values)) {
+            return [];
+        }
+
+        // Check whether values are numeric-like (all values look like numbers)
+        $allNumeric = true;
+        foreach ($values as $v) {
+            if (!is_numeric($v) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $v)) {
+                $allNumeric = false;
+                break;
+            }
+        }
+
+        if ($allNumeric) {
+            usort($values, function ($a, $b) {
+                return floatval($a) <=> floatval($b);
+            });
+            return $values;
+        }
+
+        // Fallback to natural case-insensitive sort
+        natcasesort($values);
+        return array_values($values);
+    }
+
+    /**
+     * Convert a variant display value to a sanitized key safe for property access and Livewire binding.
+     * Examples: '4.5' => 'v_4_5', 'Small/Medium' => 'v_Small_Medium'
+     *
+     * @param mixed $value
+     * @return string
+     */
+    private function sanitizeVariantKey($value): string
+    {
+        $str = (string)$value;
+        // replace non-alphanumeric with underscore
+        $sanitized = preg_replace('/[^A-Za-z0-9]+/', '_', $str);
+        // ensure does not start with a digit only — prefix with 'v_'
+        return 'v_' . trim($sanitized, '_');
     }
 
     public function render()
@@ -174,6 +322,7 @@ class Products extends Component
                     'product_details.status',
                     'product_prices.supplier_price',
                     'product_prices.wholesale_price',
+                    'product_prices.distributor_price',
                     'product_prices.retail_price',
                     'staff_products.discount_per_unit as discount_price',
                     DB::raw('(staff_products.quantity - staff_products.sold_quantity) as available_stock'),
@@ -196,11 +345,15 @@ class Products extends Component
                 ->orderBy('product_details.code', 'asc')
                 ->paginate($this->perPage);
         } else {
-            // Admin sees all products
-            $products = ProductDetail::join('product_prices', 'product_details.id', '=', 'product_prices.product_id')
-                ->join('product_stocks', 'product_details.id', '=', 'product_stocks.product_id')
-                ->leftJoin('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
+            // Admin sees all products - group by product to avoid duplicates from variants
+            $products = ProductDetail::leftJoin('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
                 ->leftJoin('category_lists', 'product_details.category_id', '=', 'category_lists.id')
+                ->leftJoin('product_stocks', 'product_details.id', '=', 'product_stocks.product_id')
+                ->leftJoin('product_prices', function ($join) {
+                    $join->on('product_details.id', '=', 'product_prices.product_id')
+                        ->where('product_prices.pricing_mode', '=', 'single')
+                        ->whereNull('product_prices.variant_id');
+                })
                 ->select(
                     'product_details.id',
                     'product_details.code',
@@ -210,13 +363,14 @@ class Products extends Component
                     'product_details.description',
                     'product_details.barcode',
                     'product_details.status',
-                    'product_prices.supplier_price',
-                    'product_prices.wholesale_price',
-                    'product_prices.retail_price',
-                    'product_prices.discount_price',
-                    'product_stocks.available_stock',
-                    'product_stocks.damage_stock',
-                    'product_stocks.total_stock',
+                    DB::raw('COALESCE(product_prices.supplier_price, 0) as supplier_price'),
+                    DB::raw('COALESCE(product_prices.wholesale_price, 0) as wholesale_price'),
+                    DB::raw('COALESCE(product_prices.distributor_price, 0) as distributor_price'),
+                    DB::raw('COALESCE(product_prices.retail_price, 0) as retail_price'),
+                    DB::raw('COALESCE(product_prices.discount_price, 0) as discount_price'),
+                    DB::raw('SUM(product_stocks.available_stock) as available_stock'),
+                    DB::raw('SUM(product_stocks.damage_stock) as damage_stock'),
+                    DB::raw('SUM(product_stocks.total_stock) as total_stock'),
                     'brand_lists.brand_name as brand',
                     'category_lists.category_name as category'
                 )
@@ -229,6 +383,23 @@ class Products extends Component
                         ->orWhere('product_details.status', 'like', '%' . $this->search . '%')
                         ->orWhere('product_details.barcode', 'like', '%' . $this->search . '%');
                 })
+                ->groupBy(
+                    'product_details.id',
+                    'product_details.code',
+                    'product_details.name',
+                    'product_details.model',
+                    'product_details.image',
+                    'product_details.description',
+                    'product_details.barcode',
+                    'product_details.status',
+                    'product_prices.supplier_price',
+                    'product_prices.wholesale_price',
+                    'product_prices.distributor_price',
+                    'product_prices.retail_price',
+                    'product_prices.discount_price',
+                    'brand_lists.brand_name',
+                    'category_lists.category_name'
+                )
                 ->orderByRaw("CASE WHEN product_details.code LIKE 'G-%' THEN 1 ELSE 0 END ASC")
                 ->orderBy('product_details.code', 'asc')
                 ->paginate($this->perPage);
@@ -242,6 +413,7 @@ class Products extends Component
             'isStaff' => $this->isStaff(),
         ])->layout($this->layout);
     }
+
     public function updatedPerPage()
     {
         $this->resetPage();
@@ -250,7 +422,7 @@ class Products extends Component
     // 🔹 Validation Rules for Create
     protected function rules()
     {
-        return [
+        $rules = [
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:100|unique:product_details,code',
             'model' => 'nullable|string|max:255',
@@ -260,13 +432,45 @@ class Products extends Component
             'image' => 'nullable|string|max:10000',
             'description' => 'nullable|string|max:1000',
             'barcode' => 'nullable|string|max:255|unique:product_details,barcode',
-            'supplier_price' => 'required|numeric|min:0',
-            'retail_price' => 'required|numeric|min:0|gte:supplier_price',
-            'wholesale_price' => 'required|numeric|min:0|gte:supplier_price',
-            'discount_price' => 'nullable|numeric|min:0|lte:retail_price',
-            'available_stock' => 'required|integer|min:0',
-            'damage_stock' => 'nullable|integer|min:0',
+            'pricing_mode' => 'required|in:single,variant',
         ];
+
+        // Add validation rules based on pricing mode
+        if ($this->pricing_mode === 'single') {
+            $rules = array_merge($rules, [
+                'supplier_price' => 'required|numeric|min:0',
+                'retail_price' => 'required|numeric|min:0|gte:supplier_price',
+                'wholesale_price' => 'required|numeric|min:0|gte:supplier_price',
+                'distributor_price' => 'nullable|numeric|min:0|gte:supplier_price',
+                'discount_price' => 'nullable|numeric|min:0|lte:retail_price',
+                'available_stock' => 'required|integer|min:0',
+                'damage_stock' => 'nullable|integer|min:0',
+            ]);
+        } else {
+            // Variant-based pricing validation
+            $rules = array_merge($rules, [
+                'variant_id' => 'required|exists:product_variants,id',
+                'variant_prices' => 'required|array|min:1',
+            ]);
+
+            // Add validation for each variant value's prices
+            if (!empty($this->variant_id)) {
+                $variant = ProductVariant::find($this->variant_id);
+                if ($variant && !empty($variant->variant_values)) {
+                    $sortedValues = $this->sortVariantValues($variant->variant_values);
+                    foreach ($sortedValues as $value) {
+                        $k = $this->sanitizeVariantKey($value);
+                        $rules["variant_prices.{$k}.supplier_price"] = 'required|numeric|min:0';
+                        $rules["variant_prices.{$k}.retail_price"] = "required|numeric|min:0|gte:variant_prices.{$k}.supplier_price";
+                        $rules["variant_prices.{$k}.wholesale_price"] = "required|numeric|min:0|gte:variant_prices.{$k}.supplier_price";
+                        $rules["variant_prices.{$k}.distributor_price"] = 'nullable|numeric|min:0';
+                        $rules["variant_prices.{$k}.stock"] = 'required|integer|min:0';
+                    }
+                }
+            }
+        }
+
+        return $rules;
     }
 
     // 🔹 Validation Messages
@@ -288,7 +492,9 @@ class Products extends Component
             'retail_price.numeric' => 'Retail price must be a number.',
             'retail_price.min' => 'Retail price cannot be negative.',
             'retail_price.gte' => 'Retail price must be greater than or equal to supplier price.',
+            'variant_prices.*.retail_price.gte' => 'Retail price for each variant must be greater than or equal to its supplier price.',
             'wholesale_price.required' => 'Wholesale price is required.',
+            'variant_prices.*.wholesale_price.gte' => 'Wholesale price for each variant must be greater than or equal to its supplier price.',
             'wholesale_price.numeric' => 'Wholesale price must be a number.',
             'wholesale_price.min' => 'Wholesale price cannot be negative.',
             'wholesale_price.gte' => 'Wholesale price must be greater than or equal to supplier price.',
@@ -301,6 +507,29 @@ class Products extends Component
             'image.url' => 'Please provide a valid image URL.',
             'barcode.unique' => 'This barcode already exists.',
         ];
+    }
+
+    // 🔹 Validation Attributes
+    protected function attributes()
+    {
+        $attrs = [
+            'supplier_price' => 'supplier price',
+            'retail_price' => 'retail price',
+            'wholesale_price' => 'wholesale price',
+            'distributor_price' => 'distributor price',
+            'stock' => 'stock',
+        ];
+
+        // Add dynamic per-variant friendly labels
+        foreach ($this->variant_key_map as $k => $label) {
+            $attrs["variant_prices.{$k}.supplier_price"] = "Supplier price ({$label})";
+            $attrs["variant_prices.{$k}.retail_price"] = "Retail price ({$label})";
+            $attrs["variant_prices.{$k}.wholesale_price"] = "Wholesale price ({$label})";
+            $attrs["variant_prices.{$k}.distributor_price"] = "Distributor price ({$label})";
+            $attrs["variant_prices.{$k}.stock"] = "Stock ({$label})";
+        }
+
+        return $attrs;
     }
 
     // 🔹 Open Create Modal
@@ -321,6 +550,16 @@ class Products extends Component
         // Clean up image field - treat empty strings as null
         if (empty(trim($this->image ?? ''))) {
             $this->image = null;
+        }
+
+        // Debug: Check what variant_prices contains
+        if ($this->pricing_mode === 'variant' && $this->variant_id) {
+            $variant = ProductVariant::find($this->variant_id);
+            Log::info('=== VARIANT PRICES DEBUG ===', [
+                'variant_values_from_db' => $variant ? $variant->variant_values : 'null',
+                'variant_prices_keys' => array_keys($this->variant_prices),
+                'variant_prices_full' => $this->variant_prices,
+            ]);
         }
 
         // Validate the form data
@@ -344,27 +583,95 @@ class Products extends Component
                 'brand_id' => $this->brand,
                 'category_id' => $this->category,
                 'supplier_id' => $this->supplier,
+                'variant_id' => $this->variant_id, // Set variant if product uses variants
             ]);
 
-            // Step 2: Create ProductPrice with product_id reference
-            ProductPrice::create([
-                'product_id' => $product->id,
-                'supplier_price' => $this->supplier_price ?? 0,
-                'selling_price' => $this->retail_price ?? $this->supplier_price ?? 0,
-                'retail_price' => $this->retail_price ?? 0,
-                'wholesale_price' => $this->wholesale_price ?? 0,
-                'discount_price' => $this->discount_price ?? 0,
-            ]);
+            if ($this->pricing_mode === 'single') {
+                // Single price mode
+                // Step 2: Create ProductPrice with product_id reference
+                ProductPrice::create([
+                    'product_id' => $product->id,
+                    'variant_id' => null,
+                    'pricing_mode' => 'single',
+                    'supplier_price' => $this->supplier_price ?? 0,
+                    'selling_price' => $this->retail_price ?? $this->supplier_price ?? 0,
+                    'retail_price' => $this->retail_price ?? 0,
+                    'wholesale_price' => $this->wholesale_price ?? 0,
+                    'distributor_price' => $this->distributor_price ?? 0,
+                    'discount_price' => $this->discount_price ?? 0,
+                ]);
 
-            // Step 3: Create ProductStock with product_id reference
-            ProductStock::create([
-                'product_id' => $product->id,
-                'available_stock' => $this->available_stock ?? 0,
-                'damage_stock' => $this->damage_stock ?? 0,
-                'total_stock' => ($this->available_stock ?? 0) + ($this->damage_stock ?? 0),
-                'sold_count' => 0,
-                'restocked_quantity' => 0,
-            ]);
+                // Step 3: Create ProductStock with product_id reference
+                ProductStock::create([
+                    'product_id' => $product->id,
+                    'available_stock' => $this->available_stock ?? 0,
+                    'damage_stock' => $this->damage_stock ?? 0,
+                    'total_stock' => ($this->available_stock ?? 0) + ($this->damage_stock ?? 0),
+                    'sold_count' => 0,
+                    'restocked_quantity' => 0,
+                ]);
+            } else {
+                // Variant-based pricing mode
+                // Use selected variant
+                $variant = ProductVariant::find($this->variant_id);
+
+                if ($variant) {
+                    $totalStock = 0;
+
+                    // Debug: Log what we're receiving
+                    Log::info('Creating variant product', [
+                        'variant_id' => $this->variant_id,
+                        'variant_values' => $variant->variant_values,
+                        'variant_prices_received' => $this->variant_prices,
+                    ]);
+
+                    // Create price and stock for each variant value (sorted order)
+                    $values = is_array($variant->variant_values) ? $variant->variant_values : [];
+                    $sortedValues = $this->sortVariantValues($values);
+
+                    foreach ($sortedValues as $value) {
+                        $sanitized = $this->sanitizeVariantKey($value);
+                        $priceData = $this->variant_prices[$sanitized] ?? [];
+
+                        // Normalize variant value for consistent DB matching
+                        $variantValue = trim((string)$value);
+
+                        Log::info("Processing variant value: {$variantValue}", [
+                            'sanitized_key' => $sanitized,
+                            'price_data' => $priceData,
+                            'has_data' => !empty($priceData),
+                        ]);
+
+                        // Create price for this variant value
+                        ProductPrice::create([
+                            'product_id' => $product->id,
+                            'variant_id' => $variant->id,
+                            'variant_value' => $variantValue,
+                            'pricing_mode' => 'variant',
+                            'supplier_price' => $priceData['supplier_price'] ?? 0,
+                            'selling_price' => $priceData['retail_price'] ?? 0,
+                            'retail_price' => $priceData['retail_price'] ?? 0,
+                            'wholesale_price' => $priceData['wholesale_price'] ?? 0,
+                            'distributor_price' => $priceData['distributor_price'] ?? 0,
+                            'discount_price' => 0,
+                        ]);
+
+                        // Create stock for this variant value
+                        ProductStock::create([
+                            'product_id' => $product->id,
+                            'variant_id' => $variant->id,
+                            'variant_value' => $variantValue,
+                            'available_stock' => $priceData['stock'] ?? 0,
+                            'damage_stock' => 0,
+                            'total_stock' => $priceData['stock'] ?? 0,
+                            'sold_count' => 0,
+                            'restocked_quantity' => 0,
+                        ]);
+
+                        $totalStock += $priceData['stock'] ?? 0;
+                    }
+                }
+            }
 
             DB::commit();
 
@@ -383,7 +690,7 @@ class Products extends Component
         }
     }
 
-    // 🔹 Import Products from Excel
+    // 🔹 Import Products from Excel - UPDATED METHOD
     public function importProducts()
     {
         // Validate file
@@ -396,8 +703,8 @@ class Products extends Component
         ]);
 
         try {
-            // Create import instance
-            $import = new ProductsImport();
+            // Use the new import class with foreign key resolution
+            $import = new ProductsImportWithVariants();
 
             // Import the file
             Excel::import($import, $this->importFile->getRealPath());
@@ -405,14 +712,23 @@ class Products extends Component
             // Get import statistics
             $successCount = $import->getSuccessCount();
             $skipCount = $import->getSkipCount();
-            $failures = $import->failures();
+            $errors = $import->getErrors();
 
             // Build success message
             $message = "Import completed! ";
             $message .= "✅ {$successCount} product(s) imported successfully. ";
 
             if ($skipCount > 0) {
-                $message .= "⚠️ {$skipCount} product(s) skipped (duplicates or errors). ";
+                $message .= "⚠️ {$skipCount} product(s) skipped. ";
+            }
+
+            // Log errors for review
+            if (!empty($errors)) {
+                Log::warning("Import completed with errors", [
+                    'success_count' => $successCount,
+                    'skip_count' => $skipCount,
+                    'errors' => $errors
+                ]);
             }
 
             // Reset file input
@@ -441,14 +757,19 @@ class Products extends Component
                 confirmButtonText: 'OK'
             })");
         } catch (\Exception $e) {
-            $this->js("Swal.fire('Error!', 'Failed to import products: {$e->getMessage()}', 'error')");
+            Log::error("Import failed with exception", [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $this->js("Swal.fire('Error!', 'Failed to import products: " . addslashes($e->getMessage()) . "', 'error')");
         }
     }
 
     // 🔹 Download Excel Template
     public function downloadTemplate()
     {
-        return Excel::download(new ProductsTemplateExport(), 'products_import_template.xlsx');
+        return Excel::download(new ProductsImportTemplateExport(), 'products_import_template.xlsx');
     }
 
     // 🔹 Reset form fields
@@ -468,17 +789,39 @@ class Products extends Component
             'supplier_price',
             'retail_price',
             'wholesale_price',
+            'distributor_price',
             'discount_price',
             'available_stock',
-            'damage_stock'
+            'damage_stock',
+            'pricing_mode',
+            'variant_id',
+            'variant_prices'
         ]);
+
+        // Reset pricing mode to single
+        $this->pricing_mode = 'single';
+        $this->original_pricing_mode = 'single';
+        $this->variant_id = null;
+        $this->variant_prices = [];
+        $this->variant_key_map = [];
         $this->resetValidation();
     }
 
     // 🔹 Edit Product
     public function editProduct($id)
     {
-        $product = ProductDetail::with(['price', 'stock'])->findOrFail($id);
+        // Load prices and stocks (including variant data if any)
+        $product = ProductDetail::with([
+            'price',
+            'stock',
+            'variant',
+            'prices' => function ($q) {
+                $q->orderBy('variant_value');
+            },
+            'stocks' => function ($q) {
+                $q->orderBy('variant_value');
+            }
+        ])->findOrFail($id);
 
         $this->editId = $product->id;
         $this->editCode = $product->code;
@@ -495,6 +838,49 @@ class Products extends Component
         $this->editWholesalePrice = $product->price->wholesale_price ?? 0;
         $this->editDiscountPrice = $product->price->discount_price ?? 0;
         $this->editDamageStock = $product->stock->damage_stock ?? 0;
+
+        // If variant data exists, prepare variant edit state
+        if (($product->variant_id ?? null) !== null || ($product->prices && $product->prices->isNotEmpty())) {
+            $this->pricing_mode = 'variant';
+            $this->variant_id = $product->variant_id ?? $product->variant->id ?? null;
+
+            // Build variant_key_map and populate variant_prices with existing data
+            $values = [];
+            if ($product->variant && is_array($product->variant->variant_values)) {
+                $values = $product->variant->variant_values;
+            } elseif ($product->prices && $product->prices->isNotEmpty()) {
+                $values = $product->prices->pluck('variant_value')->unique()->toArray();
+            }
+
+            $sorted = $this->sortVariantValues($values);
+            $this->variant_prices = [];
+            $this->variant_key_map = [];
+
+            foreach ($sorted as $val) {
+                $k = $this->sanitizeVariantKey($val);
+                $this->variant_key_map[$k] = (string) $val;
+
+                // try to find matching existing price/stock by variant_value
+                $price = $product->prices->firstWhere('variant_value', $val);
+                $stock = $product->stocks->firstWhere('variant_value', $val);
+
+                $this->variant_prices[$k] = [
+                    'supplier_price' => $price->supplier_price ?? 0,
+                    'retail_price' => $price->retail_price ?? 0,
+                    'wholesale_price' => $price->wholesale_price ?? 0,
+                    'distributor_price' => $price->distributor_price ?? 0,
+                    'stock' => $stock->available_stock ?? 0,
+                ];
+            }
+        } else {
+            $this->pricing_mode = 'single';
+            $this->variant_id = null;
+            $this->variant_prices = [];
+            $this->variant_key_map = [];
+        }
+
+        // Record original pricing mode so updateProduct can detect an intentional mode switch
+        $this->original_pricing_mode = $this->pricing_mode;
 
         $this->resetValidation();
 
@@ -535,8 +921,32 @@ class Products extends Component
             $this->editImage = null;
         }
 
-        // Validate the form data
-        $validatedData = $this->validate($this->updateRules());
+        // Build validation rules and validate the form data
+        $rules = $this->updateRules();
+
+        // Treat the form as variant-based if the UI has variant inputs present (handles cases
+        // where pricing_mode may not reflect a user-intent to update variant rows)
+        $hasVariantInput = !empty($this->variant_id) && !empty($this->variant_prices);
+        $isVariantMode = $this->pricing_mode === 'variant' || $hasVariantInput;
+
+        Log::info('updateProduct: validation mode', [
+            'pricing_mode' => $this->pricing_mode,
+            'hasVariantInput' => $hasVariantInput,
+            'variant_count' => count($this->variant_prices ?? []),
+        ]);
+
+        if ($isVariantMode) {
+            foreach ($this->variant_prices as $k => $vals) {
+                $rules["variant_prices.{$k}.supplier_price"] = 'required|numeric|min:0';
+                $rules["variant_prices.{$k}.retail_price"] = "required|numeric|min:0|gte:variant_prices.{$k}.supplier_price";
+                $rules["variant_prices.{$k}.wholesale_price"] = "required|numeric|min:0|gte:variant_prices.{$k}.supplier_price";
+                $rules["variant_prices.{$k}.distributor_price"] = 'nullable|numeric|min:0';
+                $rules["variant_prices.{$k}.stock"] = 'required|integer|min:0';
+            }
+        }
+
+        // Use friendly attribute labels for validation messages
+        $validatedData = $this->validate($rules, [], $this->attributes());
 
         try {
             $product = ProductDetail::findOrFail($this->editId);
@@ -553,17 +963,121 @@ class Products extends Component
                 'status' => $this->editStatus,
             ]);
 
-            $product->price()->updateOrCreate([], [
-                'supplier_price' => $this->editSupplierPrice,
-                'selling_price' => $this->editRetailPrice,
-                'retail_price' => $this->editRetailPrice,
-                'wholesale_price' => $this->editWholesalePrice,
-                'discount_price' => $this->editDiscountPrice,
+            // Determine effective pricing mode to avoid accidental deletions
+            $hasVariantInput = !empty($this->variant_id) && !empty($this->variant_prices);
+            $effectiveMode = $hasVariantInput || $this->pricing_mode === 'variant' ? 'variant' : 'single';
+
+            Log::info('updateProduct: effectiveMode', [
+                'product_id' => $product->id,
+                'pricing_mode' => $this->pricing_mode,
+                'hasVariantInput' => $hasVariantInput,
+                'variant_id' => $this->variant_id,
+                'variant_prices_count' => count($this->variant_prices ?? []),
             ]);
 
-            $product->stock()->updateOrCreate([], [
-                'damage_stock' => $this->editDamageStock,
-            ]);
+            if ($effectiveMode === 'single') {
+                // Update single price/stock
+                $product->update(['variant_id' => null]);
+
+                $product->price()->updateOrCreate([], [
+                    'supplier_price' => $this->editSupplierPrice,
+                    'selling_price' => $this->editRetailPrice,
+                    'retail_price' => $this->editRetailPrice,
+                    'wholesale_price' => $this->editWholesalePrice,
+                    'discount_price' => $this->editDiscountPrice,
+                ]);
+
+                $product->stock()->updateOrCreate([], [
+                    'damage_stock' => $this->editDamageStock,
+                ]);
+
+                // Remove any leftover variant prices/stocks only if user explicitly switched to single
+                if ($this->pricing_mode === 'single' && empty($this->variant_prices)) {
+                    if ($this->original_pricing_mode === 'variant') {
+                        ProductPrice::where('product_id', $product->id)->whereNotNull('variant_value')->delete();
+                        ProductStock::where('product_id', $product->id)->whereNotNull('variant_value')->delete();
+
+                        Log::info('updateProduct: variant rows deleted after switching to single', [
+                            'product_id' => $product->id,
+                            'original_pricing_mode' => $this->original_pricing_mode,
+                        ]);
+                    } else {
+                        // User remained in single mode and there were no variant inputs — nothing to delete.
+                        Log::info('updateProduct: skipping variant deletion (no explicit switch)', [
+                            'product_id' => $product->id,
+                            'original_pricing_mode' => $this->original_pricing_mode,
+                        ]);
+                    }
+                }
+            } else {
+                // Variant-based update: set product variant and persist per-value prices/stocks
+                $product->update(['variant_id' => $this->variant_id]);
+
+                // Track processed variant values so we remove only obsolete rows
+                $processedValues = [];
+
+                foreach ($this->variant_prices as $k => $vals) {
+                    // Map sanitized key back to original display value and normalize
+                    $variantValue = trim((string) ($this->variant_key_map[$k] ?? $k));
+
+                    // keep a normalized list for deletion comparison
+                    $processedValues[] = $variantValue;
+
+                    Log::info('updateProduct: upserting variant', [
+                        'product_id' => $product->id,
+                        'variant_id' => $this->variant_id,
+                        'sanitized_key' => $k,
+                        'variant_value' => $variantValue,
+                        'values' => $vals,
+                    ]);
+
+                    ProductPrice::updateOrCreate(
+                        [
+                            'product_id' => $product->id,
+                            'variant_id' => $this->variant_id,
+                            'variant_value' => $variantValue,
+                        ],
+                        [
+                            'pricing_mode' => 'variant',
+                            'supplier_price' => $vals['supplier_price'] ?? 0,
+                            'retail_price' => $vals['retail_price'] ?? 0,
+                            'selling_price' => $vals['retail_price'] ?? 0,
+                            'wholesale_price' => $vals['wholesale_price'] ?? 0,
+                            'distributor_price' => $vals['distributor_price'] ?? 0,
+                        ]
+                    );
+
+                    ProductStock::updateOrCreate(
+                        [
+                            'product_id' => $product->id,
+                            'variant_id' => $this->variant_id,
+                            'variant_value' => $variantValue,
+                        ],
+                        [
+                            'available_stock' => $vals['stock'] ?? 0,
+                        ]
+                    );
+                }
+
+                // Remove any variant price/stock rows that were removed in the UI (limit to same variant)
+                if (!empty($processedValues)) {
+                    ProductPrice::where('product_id', $product->id)
+                        ->where('pricing_mode', 'variant')
+                        ->where('variant_id', $this->variant_id)
+                        ->whereNotIn('variant_value', $processedValues)
+                        ->delete();
+
+                    ProductStock::where('product_id', $product->id)
+                        ->where('variant_id', $this->variant_id)
+                        ->whereNotIn('variant_value', $processedValues)
+                        ->delete();
+                }
+
+                // Remove any single price/stock records
+                // (avoid duplicate single-row price when switching modes)
+                $product->price()->delete();
+                $product->stock()->whereNull('variant_value')->delete();
+            }
 
             // Clear cache for client-side refresh
             ProductApiController::clearCache();
@@ -572,7 +1086,15 @@ class Products extends Component
             $this->js("Swal.fire('Success!', 'Product updated successfully!', 'success')");
             $this->dispatch('refreshPage');
         } catch (\Exception $e) {
-            $this->js("Swal.fire('Error!', 'Failed to update product. Please try again.', 'error')");
+            Log::error('updateProduct failed', [
+                'message' => $e->getMessage(),
+                'product_id' => $this->editId ?? null,
+                'pricing_mode' => $this->pricing_mode,
+                'variant_id' => $this->variant_id,
+                'variant_prices' => $this->variant_prices,
+            ]);
+
+            $this->js("Swal.fire('Error!', 'Failed to update product. Please try again. (See server logs)', 'error')");
         }
     }
 
@@ -648,17 +1170,38 @@ class Products extends Component
                 )
                 ->first();
         } else {
-            // For admin users, show full product details
-            $this->viewProduct = ProductDetail::with(['price', 'stock'])
-                ->leftJoin('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
-                ->leftJoin('category_lists', 'product_details.category_id', '=', 'category_lists.id')
-                ->select(
-                    'product_details.*',
-                    'brand_lists.brand_name as brand',
-                    'category_lists.category_name as category'
-                )
-                ->where('product_details.id', $id)
-                ->first();
+            // For admin users, show full product details (including variant prices/stocks if any)
+            $product = ProductDetail::with([
+                'price',
+                'stock',
+                'variant',
+                'prices' => function ($q) {
+                    $q->where('pricing_mode', 'variant')->orderBy('variant_value');
+                },
+                'stocks' => function ($q) {
+                    $q->orderBy('variant_value');
+                },
+                'brand',
+                'category'
+            ])->find($id);
+
+            if ($product) {
+                // Maintain backward compatible attributes for the blade (was using brand/category strings)
+                $product->brand = $product->brand->brand_name ?? null;
+                $product->category = $product->category->category_name ?? null;
+
+                // Prepare a sorted list of variant values for predictable display order
+                $variantValues = [];
+                if ($product->variant && is_array($product->variant->variant_values)) {
+                    $variantValues = $product->variant->variant_values;
+                } elseif ($product->prices && $product->prices->isNotEmpty()) {
+                    $variantValues = $product->prices->pluck('variant_value')->unique()->toArray();
+                }
+
+                $product->sorted_variant_values = $this->sortVariantValues($variantValues);
+            }
+
+            $this->viewProduct = $product;
         }
 
         $this->js("$('#viewProductModal').modal('show')");
@@ -999,7 +1542,6 @@ class Products extends Component
                     'user_name' => $sale->sale && $sale->sale->user ? $sale->sale->user->name : 'N/A'
                 ];
             })->toArray();
-            // dd(array_column($this->salesHistory, 'sale_status'));
 
         } catch (\Exception $e) {
             $this->salesHistory = [];
