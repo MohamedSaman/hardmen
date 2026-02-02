@@ -32,6 +32,7 @@ class User extends Authenticatable
         'password',
         'role',
         'contact',
+        'staff_type',
     ];
 
     /**
@@ -76,12 +77,6 @@ class User extends Authenticatable
         return $this->hasOne(UserDetail::class, 'user_id', 'id');
     }
 
-    // Relationship: User has many staff permissions
-    public function staffPermissions()
-    {
-        return $this->hasMany(StaffPermission::class, 'user_id', 'id');
-    }
-
     // Relationship: User (staff) has many staff products
     public function staffProducts()
     {
@@ -89,8 +84,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user has a specific permission
-     * If staff has no permissions assigned, show only dashboard as default
+     * Check if user has a specific permission based on staff type
      */
     public function hasPermission($permissionKey)
     {
@@ -98,17 +92,76 @@ class User extends Authenticatable
             return true; // Admin has all permissions
         }
 
-        // If staff has no permissions assigned at all, only show dashboard
-        $hasAnyPermissions = $this->staffPermissions()->exists();
-        if (!$hasAnyPermissions) {
-            return $permissionKey === 'menu_dashboard'; // Only dashboard available if no permissions set
+        if ($this->role !== 'staff') {
+            return false;
         }
 
-        // If permissions are assigned, check for specific permission
-        return $this->staffPermissions()
-            ->where('permission_key', $permissionKey)
-            ->where('is_active', true)
-            ->exists();
+        // Permission mapping based on staff type
+        $staffPermissions = [
+            'salesman' => [
+                'menu_dashboard',
+                'menu_products',
+                'menu_products_list',
+                'menu_products_brand',
+                'menu_products_category',
+                'menu_products_variant',
+                'menu_sales',
+                'menu_sales_add',
+                'menu_sales_list',
+                'menu_sales_pos',
+                'menu_quotation',
+                'menu_quotation_add',
+                'menu_quotation_list',
+                'menu_customer',
+                'menu_customer_add',
+                'menu_customer_list',
+                'menu_return',
+                'menu_return_customer_add',
+                'menu_return_customer_list'
+            ],
+            'delivery_man' => [
+                'menu_dashboard',
+                'menu_products',
+                'menu_products_list',
+                'menu_sales',
+                'menu_sales_list',
+                'menu_customer',
+                'menu_customer_list',
+                'menu_delivery'
+            ],
+            'shop_staff' => [
+                'menu_dashboard',
+                'menu_products',
+                'menu_products_list',
+                'menu_products_brand',
+                'menu_products_category',
+                'menu_products_variant',
+                'menu_sales',
+                'menu_sales_add',
+                'menu_sales_list',
+                'menu_sales_pos',
+                'menu_quotation',
+                'menu_quotation_add',
+                'menu_quotation_list',
+                'menu_customer',
+                'menu_customer_add',
+                'menu_customer_list',
+                'menu_purchase',
+                'menu_purchase_order',
+                'menu_purchase_grn',
+                'menu_return',
+                'menu_return_customer_add',
+                'menu_return_customer_list',
+                'menu_return_supplier_add',
+                'menu_return_supplier_list',
+                'menu_supplier',
+                'menu_supplier_add',
+                'menu_supplier_list'
+            ]
+        ];
+
+        $allowedPermissions = $staffPermissions[$this->staff_type] ?? ['menu_dashboard'];
+        return in_array($permissionKey, $allowedPermissions);
     }
 
     /**
@@ -125,5 +178,66 @@ class User extends Authenticatable
     public function isStaff()
     {
         return $this->role === 'staff';
+    }
+
+    /**
+     * Check if user is a salesman
+     */
+    public function isSalesman()
+    {
+        return $this->role === 'staff' && $this->staff_type === 'salesman';
+    }
+
+    /**
+     * Check if user is a delivery man
+     */
+    public function isDeliveryMan()
+    {
+        return $this->role === 'staff' && $this->staff_type === 'delivery_man';
+    }
+
+    /**
+     * Check if user is shop staff
+     */
+    public function isShopStaff()
+    {
+        return $this->role === 'staff' && $this->staff_type === 'shop_staff';
+    }
+
+    /**
+     * Get staff type label
+     */
+    public function getStaffTypeLabelAttribute()
+    {
+        return match ($this->staff_type) {
+            'salesman' => 'Salesman',
+            'delivery_man' => 'Delivery Man',
+            'shop_staff' => 'Shop Staff',
+            default => 'Staff',
+        };
+    }
+
+    /**
+     * Relationship: Approved sales (for admin)
+     */
+    public function approvedSales()
+    {
+        return $this->hasMany(Sale::class, 'approved_by', 'id');
+    }
+
+    /**
+     * Relationship: Delivered sales (for delivery man)
+     */
+    public function deliveredSales()
+    {
+        return $this->hasMany(Sale::class, 'delivered_by', 'id');
+    }
+
+    /**
+     * Relationship: Collected payments (for delivery man)
+     */
+    public function collectedPayments()
+    {
+        return $this->hasMany(Payment::class, 'collected_by', 'id');
     }
 }

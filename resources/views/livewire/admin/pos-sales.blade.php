@@ -507,7 +507,7 @@ use App\Models\Sale;
                         <div class="border-top pt-3 text-center">
                             <p class="mb-1 small"><strong>ADDRESS :</strong> 421/2, Doolmala, Thihariya, Kalagedihena</p>
                             <p class="mb-2 small"><strong>TEL :</strong> (077) 9752950 | <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
-                            <p class="mb-0" style="font-size: 11px; color: #666;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
+                            <p class="mb-0" style="font-size: 11px; color: #666;"><strong></strong></p>
                         </div>
                     </div>
                 </div>

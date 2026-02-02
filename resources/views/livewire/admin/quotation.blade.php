@@ -264,7 +264,7 @@
                         <tbody>
                             @foreach($selectedOrder->items as $item)
                             <tr>
-                                <td>{{ $item->product->name ?? 'N/A' }}</td>
+                                <td title="{{ $this->formatProductName($item->product ?? null, $item->unit_price ?? null) }}">{{ $this->formatProductName($item->product ?? null, $item->unit_price ?? null) }}</td>
                                 <td>{{ $item->quantity }}</td>
                                 <td>{{ $item->unit_price }}</td>
                             </tr>

@@ -27,12 +27,19 @@ class Payment extends Model
         'transfer_reference',
         'notes',
         'created_by',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
+        'collected_by',
+        'collected_at',
     ];
 
     protected $casts = [
         'payment_date' => 'datetime',
         'due_date' => 'date',
         'is_completed' => 'boolean',
+        'approved_at' => 'datetime',
+        'collected_at' => 'datetime',
     ];
 
     public function sale()
@@ -56,7 +63,7 @@ class Payment extends Model
             return '<span class="badge bg-secondary">Pending Payment</span>';
         }
 
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => '<span class="badge bg-warning">Pending Approval</span>',
             'approved' => '<span class="badge bg-success">Approved</span>',
             'rejected' => '<span class="badge bg-danger">Rejected</span>',
@@ -67,5 +74,45 @@ class Payment extends Model
     public function allocations()
     {
         return $this->hasMany(PaymentAllocation::class);
+    }
+
+    /**
+     * Relationship: Approved by admin
+     */
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Relationship: Collected by delivery man
+     */
+    public function collectedBy()
+    {
+        return $this->belongsTo(User::class, 'collected_by');
+    }
+
+    /**
+     * Check if payment is pending approval
+     */
+    public function isPending()
+    {
+        return $this->status === 'pending';
+    }
+
+    /**
+     * Check if payment is approved
+     */
+    public function isApproved()
+    {
+        return $this->status === 'approved' || $this->status === 'paid';
+    }
+
+    /**
+     * Check if payment is rejected
+     */
+    public function isRejected()
+    {
+        return $this->status === 'rejected';
     }
 }

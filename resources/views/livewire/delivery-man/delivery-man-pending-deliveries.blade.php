@@ -1,0 +1,186 @@
+<div class="container-fluid py-3">
+    {{-- Header --}}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-2">
+                <i class="bi bi-box-seam text-primary me-2"></i> Pending Deliveries
+            </h3>
+            <p class="text-muted mb-0">View and manage deliveries awaiting completion</p>
+        </div>
+        <a href="{{ route('delivery.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
+        </a>
+    </div>
+
+    {{-- Search --}}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search by invoice, customer name or phone...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Deliveries List --}}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Invoice</th>
+                            <th>Customer</th>
+                            <th>Address</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($sales as $sale)
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-medium">{{ $sale->invoice_number }}</span>
+                                <small class="d-block text-muted">{{ $sale->created_at->format('M d, Y') }}</small>
+                            </td>
+                            <td>
+                                <span class="fw-medium">{{ $sale->customer->name ?? 'N/A' }}</span>
+                                @if($sale->customer->phone ?? false)
+                                <small class="d-block text-muted"><i class="bi bi-telephone me-1"></i>{{ $sale->customer->phone }}</small>
+                                @endif
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ Str::limit($sale->customer->address ?? 'N/A', 40) }}</small>
+                            </td>
+                            <td>
+                                <span class="fw-semibold">Rs. {{ number_format($sale->total_amount, 2) }}</span>
+                                @if($sale->due_amount > 0)
+                                <small class="d-block text-danger">Due: Rs. {{ number_format($sale->due_amount, 2) }}</small>
+                                @endif
+                            </td>
+                            <td>
+                                @if($sale->delivery_status === 'pending')
+                                    <span class="badge bg-warning">Pending</span>
+                                @elseif($sale->delivery_status === 'in_transit')
+                                    <span class="badge bg-info">In Transit</span>
+                                @endif
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group">
+                                    <button wire:click="viewDetails({{ $sale->id }})" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    @if($sale->delivery_status === 'pending')
+                                    <button wire:click="markInTransit({{ $sale->id }})" class="btn btn-sm btn-info text-white" 
+                                            wire:confirm="Mark this order as In Transit?">
+                                        <i class="bi bi-truck"></i>
+                                    </button>
+                                    @endif
+                                    <button wire:click="markDelivered({{ $sale->id }})" class="btn btn-sm btn-success"
+                                            wire:confirm="Mark this order as Delivered?">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+                                No pending deliveries! All caught up.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{-- Pagination --}}
+    <div class="mt-4">
+        {{ $sales->links() }}
+    </div>
+
+    {{-- Details Modal --}}
+    @if($showDetailsModal && $selectedSale)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-box-seam me-2"></i>Delivery Details - {{ $selectedSale->invoice_number }}
+                    </h5>
+                    <button type="button" class="btn-close" wire:click="closeDetailsModal"></button>
+                </div>
+                <div class="modal-body">
+                    {{-- Customer Info --}}
+                    <div class="bg-light rounded p-3 mb-4">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-person me-2"></i>Customer Information</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Name:</strong> {{ $selectedSale->customer->name ?? 'N/A' }}</p>
+                                <p class="mb-1"><strong>Phone:</strong> {{ $selectedSale->customer->phone ?? 'N/A' }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-0"><strong>Address:</strong> {{ $selectedSale->customer->address ?? 'N/A' }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Order Info --}}
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Order Date:</strong> {{ $selectedSale->created_at->format('M d, Y H:i') }}</p>
+                            <p class="mb-0"><strong>Created By:</strong> {{ $selectedSale->user->name ?? 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Total Amount:</strong> <span class="fw-bold">Rs. {{ number_format($selectedSale->total_amount, 2) }}</span></p>
+                            <p class="mb-0"><strong>Due Amount:</strong> <span class="fw-bold text-danger">Rs. {{ number_format($selectedSale->due_amount, 2) }}</span></p>
+                        </div>
+                    </div>
+
+                    {{-- Items --}}
+                    <h6 class="fw-bold mb-2">Order Items</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($selectedSale->items as $item)
+                                <tr>
+                                    <td>{{ $item->product_name }}</td>
+                                    <td class="text-center">{{ $item->quantity }}</td>
+                                    <td class="text-end">Rs. {{ number_format($item->total, 2) }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    @if($selectedSale->delivery_status === 'pending')
+                    <button wire:click="markInTransit({{ $selectedSale->id }})" class="btn btn-info text-white">
+                        <i class="bi bi-truck me-2"></i>Mark In Transit
+                    </button>
+                    @endif
+                    <button wire:click="markDelivered({{ $selectedSale->id }})" class="btn btn-success">
+                        <i class="bi bi-check-circle me-2"></i>Mark Delivered
+                    </button>
+                    <button type="button" class="btn btn-secondary" wire:click="closeDetailsModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+</div>

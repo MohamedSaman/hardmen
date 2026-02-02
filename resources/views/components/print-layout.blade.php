@@ -349,7 +349,7 @@
             <div class="border-top pt-3">
                 <p class="text-center"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
                 <p class="text-center"><strong>TEL :</strong> (076) 9085252, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
-                <p class="text-center mt-2" style="font-size: 9px;"><strong>Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.</strong></p>
+                <p class="text-center mt-2" style="font-size: 9px;"><strong></strong></p>
             </div>
         </div>
     </div>

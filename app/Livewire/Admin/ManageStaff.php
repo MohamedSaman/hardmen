@@ -21,7 +21,8 @@ class ManageStaff extends Component
     public $email;
     public $password;
     public $confirmPassword;
-    
+    public $staff_type = ''; // Staff type: salesman, delivery_man, shop_staff
+
     // UserDetails fields
     public $dob;
     public $age;
@@ -46,13 +47,14 @@ class ManageStaff extends Component
     public $editPassword;
     public $editConfirmPassword;
     public $editStatus; // Add this line
+    public $editStaffType; // Staff type for editing
 
     public $deleteId;
     public $showEditModal = false;
     public $showCreateModal = false;
     public $showDeleteModal = false;
     public $showViewModal = false;
-    public $perPage= 10;
+    public $perPage = 10;
 
     public function render()
     {
@@ -61,7 +63,7 @@ class ManageStaff extends Component
             'staffs' => $staffs,
         ])->layout($this->layout);
     }
-     public function updatedPerPage()
+    public function updatedPerPage()
     {
         $this->resetPage();
     }
@@ -76,7 +78,7 @@ class ManageStaff extends Component
             $this->js("Swal.fire('Error!', 'Staff Not Found', 'error')");
             return;
         }
-        
+
         $userDetail = \App\Models\UserDetail::where('user_id', $user->id)->first();
         $this->viewUserDetail = [
             'name' => $user->name,
@@ -98,7 +100,7 @@ class ManageStaff extends Component
             'description' => $userDetail ? $userDetail->description : '-',
             'status' => $userDetail ? $userDetail->status : '-',
         ];
-        
+
         $this->showViewModal = true;
     }
 
@@ -114,12 +116,35 @@ class ManageStaff extends Component
     public function resetForm()
     {
         $this->reset([
-            'name', 'contactNumber', 'email', 'password', 'confirmPassword',
-            'dob', 'age', 'nic_num', 'address', 'work_role', 'work_type',
-            'department', 'gender', 'join_date', 'fingerprint_id', 'allowance',
-            'basic_salary', 'user_image', 'description', 'status',
-            'editStaffId', 'editName', 'editContactNumber', 'editEmail', 
-            'editPassword', 'editConfirmPassword', 'editStatus' // Add editStatus here
+            'name',
+            'contactNumber',
+            'email',
+            'password',
+            'confirmPassword',
+            'staff_type',
+            'dob',
+            'age',
+            'nic_num',
+            'address',
+            'work_role',
+            'work_type',
+            'department',
+            'gender',
+            'join_date',
+            'fingerprint_id',
+            'allowance',
+            'basic_salary',
+            'user_image',
+            'description',
+            'status',
+            'editStaffId',
+            'editName',
+            'editContactNumber',
+            'editEmail',
+            'editPassword',
+            'editConfirmPassword',
+            'editStatus',
+            'editStaffType'
         ]);
         $this->resetErrorBag();
     }
@@ -141,6 +166,7 @@ class ManageStaff extends Component
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8',
             'confirmPassword' => 'required|min:8|same:password',
+            'staff_type' => 'required|in:salesman,delivery_man,shop_staff',
             'dob' => 'nullable|date',
             'age' => 'nullable|integer|min:0',
             'nic_num' => 'nullable|string',
@@ -165,6 +191,7 @@ class ManageStaff extends Component
                 'email' => $this->email,
                 'password' => Hash::make($this->password),
                 'role' => 'staff',
+                'staff_type' => $this->staff_type,
                 'profile_photo_path' => $this->user_image,
             ]);
 
@@ -218,6 +245,7 @@ class ManageStaff extends Component
         $this->editContactNumber = $user->contact;
         $this->editEmail = $user->email;
         $this->editStatus = $userDetail ? $userDetail->status : 'active'; // Set status
+        $this->editStaffType = $user->staff_type; // Set staff type
         $this->editPassword = '';
         $this->editConfirmPassword = '';
 
@@ -231,14 +259,15 @@ class ManageStaff extends Component
             'editContactNumber' => 'required | max:10',
             'editEmail' => 'required|email|unique:users,email,' . $this->editStaffId,
             'editStatus' => 'required|in:active,inactive', // Add status validation
+            'editStaffType' => 'nullable|in:salesman,delivery_man,shop_staff', // Staff type validation
         ];
-        
+
         // Only validate password if it's provided
         if (!empty($this->editPassword)) {
             $validationRules['editPassword'] = 'required|min:8';
             $validationRules['editConfirmPassword'] = 'required|same:editPassword';
         }
-        
+
         $this->validate($validationRules);
 
         try {
@@ -247,12 +276,13 @@ class ManageStaff extends Component
                 $user->name = $this->editName;
                 $user->contact = $this->editContactNumber;
                 $user->email = $this->editEmail;
-                
+                $user->staff_type = $this->editStaffType; // Update staff type
+
                 // Only update password if a new one was provided
                 if (!empty($this->editPassword)) {
                     $user->password = Hash::make($this->editPassword);
                 }
-                
+
                 $user->save();
 
                 // Update user details status
@@ -294,7 +324,7 @@ class ManageStaff extends Component
             $this->js("Swal.fire('Success!', 'Staff deleted successfully.', 'success')");
             $this->cancelDelete();
         } catch (Exception $e) {
-            $this->js("Swal.fire('Error!', '".$e->getMessage()."', 'error')");
+            $this->js("Swal.fire('Error!', '" . $e->getMessage() . "', 'error')");
         }
     }
 }

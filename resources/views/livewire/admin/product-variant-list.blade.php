@@ -50,10 +50,10 @@
                                             <td>
                                                 <span class="fw-medium text-dark">{{ $variant->variant_name }}</span>
                                             </td>
-                                            <td>
-                                                <div class="d-flex flex-wrap gap-2">
+                                            <td class="align-middle">
+                                                <div class="d-flex flex-wrap gap-2 align-items-center">
                                                     @foreach($variant->variant_values as $value)
-                                                    <span class="badge bg-info">{{ $value }}</span>
+                                                    <span class="badge bg-info badge-value" title="{{ $value }}">{{ $value }}</span>
                                                     @endforeach
                                                 </div>
                                             </td>
@@ -67,12 +67,12 @@
                                             <td>
                                                 <span class="badge bg-secondary">{{ $variant->products_count ?? $variant->products()->count() }} products</span>
                                             </td>
-                                            <td class="text-end pe-4">
-                                                <button class="text-primary me-2 bg-opacity-0 border-0" wire:click="editVariant({{ $variant->id }})">
-                                                    <i class="bi bi-pencil fs-6"></i>
+                                            <td class="text-end pe-4 align-middle">
+                                                <button class="btn btn-sm btn-outline-primary me-2" wire:click="editVariant({{ $variant->id }})" title="Edit Variant">
+                                                    <i class="bi bi-pencil"></i>
                                                 </button>
-                                                <button class="text-danger me-2 bg-opacity-0 border-0" wire:click="confirmDelete({{ $variant->id }})">
-                                                    <i class="bi bi-trash fs-6"></i>
+                                                <button class="btn btn-sm btn-outline-danger" wire:click="confirmDelete({{ $variant->id }})" title="Delete Variant">
+                                                    <i class="bi bi-trash"></i>
                                                 </button>
                                             </td>
                                         </tr>
@@ -135,17 +135,18 @@
                             @if(count($variant_values) > 0)
                             <div class="alert alert-light">
                                 <strong>Added Values ({{ count($variant_values) }}):</strong>
-                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                <ul class="list-group mt-2" id="variant-values-list">
                                     @foreach($variant_values as $value)
-                                    <span class="badge bg-primary fs-6 px-3 py-2">
-                                        {{ $value }}
-                                        <button type="button" class="btn-close btn-close-white ms-2" 
-                                            style="font-size: 0.7rem;"
-                                            wire:click="removeVariantValue('{{ $value }}')"
-                                            aria-label="Remove"></button>
-                                    </span>
+                                    <li class="list-group-item d-flex align-items-center justify-content-between drag-item" data-value="{{ $value }}">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
+                                            <span class="fw-medium ms-2">{{ $value }}</span>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" wire:click="removeVariantValue('{{ $value }}')" aria-label="Remove">&times;</button>
+                                    </li>
                                     @endforeach
-                                </div>
+                                </ul>
+                                <div class="text-muted small mt-2">Drag to reorder values or add new ones to auto-sort.</div>
                             </div>
                             @else
                             <div class="alert alert-warning">
@@ -222,16 +223,19 @@
                             @if(count($editVariantValues) > 0)
                             <div class="alert alert-light">
                                 <strong>Added Values ({{ count($editVariantValues) }}):</strong>
-                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                <ul class="list-group mt-2" id="edit-variant-values-list">
                                     @foreach($editVariantValues as $value)
-                                    <span class="badge bg-primary fs-6 px-3 py-2">
-                                        {{ $value }}
-                                        <button type="button" class="btn-close btn-close-white ms-2" 
-                                            style="font-size: 0.7rem;"
-                                            wire:click="removeEditVariantValue('{{ $value }}')"
-                                            aria-label="Remove"></button>
-                                    </span>
+                                    <li class="list-group-item d-flex align-items-center justify-content-between drag-item" data-value="{{ $value }}">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
+                                            <span class="fw-medium ms-2">{{ $value }}</span>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" wire:click="removeEditVariantValue('{{ $value }}')" aria-label="Remove">&times;</button>
+                                    </li>
                                     @endforeach
+                                </ul>
+                                <div class="text-muted small mt-2">
+                                    <i class="bi bi-arrows-move me-1"></i> Drag to reorder values. Changes are saved when you click "Update Variant".
                                 </div>
                             </div>
                             @else
@@ -270,36 +274,178 @@
 
     @push('scripts')
     <script>
-        document.addEventListener('livewire:navigated', function() {
-            // Show create modal
-            Livewire.on('create-variant', function() {
-                const modal = new bootstrap.Modal(document.getElementById('createVariantModal'));
-                modal.show();
-            });
+        // Global sortable instances storage
+        window.variantSortables = {
+            create: null,
+            edit: null
+        };
 
-            // Show edit modal
-            Livewire.on('edit-variant', function() {
-                const modal = new bootstrap.Modal(document.getElementById('editVariantModal'));
-                modal.show();
-            });
+        // Load SortableJS from CDN
+        if (!window.Sortable) {
+            const sortableScript = document.createElement('script');
+            sortableScript.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js';
+            sortableScript.onload = initializeSortables;
+            document.head.appendChild(sortableScript);
+        } else {
+            initializeSortables();
+        }
 
-            // Confirm delete
-            Livewire.on('confirm-delete', function() {
-                Swal.fire({
-                    title: 'Are you sure?',
-                    text: 'You will not be able to recover this variant!',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Yes, delete it!'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        Livewire.dispatch('confirmDelete');
+        function initializeSortables() {
+            // Initialize sortable for create modal
+            function initCreateSortable() {
+                const el = document.getElementById('variant-values-list');
+                if (!el) return;
+                
+                // Destroy existing instance
+                if (window.variantSortables.create) {
+                    window.variantSortables.create.destroy();
+                }
+                
+                window.variantSortables.create = Sortable.create(el, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    onEnd: function(evt) {
+                        const values = Array.from(el.querySelectorAll('[data-value]'))
+                            .map(item => item.dataset.value);
+                        
+                        // Use Livewire.dispatch for Livewire 3
+                        if (typeof Livewire !== 'undefined') {
+                            Livewire.dispatch('reorderVariantValues', { values: values });
+                        }
                     }
                 });
-            });
-        });
+            }
+
+            // Initialize sortable for edit modal
+            function initEditSortable() {
+                const el = document.getElementById('edit-variant-values-list');
+                if (!el) return;
+                
+                // Destroy existing instance
+                if (window.variantSortables.edit) {
+                    window.variantSortables.edit.destroy();
+                }
+                
+                window.variantSortables.edit = Sortable.create(el, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    onEnd: function(evt) {
+                        const values = Array.from(el.querySelectorAll('[data-value]'))
+                            .map(item => item.dataset.value);
+                        
+                        // Use Livewire.dispatch for Livewire 3
+                        if (typeof Livewire !== 'undefined') {
+                            Livewire.dispatch('reorderEditVariantValues', { values: values });
+                        }
+                    }
+                });
+            }
+
+            // Livewire event listeners
+            if (typeof Livewire !== 'undefined') {
+                // Listen for create modal open
+                Livewire.on('create-variant', () => {
+                    const modal = new bootstrap.Modal(document.getElementById('createVariantModal'));
+                    modal.show();
+                    
+                    // Initialize sortable after modal is shown
+                    setTimeout(() => {
+                        initCreateSortable();
+                    }, 300);
+                });
+
+                // Listen for edit modal open
+                Livewire.on('edit-variant', () => {
+                    const modal = new bootstrap.Modal(document.getElementById('editVariantModal'));
+                    modal.show();
+                    
+                    // Initialize sortable after modal is shown and DOM is ready
+                    setTimeout(() => {
+                        initEditSortable();
+                    }, 300);
+                });
+
+                // Listen for re-initialization request
+                Livewire.on('reinit-edit-sortable', () => {
+                    setTimeout(() => {
+                        initEditSortable();
+                    }, 100);
+                });
+
+                // Confirm delete
+                Livewire.on('confirm-delete', () => {
+                    Swal.fire({
+                        title: 'Are you sure?',
+                        text: 'You will not be able to recover this variant!',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Yes, delete it!'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            Livewire.dispatch('confirmDelete');
+                        }
+                    });
+                });
+
+                // Re-initialize after Livewire updates (for Livewire 3)
+                document.addEventListener('livewire:init', () => {
+                    Livewire.hook('morph.updated', ({ el, component }) => {
+                        // Re-init if the lists exist
+                        setTimeout(() => {
+                            if (document.getElementById('variant-values-list')) {
+                                initCreateSortable();
+                            }
+                            if (document.getElementById('edit-variant-values-list')) {
+                                initEditSortable();
+                            }
+                        }, 50);
+                    });
+                });
+            }
+
+            // Handle Bootstrap modal events
+            const createModal = document.getElementById('createVariantModal');
+            const editModal = document.getElementById('editVariantModal');
+
+            if (createModal) {
+                createModal.addEventListener('shown.bs.modal', () => {
+                    setTimeout(initCreateSortable, 100);
+                });
+            }
+
+            if (editModal) {
+                editModal.addEventListener('shown.bs.modal', () => {
+                    setTimeout(initEditSortable, 100);
+                });
+            }
+        }
+
+        // Add CSS for sortable states
+        const style = document.createElement('style');
+        style.textContent = `
+            .sortable-ghost {
+                opacity: 0.4;
+                background: #f8f9fa;
+            }
+            .sortable-chosen {
+                background: #e3f2fd;
+            }
+            .sortable-drag {
+                opacity: 0.8;
+            }
+            .drag-handle:hover {
+                color: #0d6efd !important;
+            }
+        `;
+        document.head.appendChild(style);
     </script>
     @endpush
 </div>

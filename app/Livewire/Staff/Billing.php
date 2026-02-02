@@ -552,9 +552,11 @@ class Billing extends Component
                 return;
             }
 
-            $totalChequeAmount = collect($this->cheques)->sum('amount');
-            if ($totalChequeAmount > $this->grandTotal) {
-                $this->js("Swal.fire('error', 'Cheque amount cannot exceed grand total.', 'error')");
+            // Require total of cheques to exactly match grand total (no due allowed)
+            $totalChequeAmount = round(collect($this->cheques)->sum('amount'), 2);
+            $grand = round($this->grandTotal, 2);
+            if ($totalChequeAmount !== $grand) {
+                $this->js("Swal.fire('error', 'Total cheque amount must equal the grand total of Rs. ' . number_format($this->grandTotal, 2) . '. Partial cheque payments are not allowed.', 'error')");
                 return;
             }
         } elseif ($this->paymentMethod === 'bank_transfer') {

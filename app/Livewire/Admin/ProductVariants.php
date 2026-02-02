@@ -15,6 +15,12 @@ class ProductVariants extends Component
 {
     use WithDynamicLayout;
 
+    // Livewire events from JS
+    protected $listeners = [
+        'reorderVariantValues' => 'reorderVariantValues',
+        'reorderEditVariantValues' => 'reorderEditVariantValues',
+    ];
+
     public $variant_name = '';
     public $variant_values = [];
     public $variant_value_input = '';
@@ -63,6 +69,10 @@ class ProductVariants extends Component
 
             if (!in_array($value, $this->variant_values)) {
                 $this->variant_values[] = $value;
+
+                // Auto-sort values after adding (numeric sort when all values numeric)
+                $this->variant_values = $this->sortValues($this->variant_values);
+
                 $this->variant_value_input = '';
             }
         }
@@ -133,9 +143,16 @@ class ProductVariants extends Component
 
             if (!in_array($value, $this->editVariantValues)) {
                 $this->editVariantValues[] = $value;
+
+                // Auto-sort values after adding (numeric sort when all values numeric)
+                $this->editVariantValues = $this->sortValues($this->editVariantValues);
+
                 $this->editVariantValueInput = '';
             }
         }
+        
+        // Trigger re-initialization of sortable after DOM update
+        $this->dispatch('reinit-edit-sortable');
     }
 
     /**
@@ -148,6 +165,31 @@ class ProductVariants extends Component
             unset($this->editVariantValues[$key]);
             $this->editVariantValues = array_values($this->editVariantValues);
         }
+        
+        // Trigger re-initialization of sortable after DOM update
+        $this->dispatch('reinit-edit-sortable');
+    }
+
+    /**
+     * Reorder handlers called from SortableJS via Livewire.emit/dispatch
+     */
+    public function reorderVariantValues($values)
+    {
+        if (is_string($values)) {
+            $values = json_decode($values, true) ?: [$values];
+        }
+        $this->variant_values = array_values($values ?? []);
+    }
+
+    public function reorderEditVariantValues($values)
+    {
+        if (is_string($values)) {
+            $values = json_decode($values, true) ?: [$values];
+        }
+        $this->editVariantValues = array_values($values ?? []);
+        
+        // No need to save here - just update the property
+        // The user will click "Update Variant" to save
     }
 
     /**
@@ -167,7 +209,7 @@ class ProductVariants extends Component
             if ($variant) {
                 $variant->update([
                     'variant_name' => $this->editVariantName,
-                    'variant_values' => $this->editVariantValues,
+                    'variant_values' => $this->editVariantValues, // This saves the reordered values
                     'status' => $this->editStatus,
                 ]);
 
@@ -229,5 +271,30 @@ class ProductVariants extends Component
         $this->editVariantValueInput = '';
         $this->editStatus = 'active';
         $this->resetValidation();
+    }
+
+    /**
+     * Sort helper - numeric sorting when all values numeric; otherwise natural case-insensitive sort
+     * Ensures unique values and stable ordering
+     */
+    private function sortValues(array $values)
+    {
+        // Normalize and unique
+        $values = array_values(array_unique(array_map('trim', $values)));
+
+        // Detect numeric-only
+        $numericCount = count(array_filter($values, function ($v) {
+            return is_numeric($v);
+        }));
+        if ($numericCount === count($values) && $numericCount > 0) {
+            usort($values, function ($a, $b) {
+                return floatval($a) <=> floatval($b);
+            });
+            return $values;
+        }
+
+        // Fallback: natural, case-insensitive sort
+        natcasesort($values);
+        return array_values($values);
     }
 }

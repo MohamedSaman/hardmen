@@ -1142,6 +1142,16 @@
                                 </a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('admin.sale-approval') ? 'active' : '' }}" href="{{ route('admin.sale-approval') }}">
+                                    <i class="bi bi-check-circle"></i> <span>Sale Approval</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2 {{ request()->routeIs('admin.payment-approval') ? 'active' : '' }}" href="{{ route('admin.payment-approval') }}">
+                                    <i class="bi bi-wallet2"></i> <span>Payment Approval</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('admin.staff-payment-approval') ? 'active' : '' }}" href="{{ route('admin.staff-payment-approval') }}">
                                     <i class="bi bi-credit-card"></i> <span>Payment Approvals</span>
                                 </a>

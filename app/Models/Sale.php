@@ -25,6 +25,17 @@ class Sale extends Model
         'due_amount',
         'user_id',
         'sale_type',
+        'approved_by',
+        'approved_at',
+        'rejection_reason',
+        'delivered_by',
+        'delivered_at',
+        'delivery_status',
+    ];
+
+    protected $casts = [
+        'approved_at' => 'datetime',
+        'delivered_at' => 'datetime',
     ];
 
     public function customer()
@@ -87,5 +98,78 @@ class Sale extends Model
     public function returns()
     {
         return $this->hasMany(ReturnsProduct::class, 'sale_id');
+    }
+
+    /**
+     * Relationship: Approved by admin
+     */
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Relationship: Delivered by delivery man
+     */
+    public function deliveredBy()
+    {
+        return $this->belongsTo(User::class, 'delivered_by');
+    }
+
+    /**
+     * Check if sale is pending approval
+     */
+    public function isPending()
+    {
+        return $this->status === 'pending';
+    }
+
+    /**
+     * Check if sale is approved
+     */
+    public function isApproved()
+    {
+        return $this->status === 'confirm';
+    }
+
+    /**
+     * Check if sale is rejected
+     */
+    public function isRejected()
+    {
+        return $this->status === 'rejected';
+    }
+
+    /**
+     * Check if sale is delivered
+     */
+    public function isDelivered()
+    {
+        return $this->delivery_status === 'delivered';
+    }
+
+    /**
+     * Get pending quantity for a specific product (for available stock calculation)
+     */
+    public static function getPendingQuantityForProduct($productId, $variantValue = null)
+    {
+        $query = self::where('status', 'pending')
+            ->whereHas('items', function ($q) use ($productId, $variantValue) {
+                $q->where('product_id', $productId);
+                if ($variantValue) {
+                    $q->where('variant_value', $variantValue);
+                }
+            });
+
+        $sales = $query->with(['items' => function ($q) use ($productId, $variantValue) {
+            $q->where('product_id', $productId);
+            if ($variantValue) {
+                $q->where('variant_value', $variantValue);
+            }
+        }])->get();
+
+        return $sales->sum(function ($sale) {
+            return $sale->items->sum('quantity');
+        });
     }
 }
