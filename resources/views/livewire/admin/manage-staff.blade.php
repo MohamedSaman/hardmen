@@ -59,7 +59,7 @@
                             <th>Staff Name</th>
                             <th>Contact Number</th>
                             <th>Email</th>
-                            <th>Role</th>
+                            <th>Staff Type</th>
                             <th>Status</th>
                             <th class="text-end pe-4">Actions</th>
                         </tr>
@@ -78,7 +78,15 @@
                                 <td>{{ $staff->contact ?? '-' }}</td>
                                 <td>{{ $staff->email ?? '-' }}</td>
                                 <td>
-                                    <span class="badge bg-info">Staff</span>
+                                    @if($staff->staff_type === 'salesman')
+                                        <span class="badge bg-primary">Salesman</span>
+                                    @elseif($staff->staff_type === 'delivery_man')
+                                        <span class="badge bg-info">Delivery Man</span>
+                                    @elseif($staff->staff_type === 'shop_staff')
+                                        <span class="badge bg-secondary">Shop Staff</span>
+                                    @else
+                                        <span class="badge bg-light text-dark">Not Assigned</span>
+                                    @endif
                                 </td>
                                 <td>
                                     @if($userDetail && $userDetail->status == 'active')
@@ -357,6 +365,19 @@
                             </div>
                             <div class="col-12 col-md-6">
                                 <div class="mb-3">
+                                    <label class="form-label fw-semibold">Staff Type <span class="text-danger">*</span></label>
+                                    <select class="form-select @error('staff_type') is-invalid @enderror" wire:model="staff_type" required>
+                                        <option value="">Select Staff Type</option>
+                                        <option value="salesman">Salesman</option>
+                                        <option value="delivery_man">Delivery Man</option>
+                                        <option value="shop_staff">Shop Staff</option>
+                                    </select>
+                                    @error('staff_type') <span class="text-danger small">{{ $message }}</span> @enderror
+                                    <small class="text-muted">Determines staff access and features</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="mb-3">
                                     <label class="form-label fw-semibold">Work Type</label>
                                     <select class="form-select @error('work_type') is-invalid @enderror" wire:model="work_type" required>
                                         <option value="">Select Work Type</option>
@@ -539,6 +560,19 @@
                                     <option value="inactive">Inactive</option>
                                 </select>
                                 @error('editStatus') <span class="text-danger small">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Staff Type</label>
+                                <select class="form-select @error('editStaffType') is-invalid @enderror" wire:model="editStaffType">
+                                    <option value="">No Staff Type</option>
+                                    <option value="salesman">Salesman</option>
+                                    <option value="delivery_man">Delivery Man</option>
+                                    <option value="shop_staff">Shop Staff</option>
+                                </select>
+                                @error('editStaffType') <span class="text-danger small">{{ $message }}</span> @enderror
+                                <small class="text-muted">Determines staff access and features</small>
                             </div>
                         </div>
                         <div class="col-12 col-md-6">

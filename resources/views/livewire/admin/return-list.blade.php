@@ -218,7 +218,7 @@
                             <strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com
                         </p>
                         <p class="mt-1 text-muted">
-                            Goods return will be accepted within 10 days only. Electrical and body parts non-returnable.
+                            
                         </p>
                     </div>
                 </div>

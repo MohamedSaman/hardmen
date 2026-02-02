@@ -294,7 +294,11 @@ class GRN extends Component
                 }
             }
 
-            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO ? $this->selectedPO->id : null);
+            $wholesalePrice = floatval($item['wholesale_price'] ?? 0);
+            $retailPrice = floatval($item['retail_price'] ?? 0);
+            $distributorPrice = floatval($item['distributor_price'] ?? 0);
+
+            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO ? $this->selectedPO->id : null, $wholesalePrice, $retailPrice, $distributorPrice);
         }
     }
 
@@ -375,7 +379,10 @@ class GRN extends Component
                     if (strtolower($item['status'] ?? '') === 'received' && $receivedQty > 0) {
                         $delta = $receivedQty - $previousQty;
                         if ($delta > 0) {
-                            $this->updateProductStock($productId, $delta, $supplierPrice, $sellingPrice, $this->selectedPO->id);
+                            $wholesalePrice = floatval($item['wholesale_price'] ?? 0);
+                            $retailPrice = floatval($item['retail_price'] ?? 0);
+                            $distributorPrice = floatval($item['distributor_price'] ?? 0);
+                            $this->updateProductStock($productId, $delta, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, $distributorPrice);
                         }
                         $receivedItemsCount++;
                     }
@@ -394,7 +401,10 @@ class GRN extends Component
 
                 // Update stock for new received item
                 if ($receivedQty > 0) {
-                    $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id);
+                    $wholesalePrice = floatval($item['wholesale_price'] ?? 0);
+                    $retailPrice = floatval($item['retail_price'] ?? 0);
+                    $distributorPrice = floatval($item['distributor_price'] ?? 0);
+                    $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, $distributorPrice);
                     $receivedItemsCount++;
                 }
             }
@@ -422,7 +432,7 @@ class GRN extends Component
         $this->loadPurchaseOrders();
     }
 
-    private function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null)
+    private function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null, $wholesalePrice = 0, $retailPrice = 0, $distributorPrice = 0)
     {
         $stock = ProductStock::where('product_id', $productId)->first();
 
@@ -437,23 +447,55 @@ class GRN extends Component
         if ($sellingPrice == 0 && $productPrice) {
             $sellingPrice = $productPrice->selling_price;
         }
+        if ($wholesalePrice == 0 && $productPrice) {
+            $wholesalePrice = $productPrice->wholesale_price ?? 0;
+        }
+        if ($retailPrice == 0 && $productPrice) {
+            $retailPrice = $productPrice->retail_price ?? 0;
+        }
+        if ($distributorPrice == 0 && $productPrice) {
+            $distributorPrice = $productPrice->distributor_price ?? 0;
+        }
 
         // Check if product already has stock
         $hasExistingStock = $stock && $stock->available_stock > 0;
 
-        // Create a new batch for this purchase
-        $batchNumber = ProductBatch::generateBatchNumber($productId);
-        $batch = ProductBatch::create([
-            'product_id' => $productId,
-            'batch_number' => $batchNumber,
-            'purchase_order_id' => $purchaseOrderId,
-            'supplier_price' => $supplierPrice,
-            'selling_price' => $sellingPrice,
-            'quantity' => $quantity,
-            'remaining_quantity' => $quantity,
-            'received_date' => now(),
-            'status' => 'active',
-        ]);
+        // If an active batch with the same prices exists, add quantities to that batch; otherwise create a new batch
+        $matchingBatch = ProductBatch::where('product_id', $productId)
+            ->where('status', 'active')
+            ->where('supplier_price', $supplierPrice)
+            ->where('wholesale_price', $wholesalePrice ?? 0)
+            ->where('retail_price', $retailPrice ?? 0)
+            ->where('distributor_price', $distributorPrice ?? 0)
+            ->orderBy('received_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($matchingBatch) {
+            $matchingBatch->quantity += $quantity;
+            $matchingBatch->remaining_quantity += $quantity;
+            $matchingBatch->save();
+            $batch = $matchingBatch;
+            Log::info("Added {$quantity} to existing batch {$matchingBatch->batch_number} for product {$productId}");
+        } else {
+            $batchNumber = ProductBatch::generateBatchNumber($productId);
+            $batch = ProductBatch::create([
+                'product_id' => $productId,
+                'batch_number' => $batchNumber,
+                'purchase_order_id' => $purchaseOrderId,
+                'supplier_price' => $supplierPrice,
+                'selling_price' => $sellingPrice,
+                'wholesale_price' => $wholesalePrice ?? 0,
+                'retail_price' => $retailPrice ?? 0,
+                'distributor_price' => $distributorPrice ?? 0,
+                'quantity' => $quantity,
+                'remaining_quantity' => $quantity,
+                'received_date' => now(),
+                'status' => 'active',
+            ]);
+
+            Log::info("Created new batch {$batchNumber} for product {$productId}");
+        }
 
         // Update product stock totals
         if ($stock) {
@@ -480,6 +522,9 @@ class GRN extends Component
             if ($productPrice) {
                 $productPrice->supplier_price = $supplierPrice;
                 $productPrice->selling_price = $sellingPrice;
+                $productPrice->wholesale_price = $wholesalePrice ?? ($productPrice->wholesale_price ?? 0);
+                $productPrice->retail_price = $retailPrice ?? ($productPrice->retail_price ?? 0);
+                $productPrice->distributor_price = $distributorPrice ?? ($productPrice->distributor_price ?? 0);
                 $productPrice->save();
             } else {
                 // Create price record if doesn't exist
@@ -487,6 +532,9 @@ class GRN extends Component
                     'product_id' => $productId,
                     'supplier_price' => $supplierPrice,
                     'selling_price' => $sellingPrice,
+                    'wholesale_price' => $wholesalePrice ?? 0,
+                    'retail_price' => $retailPrice ?? 0,
+                    'distributor_price' => $distributorPrice ?? 0,
                     'discount_price' => 0,
                 ]);
             }

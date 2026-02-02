@@ -715,6 +715,48 @@
                 </li>
                 @endif
 
+                {{-- Customer Menu --}}
+                @if(auth()->user()->hasPermission('menu_customer'))
+                <li class="nav-item">
+                    <a class="nav-link dropdown-toggle" href="#customerSubmenu" data-bs-toggle="collapse" role="button"
+                        aria-expanded="false" aria-controls="customerSubmenu">
+                        <i class="bi bi-people"></i> <span>Customer</span>
+                    </a>
+                    <div class="collapse" id="customerSubmenu">
+                        <ul class="nav flex-column ms-3">
+                            @if(auth()->user()->hasPermission('menu_customer_add') || auth()->user()->hasPermission('menu_customer_list'))
+                            <li class="nav-item">
+                                <a class="nav-link py-2" href="{{ route('staff.manage-customers') }}">
+                                    <i class="bi bi-people-fill"></i> <span>Manage Customers</span>
+                                </a>
+                            </li>
+                            @endif
+                        </ul>
+                    </div>
+                </li>
+                @endif
+
+                {{-- Supplier Menu --}}
+                @if(auth()->user()->hasPermission('menu_supplier'))
+                <li class="nav-item">
+                    <a class="nav-link dropdown-toggle" href="#supplierSubmenu" data-bs-toggle="collapse" role="button"
+                        aria-expanded="false" aria-controls="supplierSubmenu">
+                        <i class="bi bi-truck"></i> <span>Supplier</span>
+                    </a>
+                    <div class="collapse" id="supplierSubmenu">
+                        <ul class="nav flex-column ms-3">
+                            @if(auth()->user()->hasPermission('menu_supplier_add') || auth()->user()->hasPermission('menu_supplier_list'))
+                            <li class="nav-item">
+                                <a class="nav-link py-2" href="{{ route('staff.supplier-management') }}">
+                                    <i class="bi bi-truck"></i> <span>Supplier Management</span>
+                                </a>
+                            </li>
+                            @endif
+                        </ul>
+                    </div>
+                </li>
+                @endif
+
                 {{-- Cheque/Banks Menu --}}
                 @if(auth()->user()->hasPermission('menu_banks'))
                 <li class="nav-item">

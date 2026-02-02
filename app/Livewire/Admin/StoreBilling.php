@@ -9,6 +9,7 @@ use Livewire\WithFileUploads;
 use App\Models\Customer;
 use App\Models\ProductDetail;
 use App\Models\CategoryList;
+use App\Models\BrandList;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Payment;
@@ -45,15 +46,19 @@ class StoreBilling extends Component
     // Basic Properties
     public $search = '';
     public $searchResults = [];
+    public $relatedProducts = [];
     public $customerId = '';
 
     // Categories and Products for Grid
     public $categories = [];
     public $selectedCategory = null;
+    public $brands = [];
+    public $selectedBrand = null;
     public $products = [];
 
-    // UI: sliding category panel for POS (opened via top-left icon)
+    // UI: sliding panels for POS (opened via filter buttons)
     public $showCategoryPanel = false;
+    public $showBrandPanel = false;
 
     // Cart Items
     public $cart = [];
@@ -98,7 +103,7 @@ class StoreBilling extends Component
     public $additionalDiscountType = 'fixed'; // 'fixed' or 'percentage'
 
     // Price Type Selection
-    public $priceType = 'retail'; // 'retail' or 'wholesale'
+    public $priceType = 'retail'; // 'retail', 'wholesale', or 'distribute'
 
     // View Type Selection
     public $productViewType = 'grid'; // 'grid' or 'list'
@@ -111,6 +116,7 @@ class StoreBilling extends Component
     public $lastSaleId = null;
     public $createdSale = null;
     public $pendingDueAmount = 0;
+    public $autoPrintAfterSale = false;
 
     // Payment Modal Properties
     public $amountReceived = 0;
@@ -214,6 +220,7 @@ class StoreBilling extends Component
         $this->loadCustomers();
         $this->setDefaultCustomer();
         $this->loadCategories();
+        $this->loadBrands();
         $this->loadProducts();
         $this->tempChequeDate = now()->format('Y-m-d');
     }
@@ -249,6 +256,10 @@ class StoreBilling extends Component
             $query->where('category_id', $this->selectedCategory);
         }
 
+        if ($this->selectedBrand) {
+            $query->where('brand_id', $this->selectedBrand);
+        }
+
         if ($this->search) {
             $query->where(function ($q) {
                 $q->where('name', 'like', '%' . $this->search . '%')
@@ -264,37 +275,96 @@ class StoreBilling extends Component
         foreach ($products as $product) {
             // If product has variant stocks/values, expand each variant as its own product entry
             if (($product->variant_id ?? null) !== null && $product->stocks && $product->stocks->isNotEmpty()) {
+                // Use the variant's stored values order if available
+                $orderedValues = [];
+                if ($product->variant && is_array($product->variant->variant_values) && count($product->variant->variant_values) > 0) {
+                    $orderedValues = $product->variant->variant_values;
+                }
+
+                // Map stocks by variant_value for quick lookup
+                $stocksByValue = [];
                 foreach ($product->stocks as $stock) {
                     if (($stock->available_stock ?? 0) <= 0) continue;
+                    $stocksByValue[$stock->variant_value] = $stock;
+                }
 
-                    // find matching price record for this variant value if exists
-                    $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
+                if (!empty($orderedValues)) {
+                    // Add variants in the DB-stored order
+                    foreach ($orderedValues as $val) {
+                        if (!isset($stocksByValue[$val])) continue;
+                        $stock = $stocksByValue[$val];
 
-                    $priceValue = $this->priceType === 'retail'
-                        ? ($priceRecord->retail_price ?? 0)
-                        : ($priceRecord->wholesale_price ?? 0);
+                        // find matching price record for this variant value if exists
+                        $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
 
-                    $items[] = [
-                        'id' => $product->id . '::' . $stock->variant_value, // unique id per variant
-                        'product_id' => $product->id,
-                        'variant_id' => $stock->variant_id,
-                        'variant_value' => $stock->variant_value,
-                        'name' => $product->name . ' (' . $stock->variant_value . ')',
-                        'code' => $product->code,
-                        'model' => $product->model,
-                        'price' => $priceValue,
-                        'retail_price' => $priceRecord->retail_price ?? 0,
-                        'wholesale_price' => $priceRecord->wholesale_price ?? 0,
-                        'stock' => $stock->available_stock ?? 0,
-                        'image' => $product->image,
-                    ];
+                        $priceValue = $this->getPriceValue($priceRecord);
+
+                        $items[] = [
+                            'id' => $product->id . '::' . $stock->variant_value, // unique id per variant
+                            'product_id' => $product->id,
+                            'variant_id' => $stock->variant_id,
+                            'variant_value' => $stock->variant_value,
+                            'name' => $product->name . ' (' . $stock->variant_value . ')',
+                            'code' => $product->code,
+                            'model' => $product->model,
+                            'price' => $priceValue,
+                            'retail_price' => $priceRecord->retail_price ?? 0,
+                            'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                            'stock' => $stock->available_stock ?? 0,
+                            'image' => $product->image ?? '',
+                        ];
+                    }
+
+                    // Append any stocks not listed in variant_values
+                    foreach ($stocksByValue as $v => $stock) {
+                        if (in_array($v, $orderedValues)) continue;
+                        $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
+                        $priceValue = $this->getPriceValue($priceRecord);
+
+                        $items[] = [
+                            'id' => $product->id . '::' . $stock->variant_value,
+                            'product_id' => $product->id,
+                            'variant_id' => $stock->variant_id,
+                            'variant_value' => $stock->variant_value,
+                            'name' => $product->name . ' (' . $stock->variant_value . ')',
+                            'code' => $product->code,
+                            'model' => $product->model,
+                            'price' => $priceValue,
+                            'retail_price' => $priceRecord->retail_price ?? 0,
+                            'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                            'stock' => $stock->available_stock ?? 0,
+                            'image' => $product->image ?? '',
+                        ];
+                    }
+                } else {
+                    foreach ($product->stocks as $stock) {
+                        if (($stock->available_stock ?? 0) <= 0) continue;
+
+                        // find matching price record for this variant value if exists
+                        $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
+
+                        $priceValue = $this->getPriceValue($priceRecord);
+
+                        $items[] = [
+                            'id' => $product->id . '::' . $stock->variant_value, // unique id per variant
+                            'product_id' => $product->id,
+                            'variant_id' => $stock->variant_id,
+                            'variant_value' => $stock->variant_value,
+                            'name' => $product->name . ' (' . $stock->variant_value . ')',
+                            'code' => $product->code,
+                            'model' => $product->model,
+                            'price' => $priceValue,
+                            'retail_price' => $priceRecord->retail_price ?? 0,
+                            'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                            'stock' => $stock->available_stock ?? 0,
+                            'image' => $product->image ?? '',
+                        ];
+                    }
                 }
             } else {
                 // Single-priced product (or variant-less), display normally
                 $priceRecord = $product->price;
-                $priceValue = $this->priceType === 'retail'
-                    ? ($priceRecord->retail_price ?? 0)
-                    : ($priceRecord->wholesale_price ?? 0);
+                $priceValue = $this->getPriceValue($priceRecord);
 
                 $stockQty = $product->stock->available_stock ?? 0;
 
@@ -311,7 +381,7 @@ class StoreBilling extends Component
                     'retail_price' => $priceRecord->retail_price ?? 0,
                     'wholesale_price' => $priceRecord->wholesale_price ?? 0,
                     'stock' => $stockQty,
-                    'image' => $product->image,
+                    'image' => $product->image ?? '',
                 ];
             }
         }
@@ -339,16 +409,92 @@ class StoreBilling extends Component
     public function showAllProducts()
     {
         $this->selectedCategory = null;
+        $this->selectedBrand = null;
         $this->loadProducts();
 
         // Close the panel when user chooses "All Products"
         $this->showCategoryPanel = false;
     }
 
-    // Toggle the sliding category panel (used by the top-left icon)
+    // Toggle the sliding category panel
     public function toggleCategoryPanel()
     {
         $this->showCategoryPanel = ! $this->showCategoryPanel;
+        // Close brand panel if open
+        if ($this->showCategoryPanel) {
+            $this->showBrandPanel = false;
+        }
+    }
+
+    /**
+     * Load Brands for sidebar
+     */
+    public function loadBrands()
+    {
+        // Get unique brands from products that have stock
+        $this->brands = BrandList::whereHas('products', function ($q) {
+            $q->where(function ($query) {
+                $query->whereHas('stock', function ($sq) {
+                    $sq->where('available_stock', '>', 0);
+                })->orWhereHas('stocks', function ($sq) {
+                    $sq->where('available_stock', '>', 0);
+                });
+            });
+        })
+            ->withCount(['products' => function ($q) {
+                $q->where(function ($query) {
+                    $query->whereHas('stock', function ($sq) {
+                        $sq->where('available_stock', '>', 0);
+                    })->orWhereHas('stocks', function ($sq) {
+                        $sq->where('available_stock', '>', 0);
+                    });
+                });
+            }])
+            ->get()
+            ->map(function ($brand) {
+                return [
+                    'id' => $brand->id,
+                    'brand_name' => $brand->brand_name,
+                    'products_count' => $brand->products_count
+                ];
+            });
+    }
+
+    /**
+     * Select a brand
+     */
+    public function selectBrand($brandId)
+    {
+        // Set selected brand and refresh product list
+        $this->selectedBrand = $brandId;
+        $this->selectedCategory = null; // Clear category filter
+        $this->loadProducts();
+
+        // Close the sliding brand panel automatically
+        $this->showBrandPanel = false;
+    }
+
+    /**
+     * Show all products (clear brand filter)
+     */
+    public function showAllBrands()
+    {
+        $this->selectedBrand = null;
+        $this->selectedCategory = null;
+        $this->loadProducts();
+
+        // Close the panel
+        $this->showBrandPanel = false;
+    }
+
+    // Toggle the sliding brand panel
+    public function toggleBrandPanel()
+    {
+        $this->showBrandPanel = ! $this->showBrandPanel;
+        // Close category panel if open
+        if ($this->showBrandPanel) {
+            $this->showCategoryPanel = false;
+        }
     }
 
     /**
@@ -475,6 +621,8 @@ class StoreBilling extends Component
             $total = collect($this->cheques)->sum('amount');
         } elseif ($this->paymentMethod === 'bank_transfer') {
             $total = $this->bankTransferAmount;
+        } elseif ($this->paymentMethod === 'multiple') {
+            $total = $this->cashAmount + collect($this->cheques)->sum('amount');
         }
 
         return $total;
@@ -546,7 +694,21 @@ class StoreBilling extends Component
             $this->bankTransferAmount = $this->grandTotal;
         } elseif ($value === 'cheque') {
             $this->tempChequeAmount = $this->grandTotal;
+        } elseif ($value === 'multiple') {
+            // When multiple payments selected, default the cash portion to remaining after any cheques
+            $this->cashAmount = max(0, $this->grandTotal - collect($this->cheques)->sum('amount'));
         }
+    }
+
+    // Helper method to get price based on price type
+    public function getPriceValue($priceRecord)
+    {
+        return match ($this->priceType) {
+            'retail' => $priceRecord->retail_price ?? 0,
+            'wholesale' => $priceRecord->wholesale_price ?? 0,
+            'distribute' => $priceRecord->distribute_price ?? $priceRecord->wholesale_price ?? 0,
+            default => $priceRecord->retail_price ?? 0,
+        };
     }
 
     // When price type changes
@@ -569,6 +731,8 @@ class StoreBilling extends Component
                 $this->cashAmount = $this->grandTotal;
             } elseif ($this->paymentMethod === 'bank_transfer') {
                 $this->bankTransferAmount = $this->grandTotal;
+            } elseif ($this->paymentMethod === 'multiple') {
+                $this->cashAmount = $this->grandTotal;
             }
         }
     }
@@ -592,7 +756,7 @@ class StoreBilling extends Component
         // Check if cheque number already exists
         $existingCheque = Cheque::where('cheque_number', $this->tempChequeNumber)->first();
         if ($existingCheque) {
-            $this->js("Swal.fire('Error!', 'Cheque number already exists. Please use a different cheque number.', 'error');");
+            $this->showToast('error', 'Cheque number already exists. Please use a different cheque number.');
             return;
         }
 
@@ -601,7 +765,7 @@ class StoreBilling extends Component
 
         // Validate that total cheques don't exceed grand total
         if ($totalCheques > $this->grandTotal) {
-            $this->js("Swal.fire('Error!', 'Total cheque amount cannot exceed grand total of Rs. " . number_format($this->grandTotal, 2) . "', 'error');");
+            $this->showToast('error', 'Total cheque amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
             return;
         }
 
@@ -619,7 +783,13 @@ class StoreBilling extends Component
         $this->tempChequeAmount = 0;
         $this->expandedChequeForm = false;
 
-        $this->js("Swal.fire('Success!', 'Cheque added successfully!', 'success')");
+        // If using multiple payments, adjust cash amount to remaining after cheques
+        if ($this->paymentMethod === 'multiple') {
+            $remaining = max(0, $this->grandTotal - collect($this->cheques)->sum('amount'));
+            $this->cashAmount = $remaining;
+        }
+
+        $this->showToast('success', 'Cheque added successfully!');
     }
 
     // Remove Cheque
@@ -627,7 +797,14 @@ class StoreBilling extends Component
     {
         unset($this->cheques[$index]);
         $this->cheques = array_values($this->cheques);
-        $this->js("Swal.fire('success', 'Cheque removed successfully!', 'success')");
+
+        // If using multiple payments, adjust cash amount to remaining after cheques
+        if ($this->paymentMethod === 'multiple') {
+            $remaining = max(0, $this->grandTotal - collect($this->cheques)->sum('amount'));
+            $this->cashAmount = $remaining;
+        }
+
+        $this->showToast('success', 'Cheque removed successfully!');
     }
 
     // Toggle Cheque Form Visibility
@@ -640,6 +817,29 @@ class StoreBilling extends Component
             $this->tempBankName = '';
             $this->tempChequeDate = now()->format('Y-m-d');
             $this->tempChequeAmount = 0;
+        }
+    }
+
+    // Livewire hook when cheques array updates
+    public function updatedCheques($value)
+    {
+        if ($this->paymentMethod === 'multiple') {
+            $this->cashAmount = max(0, $this->grandTotal - collect($this->cheques)->sum('amount'));
+        }
+    }
+
+    // Clamp cash amount when user edits it
+    public function updatedCashAmount($value)
+    {
+        // Ensure cashAmount is numeric
+        $value = floatval($value ?? 0);
+        $max = max(0, $this->grandTotal - collect($this->cheques)->sum('amount'));
+        if ($value > $max) {
+            $this->cashAmount = $max;
+        } elseif ($value < 0) {
+            $this->cashAmount = 0;
+        } else {
+            $this->cashAmount = $value;
         }
     }
 
@@ -708,15 +908,218 @@ class StoreBilling extends Component
             // Set success message in session
             session()->flash('customer_success', 'Customer created successfully!');
         } catch (\Exception $e) {
-            $this->js("Swal.fire('error', 'Failed to create customer: " . $e->getMessage() . "', 'error')");
+            $this->showToast('error', 'Failed to create customer: ' . $e->getMessage());
         }
     }
 
     // Search Products
     public function updatedSearch()
     {
-        // Load products with search filter for grid view
-        $this->loadProducts();
+        if (strlen($this->search) >= 2) {
+            $searchTerm = trim($this->search);
+            $searchWords = explode(' ', $searchTerm);
+
+            $matches = ProductDetail::where(function ($query) use ($searchTerm, $searchWords) {
+                // Search by full term in product fields
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('name', 'like', "%{$searchTerm}%")
+                        ->orWhere('code', 'like', "%{$searchTerm}%")
+                        ->orWhere('model', 'like', "%{$searchTerm}%");
+                })
+                    // OR search by full term in variant values
+                    ->orWhereHas('stocks', function ($q) use ($searchTerm) {
+                        $q->where('variant_value', 'like', "%{$searchTerm}%")
+                            ->where('available_stock', '>', 0);
+                    })
+                    // OR if multiple words, search for combined product name + variant
+                    ->when(count($searchWords) > 1, function ($q) use ($searchWords) {
+                        $q->orWhere(function ($subQuery) use ($searchWords) {
+                            foreach ($searchWords as $index => $word) {
+                                if ($index === 0) {
+                                    // First word should match product name
+                                    $subQuery->where('name', 'like', "%{$word}%");
+                                } else {
+                                    // Subsequent words should match variant values
+                                    $subQuery->whereHas('stocks', function ($stockQuery) use ($word) {
+                                        $stockQuery->where('variant_value', 'like', "%{$word}%")
+                                            ->where('available_stock', '>', 0);
+                                    });
+                                }
+                            }
+                        });
+                    });
+            })
+                // Apply category filter if active
+                ->when($this->selectedCategory, function ($query) {
+                    return $query->where('category_id', $this->selectedCategory);
+                })
+                // Apply brand filter if active
+                ->when($this->selectedBrand, function ($query) {
+                    return $query->where('brand_id', $this->selectedBrand);
+                })
+                ->where(function ($q) {
+                    $q->whereHas('stock', function ($sq) {
+                        $sq->where('available_stock', '>', 0);
+                    })->orWhereHas('stocks', function ($sq) {
+                        $sq->where('available_stock', '>', 0);
+                    });
+                })
+                ->with(['stock', 'price', 'category', 'stocks', 'prices'])
+                ->limit(20)
+                ->get();
+
+            // Build expanded results: show each variant as its own result when available
+            $results = [];
+            foreach ($matches as $p) {
+                // Expand variants (if present) — preserve DB-stored variant order when available
+                if (($p->variant_id ?? null) !== null && isset($p->stocks) && $p->stocks->isNotEmpty()) {
+                    $orderedValues = [];
+                    if ($p->variant && is_array($p->variant->variant_values) && count($p->variant->variant_values) > 0) {
+                        $orderedValues = $p->variant->variant_values;
+                    }
+
+                    // Filter stocks based on search: show all if product matched, or filter by variant if searching for specific variant
+                    $searchTerm = trim($this->search);
+                    $searchWords = explode(' ', $searchTerm);
+                    $productMatched = (
+                        mb_stripos($p->name, $searchWords[0]) !== false ||
+                        mb_stripos($p->code, $searchTerm) !== false ||
+                        (!empty($p->model) && mb_stripos($p->model, $searchTerm) !== false)
+                    );
+
+                    $stocksToShow = collect($p->stocks)->filter(function ($stock) use ($productMatched, $searchTerm, $searchWords, $p) {
+                        if (($stock->available_stock ?? 0) <= 0) return false;
+
+                        // Show all variants if product name/code matched
+                        if ($productMatched && count($searchWords) == 1) return true;
+
+                        // For multi-word search, check if combined name matches
+                        if (count($searchWords) > 1) {
+                            $combinedName = $p->name . ' ' . $stock->variant_value;
+                            if (mb_stripos($combinedName, $searchTerm) !== false) return true;
+                        }
+
+                        // Show if variant value matches search term
+                        return mb_stripos($stock->variant_value ?? '', $searchTerm) !== false;
+                    })->values();
+
+                    $stocksByValue = [];
+                    foreach ($stocksToShow as $stock) {
+                        $stocksByValue[$stock->variant_value] = $stock;
+                    }
+
+                    if (!empty($orderedValues)) {
+                        foreach ($orderedValues as $val) {
+                            if (!isset($stocksByValue[$val])) continue;
+                            $stock = $stocksByValue[$val];
+                            $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
+                            $priceValue = $this->getPriceValue($priceRecord);
+
+                            $results[] = [
+                                'id' => $p->id . '::' . $stock->variant_value,
+                                'product_id' => $p->id,
+                                'variant_id' => $stock->variant_id,
+                                'variant_value' => $stock->variant_value,
+                                'name' => $p->name . ' ' . $stock->variant_value,
+                                'code' => $p->code,
+                                'image' => $p->image ?? '',
+                                'price' => $priceValue,
+                                'stock' => $stock->available_stock ?? 0,
+                            ];
+                        }
+
+                        // append any remaining stocks not in the variant list
+                        foreach ($stocksByValue as $v => $stock) {
+                            if (in_array($v, $orderedValues)) continue;
+                            $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
+                            $priceValue = $this->getPriceValue($priceRecord);
+
+                            $results[] = [
+                                'id' => $p->id . '::' . $stock->variant_value,
+                                'product_id' => $p->id,
+                                'variant_id' => $stock->variant_id,
+                                'variant_value' => $stock->variant_value,
+                                'name' => $p->name . ' ' . $stock->variant_value,
+                                'code' => $p->code,
+                                'image' => $p->image ?? '',
+                                'price' => $priceValue,
+                                'stock' => $stock->available_stock ?? 0,
+                            ];
+                        }
+                    } else {
+                        foreach ($p->stocks as $stock) {
+                            if (($stock->available_stock ?? 0) <= 0) continue;
+
+                            $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
+                            $priceValue = $this->getPriceValue($priceRecord);
+
+                            $results[] = [
+                                'id' => $p->id . '::' . $stock->variant_value,
+                                'product_id' => $p->id,
+                                'variant_id' => $stock->variant_id,
+                                'variant_value' => $stock->variant_value,
+                                'name' => $p->name . ' ' . $stock->variant_value,
+                                'code' => $p->code,
+                                'image' => $p->image ?? '',
+                                'price' => $priceValue,
+                                'stock' => $stock->available_stock ?? 0,
+                            ];
+                        }
+                    }
+                } else {
+                    $results[] = [
+                        'id' => $p->id,
+                        'product_id' => $p->id,
+                        'variant_id' => $p->variant_id ?? null,
+                        'variant_value' => null,
+                        'name' => $p->name,
+                        'code' => $p->code,
+                        'image' => $p->image ?? '',
+                        'price' => $this->getPriceValue($p->price),
+                        'stock' => $p->stock->available_stock ?? 0,
+                    ];
+                }
+            }
+
+            // Show all search results in the scrollable panel (no limit)
+            $this->searchResults = array_values($results);
+
+            // Fetch Related Products (same category)
+            if ($matches->isNotEmpty()) {
+                $categoryIds = $matches->pluck('category_id')->unique();
+                $matchedIds = $matches->pluck('id');
+
+                $related = ProductDetail::whereIn('category_id', $categoryIds)
+                    ->whereNotIn('id', $matchedIds)
+                    ->where(function ($q) {
+                        $q->whereHas('stock', function ($sq) {
+                            $sq->where('available_stock', '>', 0);
+                        })->orWhereHas('stocks', function ($sq) {
+                            $sq->where('available_stock', '>', 0);
+                        });
+                    })
+                    ->with(['stock', 'price'])
+                    ->limit(6)
+                    ->get();
+
+                $this->relatedProducts = $related->map(function ($p) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'code' => $p->code,
+                        'image' => $p->image ?? '',
+                        'price' => $this->getPriceValue($p->price),
+                        'stock' => $p->stock->available_stock ?? 0,
+                    ];
+                })->toArray();
+            } else {
+                $this->relatedProducts = [];
+            }
+        } else {
+            $this->searchResults = [];
+            $this->relatedProducts = [];
+            $this->loadProducts();
+        }
     }
 
     // Add to Cart
@@ -724,7 +1127,7 @@ class StoreBilling extends Component
     {
         // Check stock availability
         if (($product['stock'] ?? 0) <= 0) {
-            $this->js("Swal.fire('error', 'Not enough stock available!', 'error')");
+            $this->showToast('error', 'Not enough stock available!');
             return;
         }
 
@@ -733,7 +1136,7 @@ class StoreBilling extends Component
         if ($existing) {
             // Check if adding more exceeds stock
             if (($existing['quantity'] + 1) > $product['stock']) {
-                $this->js("Swal.fire('error', 'Not enough stock available!', 'error')");
+                $this->showToast('error', 'Not enough stock available!');
                 return;
             }
 
@@ -777,6 +1180,7 @@ class StoreBilling extends Component
 
         $this->search = '';
         $this->searchResults = [];
+        $this->relatedProducts = [];
     }
 
     // Update Quantity
@@ -786,7 +1190,7 @@ class StoreBilling extends Component
 
         $productStock = $this->cart[$index]['stock'];
         if ($quantity > $productStock) {
-            $this->js("Swal.fire('error', 'Not enough stock available! Maximum: ' . $productStock, 'error')");
+            $this->showToast('error', 'Not enough stock available! Maximum: ' . $productStock);
             return;
         }
 
@@ -801,7 +1205,7 @@ class StoreBilling extends Component
         $productStock = $this->cart[$index]['stock'];
 
         if (($currentQuantity + 1) > $productStock) {
-            $this->js("Swal.fire('error', 'Not enough stock available! Maximum: ' . $productStock, 'error')");
+            $this->showToast('error', 'Not enough stock available! Maximum: ' . $productStock);
             return;
         }
 
@@ -844,7 +1248,7 @@ class StoreBilling extends Component
     {
         unset($this->cart[$index]);
         $this->cart = array_values($this->cart);
-        $this->js("Swal.fire('success', 'Product removed from sale!', 'success')");
+        $this->showToast('success', 'Product removed from sale!');
     }
 
     // Clear Cart
@@ -854,7 +1258,7 @@ class StoreBilling extends Component
         $this->additionalDiscount = 0;
         $this->additionalDiscountType = 'fixed';
         $this->resetPaymentFields();
-        $this->js("Swal.fire('success', 'Cart cleared!', 'success')");
+        $this->showToast('success', 'Cart cleared!');
     }
 
     // Reset payment fields
@@ -979,14 +1383,14 @@ class StoreBilling extends Component
     public function removeAdditionalDiscount()
     {
         $this->additionalDiscount = 0;
-        $this->js("Swal.fire('success', 'Additional discount removed!', 'success')");
+        $this->showToast('success', 'Additional discount removed!');
     }
 
     // Validate Payment Before Creating Sale
     public function validateAndCreateSale()
     {
         if (empty($this->cart)) {
-            $this->js("Swal.fire('error', 'Please add at least one product to the sale.', 'error')");
+            $this->showToast('error', 'Please add at least one product to the sale.');
             return;
         }
 
@@ -1017,35 +1421,46 @@ class StoreBilling extends Component
     {
         // Validate payment method
         if (empty($this->paymentMethod)) {
-            $this->js("Swal.fire('error', 'Please select a payment method.', 'error')");
+            $this->showToast('error', 'Please select a payment method.');
             return;
         }
 
         // Validate payment method specific fields
         if ($this->paymentMethod === 'cash') {
             if ($this->amountReceived < $this->grandTotal) {
-                $this->js("Swal.fire('error', 'Amount received must be at least Rs. " . number_format($this->grandTotal, 2) . "', 'error')");
+                $this->showToast('error', 'Amount received must be at least Rs. ' . number_format($this->grandTotal, 2));
                 return;
             }
         } elseif ($this->paymentMethod === 'cheque') {
             if (empty($this->cheques)) {
-                $this->js("Swal.fire('error', 'Please add at least one cheque.', 'error')");
+                $this->showToast('error', 'Please add at least one cheque.');
                 return;
             }
-            // Validate total cheques don't exceed grand total
-            $totalCheques = collect($this->cheques)->sum('amount');
-            if ($totalCheques > $this->grandTotal) {
-                $this->js("Swal.fire('error', 'Total cheque amount cannot exceed grand total of Rs. " . number_format($this->grandTotal, 2) . "', 'error')");
+            // Require total of cheques to exactly match grand total (no due allowed)
+            $totalCheques = round(collect($this->cheques)->sum('amount'), 2);
+            $grand = round($this->grandTotal, 2);
+            if ($totalCheques !== $grand) {
+                $this->showToast('error', 'Total cheque amount must equal the grand total of Rs. ' . number_format($this->grandTotal, 2) . '. Partial cheque payments are not allowed.');
+                return;
+            }
+        } elseif ($this->paymentMethod === 'multiple') {
+            $totalMultiple = ($this->cashAmount ?? 0) + collect($this->cheques)->sum('amount');
+            if ($totalMultiple <= 0) {
+                $this->showToast('error', 'Please specify a cash amount or add at least one cheque.');
+                return;
+            }
+            if ($totalMultiple > $this->grandTotal) {
+                $this->showToast('error', 'Total payment amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
                 return;
             }
         } elseif ($this->paymentMethod === 'bank_transfer') {
             if ($this->bankTransferAmount <= 0) {
-                $this->js("Swal.fire('error', 'Please enter bank transfer amount.', 'error')");
+                $this->showToast('error', 'Please enter bank transfer amount.');
                 return;
             }
             // Validate bank transfer amount doesn't exceed grand total
             if ($this->bankTransferAmount > $this->grandTotal) {
-                $this->js("Swal.fire('error', 'Bank transfer amount cannot exceed grand total of Rs. " . number_format($this->grandTotal, 2) . "', 'error')");
+                $this->showToast('error', 'Bank transfer amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
                 return;
             }
         }
@@ -1062,6 +1477,75 @@ class StoreBilling extends Component
 
         // Close payment modal
         $this->showPaymentModal = false;
+
+        // Proceed to create sale
+        $this->createSale();
+    }
+
+    // Complete Sale with Payment and Auto-Print
+    public function completeSaleWithPaymentAndPrint()
+    {
+        // Validate payment method
+        if (empty($this->paymentMethod)) {
+            $this->showToast('error', 'Please select a payment method.');
+            return;
+        }
+
+        // Validate payment method specific fields
+        if ($this->paymentMethod === 'cash') {
+            if ($this->amountReceived < $this->grandTotal) {
+                $this->showToast('error', 'Amount received must be at least Rs. ' . number_format($this->grandTotal, 2));
+                return;
+            }
+        } elseif ($this->paymentMethod === 'cheque') {
+            if (empty($this->cheques)) {
+                $this->showToast('error', 'Please add at least one cheque.');
+                return;
+            }
+            // Require total of cheques to exactly match grand total (no due allowed)
+            $totalCheques = round(collect($this->cheques)->sum('amount'), 2);
+            $grand = round($this->grandTotal, 2);
+            if ($totalCheques !== $grand) {
+                $this->showToast('error', 'Total cheque amount must equal the grand total of Rs. ' . number_format($this->grandTotal, 2) . '. Partial cheque payments are not allowed.');
+                return;
+            }
+        } elseif ($this->paymentMethod === 'multiple') {
+            $totalMultiple = ($this->cashAmount ?? 0) + collect($this->cheques)->sum('amount');
+            if ($totalMultiple <= 0) {
+                $this->showToast('error', 'Please specify a cash amount or add at least one cheque.');
+                return;
+            }
+            if ($totalMultiple > $this->grandTotal) {
+                $this->showToast('error', 'Total payment amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
+                return;
+            }
+        } elseif ($this->paymentMethod === 'bank_transfer') {
+            if ($this->bankTransferAmount <= 0) {
+                $this->showToast('error', 'Please enter bank transfer amount.');
+                return;
+            }
+            // Validate bank transfer amount doesn't exceed grand total
+            if ($this->bankTransferAmount > $this->grandTotal) {
+                $this->showToast('error', 'Bank transfer amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
+                return;
+            }
+        }
+
+        // Set cash amount from amount received for cash payments
+        if ($this->paymentMethod === 'cash') {
+            $this->cashAmount = $this->amountReceived;
+        }
+
+        // Add payment notes to sale notes
+        if (!empty($this->paymentNotes)) {
+            $this->notes = $this->paymentNotes;
+        }
+
+        // Close payment modal
+        $this->showPaymentModal = false;
+
+        // Set flag to auto-print after sale creation
+        $this->autoPrintAfterSale = true;
 
         // Proceed to create sale
         $this->createSale();
@@ -1102,7 +1586,7 @@ class StoreBilling extends Component
             $customer = $this->selectedCustomer ?? Customer::find($this->customerId);
 
             if (!$customer) {
-                $this->js("Swal.fire('error', 'Customer not found.', 'error')");
+                $this->showToast('error', 'Customer not found.');
                 return;
             }
 
@@ -1180,29 +1664,42 @@ class StoreBilling extends Component
                 }
             }
 
-            // Create Payment Record
+            // Create Payment Record(s)
             if ($this->paymentMethod !== 'credit' && (int)$this->totalPaidAmount > 0) {
-                $payment = Payment::create([
-                    'customer_id' => $customer->id,
-                    'sale_id' => $sale->id,
-                    'amount' => (int)$this->totalPaidAmount,
-                    'payment_method' => $this->paymentMethod,
-                    'payment_date' => now(),
-                    'is_completed' => true,
-                    'status' =>  'paid',
-                ]);
 
-                // Handle payment method specific data
-                if ($this->paymentMethod === 'cash') {
-                    $payment->update([
-                        'payment_reference' => 'CASH-' . now()->format('YmdHis'),
-                    ]);
+                if ($this->paymentMethod === 'multiple') {
+                    // Create a cash payment for the cash portion (if any)
+                    if (!empty($this->cashAmount) && (float)$this->cashAmount > 0) {
+                        $cashPayment = Payment::create([
+                            'customer_id' => $customer->id,
+                            'sale_id' => $sale->id,
+                            'amount' => (int)$this->cashAmount,
+                            'payment_method' => 'cash',
+                            'payment_date' => now(),
+                            'is_completed' => true,
+                            'status' =>  'paid',
+                        ]);
 
-                    // Update cash in hands - add cash payment
-                    $this->updateCashInHands((int)$this->totalPaidAmount);
-                } elseif ($this->paymentMethod === 'cheque') {
-                    // Create cheque records
+                        $cashPayment->update([
+                            'payment_reference' => 'CASH-' . now()->format('YmdHis'),
+                        ]);
+
+                        // Update cash in hands - add cash payment
+                        $this->updateCashInHands((int)$this->cashAmount);
+                    }
+
+                    // Create a separate payment for each cheque and link cheque records
                     foreach ($this->cheques as $cheque) {
+                        $chPayment = Payment::create([
+                            'customer_id' => $customer->id,
+                            'sale_id' => $sale->id,
+                            'amount' => (int)$cheque['amount'],
+                            'payment_method' => 'cheque',
+                            'payment_date' => now(),
+                            'is_completed' => true,
+                            'status' =>  'paid',
+                        ]);
+
                         Cheque::create([
                             'cheque_number' => $cheque['number'],
                             'cheque_date' => $cheque['date'],
@@ -1210,21 +1707,60 @@ class StoreBilling extends Component
                             'cheque_amount' => $cheque['amount'],
                             'status' => 'pending',
                             'customer_id' => $customer->id,
-                            'payment_id' => $payment->id,
+                            'payment_id' => $chPayment->id,
+                        ]);
+
+                        $chPayment->update([
+                            'payment_reference' => 'CHQ-' . ($cheque['number'] ?? ''),
+                            'bank_name' => $cheque['bank_name'] ?? null,
                         ]);
                     }
+                } else {
+                    // Single payment (cash / cheque / bank_transfer)
+                    $payment = Payment::create([
+                        'customer_id' => $customer->id,
+                        'sale_id' => $sale->id,
+                        'amount' => (int)$this->totalPaidAmount,
+                        'payment_method' => $this->paymentMethod,
+                        'payment_date' => now(),
+                        'is_completed' => true,
+                        'status' =>  'paid',
+                    ]);
 
-                    $payment->update([
-                        'payment_reference' => 'CHQ-' . collect($this->cheques)->pluck('number')->implode(','),
-                        'bank_name' => collect($this->cheques)->pluck('bank_name')->unique()->implode(', '),
-                    ]);
-                } elseif ($this->paymentMethod === 'bank_transfer') {
-                    $payment->update([
-                        'payment_reference' => $this->bankTransferReferenceNumber ?: 'BANK-' . now()->format('YmdHis'),
-                        'bank_name' => $this->bankTransferBankName,
-                        'transfer_date' => now(),
-                        'transfer_reference' => $this->bankTransferReferenceNumber,
-                    ]);
+                    // Handle payment method specific data
+                    if ($this->paymentMethod === 'cash') {
+                        $payment->update([
+                            'payment_reference' => 'CASH-' . now()->format('YmdHis'),
+                        ]);
+
+                        // Update cash in hands - add cash payment
+                        $this->updateCashInHands((int)$this->totalPaidAmount);
+                    } elseif ($this->paymentMethod === 'cheque') {
+                        // Create cheque records
+                        foreach ($this->cheques as $cheque) {
+                            Cheque::create([
+                                'cheque_number' => $cheque['number'],
+                                'cheque_date' => $cheque['date'],
+                                'bank_name' => $cheque['bank_name'],
+                                'cheque_amount' => $cheque['amount'],
+                                'status' => 'pending',
+                                'customer_id' => $customer->id,
+                                'payment_id' => $payment->id,
+                            ]);
+                        }
+
+                        $payment->update([
+                            'payment_reference' => 'CHQ-' . collect($this->cheques)->pluck('number')->implode(','),
+                            'bank_name' => collect($this->cheques)->pluck('bank_name')->unique()->implode(', '),
+                        ]);
+                    } elseif ($this->paymentMethod === 'bank_transfer') {
+                        $payment->update([
+                            'payment_reference' => $this->bankTransferReferenceNumber ?: 'BANK-' . now()->format('YmdHis'),
+                            'bank_name' => $this->bankTransferBankName,
+                            'transfer_date' => now(),
+                            'transfer_reference' => $this->bankTransferReferenceNumber,
+                        ]);
+                    }
                 }
             }
 
@@ -1266,7 +1802,24 @@ class StoreBilling extends Component
             // Reset to walking customer
             $this->setDefaultCustomer();
 
-            $this->js("Swal.fire('success', '$statusMessage', 'success')");
+            $this->showToast('success', $statusMessage);
+
+            // Auto-print if flag is set
+            if ($this->autoPrintAfterSale && $this->createdSale) {
+                // Reset the flag
+                $this->autoPrintAfterSale = false;
+
+                // Trigger the same print function as the manual print button
+                $this->js("
+                    setTimeout(() => {
+                        if (typeof printInvoice === 'function') {
+                            printInvoice();
+                        } else {
+                            console.error('printInvoice function not found');
+                        }
+                    }, 800);
+                ");
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('createSale failed', [
@@ -1277,7 +1830,7 @@ class StoreBilling extends Component
                 'amountReceived' => $this->amountReceived,
                 'totalPaidAmount' => $this->totalPaidAmount,
             ]);
-            $this->js("Swal.fire('error', 'Failed to create sale: " . addslashes($e->getMessage()) . " (see server logs)', 'error')");
+            $this->showToast('error', 'Failed to create sale: ' . addslashes($e->getMessage()) . ' (see server logs)');
         }
     }
 
@@ -1285,7 +1838,7 @@ class StoreBilling extends Component
     public function downloadInvoice()
     {
         if (!$this->lastSaleId) {
-            $this->js("Swal.fire('error', 'No sale found to download.', 'error')");
+            $this->showToast('error', 'No sale found to download.');
             return;
         }
 
@@ -1294,11 +1847,11 @@ class StoreBilling extends Component
         }])->find($this->lastSaleId);
 
         if (!$sale) {
-            $this->js("Swal.fire('error', 'Sale not found.', 'error')");
+            $this->showToast('error', 'Sale not found.');
             return;
         }
 
-        $pdf = PDF::loadView('admin.sales.invoice', compact('sale'));
+        $pdf = PDF::loadView('receipts.download', compact('sale'));
         $pdf->setPaper('a4', 'portrait');
         $pdf->setOption('dpi', 150);
         $pdf->setOption('defaultFont', 'sans-serif');
@@ -1315,7 +1868,7 @@ class StoreBilling extends Component
     public function printSaleReceipt()
     {
         if (!$this->createdSale) {
-            $this->js("Swal.fire('error', 'No sale found to print.', 'error')");
+            $this->showToast('error', 'No sale found to print.');
             return;
         }
 
@@ -1324,7 +1877,7 @@ class StoreBilling extends Component
         }])->find($this->createdSale->id);
 
         if (!$sale) {
-            $this->js("Swal.fire('error', 'Sale not found.', 'error')");
+            $this->showToast('error', 'Sale not found.');
             return;
         }
 
@@ -1345,7 +1898,7 @@ class StoreBilling extends Component
     public function downloadCloseRegisterReport()
     {
         if (!$this->currentSession) {
-            $this->js("Swal.fire('error', 'No session found to download.', 'error')");
+            $this->showToast('error', 'No session found to download.');
             return;
         }
 
@@ -1450,17 +2003,11 @@ class StoreBilling extends Component
             // Close the modal
             $this->showOpeningCashModal = false;
 
-            $this->js("Swal.fire({
-                icon: 'success',
-                title: '$message',
-                text: 'Opening cash: Rs. " . number_format($this->openingCashAmount, 2) . "',
-                timer: 2000,
-                showConfirmButton: false
-            })");
+            $this->showToast('success', $message . ' - Opening cash: Rs. ' . number_format($this->openingCashAmount, 2));
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Failed to open/reopen POS session: ' . $e->getMessage());
-            $this->js("Swal.fire('Error!', 'Failed to start POS session: " . addslashes($e->getMessage()) . "', 'error')");
+            $this->showToast('error', 'Failed to start POS session: ' . addslashes($e->getMessage()));
         }
     }
 
@@ -1474,25 +2021,13 @@ class StoreBilling extends Component
 
         // If no session exists, show info message
         if (!$this->currentSession) {
-            $this->js("Swal.fire({
-                icon: 'info',
-                title: 'No Active Session',
-                text: 'Please open a POS session first by accessing the POS page.',
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#3b5b0c'
-            })");
+            $this->showToast('info', 'No Active Session - Please open a POS session first by accessing the POS page.');
             return;
         }
 
         // If session is already closed, show alert
         if ($this->currentSession->isClosed()) {
-            $this->js("Swal.fire({
-                icon: 'warning',
-                title: 'Register Already Closed',
-                text: 'The POS register has already been closed for today. You cannot access the close register function again.',
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#3b5b0c'
-            })");
+            $this->showToast('warning', 'Register Already Closed - The POS register has already been closed for today. You cannot access the close register function again.');
             return;
         }
 
@@ -1832,6 +2367,91 @@ class StoreBilling extends Component
             ], 500);
         }
     }
+
+
+    /**
+     * Show toast notification (POS-friendly alternative to SweetAlert)
+     * 
+     * @param string $type - 'success', 'error', 'warning', 'info'
+     * @param string $message - The message to display
+     */
+    private function showToast($type, $message)
+    {
+        $bgColors = [
+            'success' => '#10b981',
+            'error' => '#ef4444',
+            'warning' => '#f59e0b',
+            'info' => '#3b82f6',
+        ];
+
+        $icons = [
+            'success' => '✓',
+            'error' => '✕',
+            'warning' => '⚠',
+            'info' => 'ℹ',
+        ];
+
+        $bg = $bgColors[$type] ?? $bgColors['info'];
+        $icon = $icons[$type] ?? $icons['info'];
+
+        $escapedMessage = addslashes($message);
+
+        $this->js("
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:{$bg};color:white;padding:16px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;font-size:14px;font-weight:600;display:flex;align-items:center;gap:12px;animation:slideIn 0.3s ease;min-width:300px;max-width:500px;';
+            toast.innerHTML = '<span style=\"font-size:20px;font-weight:bold;\">{$icon}</span><span>{$escapedMessage}</span>';
+            document.body.appendChild(toast);
+            
+            const style = document.createElement('style');
+            style.textContent = '@keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } } @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }';
+            document.head.appendChild(style);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        ");
+    }
+
+    /**
+     * Get image URL with caching and fallback
+     * 
+     * @param string $imagePath - The image path from database
+     * @return string - The processed image URL
+     */
+    public function getImageUrl($imagePath)
+    {
+        // Check if image path is empty or invalid
+        if (
+            empty($imagePath) ||
+            str_contains($imagePath, 'default.png') ||
+            str_contains($imagePath, 'placeholder') ||
+            str_contains($imagePath, 'no-image')
+        ) {
+            // Return a default image URL instead of SVG
+            return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrn_80I-lMAa0pVBNmFmQ7VI6l4rr74JW-eQ&s';
+        }
+
+        // Cache the processed image URL to prevent recalculation
+        static $imageCache = [];
+        $cacheKey = md5($imagePath);
+
+        if (isset($imageCache[$cacheKey])) {
+            return $imageCache[$cacheKey];
+        }
+
+        // Check if it's already a full URL
+        if (str_starts_with($imagePath, 'http://') || str_starts_with($imagePath, 'https://')) {
+            $imageCache[$cacheKey] = $imagePath;
+            return $imagePath;
+        }
+
+        // Otherwise, treat it as a local asset path
+        $assetUrl = asset($imagePath);
+        $imageCache[$cacheKey] = $assetUrl;
+        return $assetUrl;
+    }
+
     public function render()
     {
         return view('livewire.admin.store-billing', [

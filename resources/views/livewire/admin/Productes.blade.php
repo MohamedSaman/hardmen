@@ -556,6 +556,13 @@
                                             
                                             <th>Brand</th>
                                             <th>Model</th>
+                                            @if ($isStaff)
+                                                @if ($staffType === 'shop_staff')
+                                                <th>Wholesale Price</th>
+                                                @else
+                                                <th>Distributor Price</th>
+                                                @endif
+                                            @endif
                                             <th>Stock</th>
                                             <th>Status</th>
                                             
@@ -584,6 +591,17 @@
                                             <td wire:click="viewProductDetails({{ $product->id }})">
                                                 <span class="fw-medium text-dark">{{ $product->model }}</span>
                                             </td>
+                                            @if ($isStaff)
+                                                @if ($staffType === 'shop_staff')
+                                                <td wire:click="viewProductDetails({{ $product->id }})">
+                                                    <span class="fw-medium text-primary">Rs.{{ number_format($product->wholesale_price ?? 0, 2) }}</span>
+                                                </td>
+                                                @else
+                                                <td wire:click="viewProductDetails({{ $product->id }})">
+                                                    <span class="fw-medium text-primary">Rs.{{ number_format($product->distributor_price ?? 0, 2) }}</span>
+                                                </td>
+                                                @endif
+                                            @endif
                                             <td wire:click="viewProductDetails({{ $product->id }})">
                                                 @php
                                                 $availableStock = $product->available_stock ?? 0;
@@ -717,13 +735,13 @@
         <!-- View Product Modal -->
         <div wire:ignore.self class="modal fade" id="viewProductModal" tabindex="-1"
             aria-labelledby="viewProductModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered {{ $isStaff ? 'modal-md' : 'modal-xl' }}">
+            <div class="modal-dialog modal-dialog-centered modal-xl">
                 <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header border-0 bg-gradient-primary text-white position-relative"
                         style="background: linear-gradient(135deg, #000000 0%, #000000 100%); padding: 1.5rem;">
                         <h5 class="modal-title fw-bold d-flex align-items-center">
                             <i class="bi bi-box-seam me-2 fs-4"></i>
-                            <span>{{ $isStaff ? 'Allocated Product Details' : 'Product Details' }}</span>
+                            <span>Product Details</span>
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                             aria-label="Close"></button>
@@ -1043,34 +1061,18 @@
                                                         </thead>
                                                         <tbody>
                                                             @php
-                                                                // Prefer sorted values prepared by the component
+                                                                // Prefer values prepared by the component (which now preserves DB order)
                                                                 $variantValues = $viewProduct->sorted_variant_values ?? [];
 
                                                                 if (empty($variantValues)) {
                                                                     if ($viewProduct->variant && is_array($viewProduct->variant->variant_values)) {
+                                                                        // Use the variant values as stored in DB (preserve order)
                                                                         $variantValues = $viewProduct->variant->variant_values;
-                                                                    } elseif (isset($viewProduct->prices)) {
+                                                                    } elseif (isset($viewProduct->prices) && $viewProduct->prices->isNotEmpty()) {
+                                                                        // Keep the order provided by the prices collection
                                                                         $variantValues = $viewProduct->prices->pluck('variant_value')->unique()->toArray();
-                                                                    }
-
-                                                                    // Sort here as a fallback: numeric when possible, otherwise natural
-                                                                    if (!empty($variantValues)) {
-                                                                        $allNumeric = true;
-                                                                        foreach ($variantValues as $v) {
-                                                                            if (!is_numeric($v) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $v)) {
-                                                                                $allNumeric = false;
-                                                                                break;
-                                                                            }
-                                                                        }
-
-                                                                        if ($allNumeric) {
-                                                                            usort($variantValues, function ($a, $b) {
-                                                                                return floatval($a) <=> floatval($b);
-                                                                            });
-                                                                        } else {
-                                                                            natcasesort($variantValues);
-                                                                            $variantValues = array_values($variantValues);
-                                                                        }
+                                                                    } else {
+                                                                        $variantValues = [];
                                                                     }
                                                                 }
                                                             @endphp
@@ -1484,23 +1486,8 @@
                                                 </thead>
                                                 <tbody>
                                                     @php
-                                                        $variantPriceKeys = array_keys($variant_prices ?? []);
-                                                        // Determine if keys are numeric-like
-                                                        $allNumericKeys = !empty($variantPriceKeys);
-                                                        foreach ($variantPriceKeys as $k) {
-                                                            if (!is_numeric($k) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $k)) {
-                                                                $allNumericKeys = false;
-                                                                break;
-                                                            }
-                                                        }
-                                                        if ($allNumericKeys) {
-                                                            usort($variantPriceKeys, function ($a, $b) {
-                                                                return floatval($a) <=> floatval($b);
-                                                            });
-                                                        } else {
-                                                            natcasesort($variantPriceKeys);
-                                                            $variantPriceKeys = array_values($variantPriceKeys);
-                                                        }
+                                                        // Preserve the order of variant price keys as provided (DB order)
+                                                        $variantPriceKeys = array_values(array_keys($variant_prices ?? []));
                                                     @endphp
 
                                                     @foreach($variantPriceKeys as $value)
@@ -2108,23 +2095,8 @@
                                                 </thead>
                                                 <tbody>
                                                     @php
-                                                        $variantPriceKeys = array_keys($variant_prices ?? []);
-                                                        // Determine if keys are numeric-like
-                                                        $allNumericKeys = !empty($variantPriceKeys);
-                                                        foreach ($variantPriceKeys as $k) {
-                                                            if (!is_numeric($k) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $k)) {
-                                                                $allNumericKeys = false;
-                                                                break;
-                                                            }
-                                                        }
-                                                        if ($allNumericKeys) {
-                                                            usort($variantPriceKeys, function ($a, $b) {
-                                                                return floatval($a) <=> floatval($b);
-                                                            });
-                                                        } else {
-                                                            natcasesort($variantPriceKeys);
-                                                            $variantPriceKeys = array_values($variantPriceKeys);
-                                                        }
+                                                        // Preserve the order of variant price keys as provided (DB order)
+                                                        $variantPriceKeys = array_values(array_keys($variant_prices ?? []));
                                                     @endphp
 
                                                     @foreach($variantPriceKeys as $value)

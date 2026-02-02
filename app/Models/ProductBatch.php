@@ -16,6 +16,9 @@ class ProductBatch extends Model
         'purchase_order_id',
         'supplier_price',
         'selling_price',
+        'wholesale_price',
+        'retail_price',
+        'distributor_price',
         'quantity',
         'remaining_quantity',
         'received_date',
@@ -26,6 +29,9 @@ class ProductBatch extends Model
         'received_date' => 'date',
         'supplier_price' => 'decimal:2',
         'selling_price' => 'decimal:2',
+        'wholesale_price' => 'decimal:2',
+        'retail_price' => 'decimal:2',
+        'distributor_price' => 'decimal:2',
     ];
 
     /**

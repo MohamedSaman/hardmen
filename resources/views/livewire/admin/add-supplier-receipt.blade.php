@@ -332,7 +332,7 @@
                             <tbody>
                                 @forelse($selectedOrderForView->items as $item)
                                 <tr>
-                                    <td class="fw-bold">{{ $item->product->name ?? 'N/A' }}</td>
+                                    <td class="fw-bold" title="{{ $this->formatProductName($item->product ?? null, $item->unit_price ?? null) }}">{{ $this->formatProductName($item->product ?? null, $item->unit_price ?? null) }}</td>
                                     <td class="text-center">{{ $item->received_quantity }}</td>
                                     <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
                                     <td class="text-end fw-bold">Rs.{{ number_format($item->received_quantity * $item->unit_price, 2) }}</td>

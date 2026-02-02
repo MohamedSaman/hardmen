@@ -141,7 +141,7 @@
                             $grnBadge = 'bg-info';
                             }
                             @endphp
-                            <tr>
+                            <tr wire:key="order-{{ $order->id }}">
                                 <td class="ps-4">
                                     <span class="fw-medium text-dark">{{ $order->order_code }}</span>
                                 </td>
@@ -184,7 +184,7 @@
                                         <ul class="dropdown-menu dropdown-menu-end" style="z-index: 1060;">
                                             <!-- View Order -->
                                             <li>
-                                                <button class="dropdown-item" wire:click="viewOrder({{ $order->id }})">
+                                                <button type="button" class="dropdown-item" wire:click="viewOrder({{ $order->id }})">
                                                     <i class="bi bi-eye text-primary me-2"></i> View
                                                 </button>
                                             </li>
@@ -199,7 +199,7 @@
 
                                             <!-- Edit Order -->
                                             <li>
-                                                <button class="dropdown-item" wire:click="editOrder({{ $order->id }})">
+                                                <button type="button" class="dropdown-item" wire:click="editOrder({{ $order->id }})">
                                                     <i class="bi bi-pencil-square text-warning me-2"></i> Edit
                                                 </button>
                                             </li>
@@ -293,21 +293,22 @@
                             @if(!empty($products) && count($products) > 0)
                             <ul class="list-group mt-1 position-absolute w-100 z-3 shadow-lg" style="max-height: 300px; overflow-y: auto;">
                                 @foreach($products as $product)
+                                @if(is_array($product) && ($product['type'] ?? '') === 'variant')
                                 <li class="list-group-item list-group-item-action p-2"
-                                    wire:key="search-product-{{ $product->id }}"
-                                    wire:click="selectProduct({{ $product->id }})"
+                                    wire:key="search-product-{{ $product['product_id'] }}-{{ str_replace(' ', '-', $product['variant_value']) }}"
+                                    wire:click="selectProductVariant({{ $product['product_id'] }}, '{{ addslashes($product['variant_value']) }}')"
                                     style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
-                                        <img src="{{ $product->image ? asset($product->image) : asset('images/product.jpg') }}"
-                                            alt="{{ $product->name }}"
+                                        <img src="{{ $product['image'] ? asset($product['image']) : asset('images/product.jpg') }}"
+                                            alt="{{ $product['name'] }}"
                                             class="me-2"
                                             style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #dee2e6;">
                                         <div class="flex-grow-1">
-                                            <div class="fw-semibold text-dark">{{ $product->name }}</div>
+                                            <div class="fw-semibold text-dark">{{ $product['name'] }} - {{ $product['variant_name'] ?? 'Variant' }}: <strong>{{ $product['variant_value'] }}</strong></div>
                                             <small class="text-muted">
-                                                Code: <span class="badge bg-secondary">{{ $product->code }}</span>
-                                                | Available: <span class="badge {{ ($product->stock->available_stock ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">
-                                                    {{ $product->stock->available_stock ?? 0 }} units
+                                                Code: <span class="badge bg-secondary">{{ $product['code'] }}</span>
+                                                | Available: <span class="badge {{ ($product['available_stock'] ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">
+                                                    {{ $product['available_stock'] ?? 0 }} units
                                                 </span>
                                             </small>
                                         </div>
@@ -316,6 +317,32 @@
                                         </div>
                                     </div>
                                 </li>
+                                @else
+                                @php $p = (object) $product; @endphp
+                                <li class="list-group-item list-group-item-action p-2"
+                                    wire:key="search-product-{{ $p->product_id }}"
+                                    wire:click="selectProduct({{ $p->product_id }})"
+                                    style="cursor: pointer;">
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ $p->image ? asset($p->image) : asset('images/product.jpg') }}"
+                                            alt="{{ $p->name }}"
+                                            class="me-2"
+                                            style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #dee2e6;">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold text-dark">{{ $p->name }}</div>
+                                            <small class="text-muted">
+                                                Code: <span class="badge bg-secondary">{{ $p->code }}</span>
+                                                | Available: <span class="badge {{ ($p->available_stock ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">
+                                                    {{ $p->available_stock ?? 0 }} units
+                                                </span>
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-success">Click to Add</span>
+                                        </div>
+                                    </div>
+                                </li>
+                                @endif
                                 @endforeach
                             </ul>
                             @endif
@@ -450,21 +477,22 @@
                     Received Items
                     @endif
                 </h5>
-                <div class="table-responsive ">
-                    <table class="table table-bordered overflow-auto">
-                        <thead>
-                            <tr>
-                                <th style="width: 100px;">Code</th>
-                                <th style="width: 150px;">Product</th>
-                                <th style="width: 80px;">Ord Qty</th>
-                                <th style="width: 80px;">Recv Qty</th>
-                                <th style="width: 150px;">Supplier Price</th>
-                                <th style="width: 180px;">Discount</th>
-                                <th style="width: 150px;">Wholesale Price</th>
-                                <th style="width: 150px;">Retail Price</th>
-                                <th style="width: 80px;">Cost</th>
-                                <th style="width: 80px;">Total</th>
-                                <th style="width: 80px;">Actions</th>
+                <div class="table-responsive border rounded shadow-sm custom-grn-container mb-3" style="max-height: 500px; overflow-y: auto; overflow-x: auto; width: 100%;">
+                    <table class="table table-bordered table-hover mb-0" style="min-width: 1400px; width: 100%;">
+                        <thead class="table-light">
+                            <tr class="align-middle text-uppercase small fw-bold">
+                                <th style="min-width: 90px;">Code</th>
+                                <th style="min-width: 250px;">Product</th>
+                                <th class="text-center" style="width: 80px;">Ord Qty</th>
+                                <th class="text-center" style="width: 100px;">Recv Qty</th>
+                                <th class="text-end" style="width: 130px;">Supplier Price</th>
+                                <th class="text-center" style="width: 100px;">Discount</th>
+                                <th class="text-end" style="width: 130px;">Wholesale</th>
+                                <th class="text-end" style="width: 130px;">Distributor</th>
+                                <th class="text-end" style="width: 130px;">Retail Price</th>
+                                <th class="text-end" style="width: 110px;">Cost</th>
+                                <th class="text-end" style="width: 120px;">Total</th>
+                                <th class="text-center" style="width: 100px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -484,25 +512,25 @@
                             }
                             @endphp
                             <tr wire:key="item-{{ $index }}" class="{{ $statusClass }}">
-                                <td>
-                                    <input type="text"
-                                        class="form-control"
-                                        wire:model.live="grnItems.{{ $index }}.code"
-                                        placeholder="Product Code"
-                                        {{ !($item['is_new'] ?? false) ? 'readonly' : '' }}>
-
-                                </td>
-                                <td class="position-relative">
+                                <td class="align-middle">
                                     @if($item['is_new'] ?? false)
                                     <input type="text"
-                                        class="form-control"
-                                        wire:model.live="grnItems.{{ $index }}.name"
-                                        placeholder="New Product Name">
+                                        class="form-control form-control-sm"
+                                        wire:model.live="grnItems.{{ $index }}.code"
+                                        placeholder="Product Code">
                                     @else
+                                    <span class="fw-medium text-dark">{{ $item['code'] ?? '' }}</span>
+                                    @endif
+                                </td>
+                                <td class="position-relative align-middle">
+                                    @if($item['is_new'] ?? false)
                                     <input type="text"
-                                        class="form-control product-search"
+                                        class="form-control form-control-sm"
                                         wire:model.live="grnItems.{{ $index }}.name"
-                                        placeholder="Search by name or code...">
+                                        placeholder="New Product Name"
+                                        title="{{ $item['name'] ?? '' }}"
+                                        style="min-width:260px;">
+
                                     @if(isset($searchResults[$index]) && count($searchResults[$index]) > 0)
                                     <ul class="list-group position-absolute z-10 shadow-lg mt-1" style="min-width: 350px; max-width: 450px; left: 0;">
                                         @foreach($searchResults[$index] as $product)
@@ -529,80 +557,82 @@
                                         @endforeach
                                     </ul>
                                     @endif
+
+                                    @else
+                                    <div class="text-wrap fw-bold text-dark" style="min-width:200px; line-height: 1.2;">{{ $item['name'] ?? '' }}</div>
                                     @endif
                                 </td>
-                                <td class="text-center">{{ $item['ordered_qty'] ?? 0 }}</td>
-                                <td>
+                                <td class="align-middle text-center">{{ $item['ordered_qty'] ?? 0 }}</td>
+                                <td class="align-middle">
                                     <input type="number"
-                                        class="form-control text-center"
+                                        class="form-control form-control-sm text-center fw-bold"
                                         wire:model.live="grnItems.{{ $index }}.received_quantity"
                                         min="0"
                                         wire:change="calculateGRNTotal({{ $index }})">
                                 </td>
-                                <td>
+                                <td class="align-middle">
                                     <input type="number"
-                                        class="form-control text-end supplier-price-input"
+                                        class="form-control form-control-sm text-end supplier-price-input fw-semibold"
                                         wire:model.live.debounce.300ms="grnItems.{{ $index }}.unit_price"
                                         data-index="{{ $index }}"
                                         step="0.01"
                                         min="0"
                                         placeholder="0">
                                 </td>
-                                <td>
+                                <td class="align-middle">
                                     <div class="discount-container">
                                         <div class="input-group input-group-sm">
                                             <input type="number"
-                                                class="form-control discount-input"
+                                                class="form-control discount-input text-center"
                                                 wire:model.live.debounce.300ms="grnItems.{{ $index }}.discount"
                                                 data-index="{{ $index }}"
-                                                placeholder="10"
+                                                placeholder="0"
                                                 min="0"
                                                 step="0.1"
                                                 autocomplete="off">
-                                            <span class="input-group-text">%</span>
+                                            <span class="input-group-text bg-light border-start-0 text-muted">%</span>
                                         </div>
-                                        @if(floatval($grnItems[$index]['discount'] ?? 0) > 0)
-                                        <small class="text-muted d-block mt-1">
-                                            Rs. {{ number_format($this->calculateDiscountAmount($index), 2) }}
-                                        </small>
-                                        @endif
                                     </div>
                                 </td>
-                                <td>
+                                <td class="align-middle">
                                     <input type="number"
-                                        class="form-control text-end"
+                                        class="form-control form-control-sm text-end fw-semibold"
                                         wire:model.live="grnItems.{{ $index }}.wholesale_price"
-                                        step="10"
+                                        step="0.01"
                                         min="0"
-                                        placeholder="Wholesale"
-                                        title="Wholesale Price">
+                                        placeholder="0.00">
                                 </td>
-                                <td>
+                                <td class="align-middle">
                                     <input type="number"
-                                        class="form-control text-end"
-                                        wire:model.live="grnItems.{{ $index }}.retail_price"
-                                        step="10"
+                                        class="form-control form-control-sm text-end fw-semibold"
+                                        wire:model.live="grnItems.{{ $index }}.distributor_price"
+                                        step="0.01"
                                         min="0"
-                                        placeholder="Retail"
-                                        title="Retail Price">
+                                        placeholder="0.00">
                                 </td>
-                                <td class="text-end fw-semibold text-success">
+                                <td class="align-middle">
+                                    <input type="number"
+                                        class="form-control form-control-sm text-end fw-semibold"
+                                        wire:model.live="grnItems.{{ $index }}.retail_price"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0.00">
+                                </td>
+                                <td class="text-end fw-bold text-success align-middle" style="white-space: nowrap;">
                                     {{ number_format($this->calculateCost($index), 2) }}
                                 </td>
-                                <td class="text-end fw-bold text-primary">
+                                <td class="text-end fw-bold text-primary align-middle" style="white-space: nowrap;">
                                     {{ number_format($this->calculateGRNTotal($index), 2) }}
                                 </td>
-                                <td>
+                                <td class="align-middle">
                                     <div class="d-flex align-items-center justify-content-center gap-2">
                                         @if(strtolower($item['status'] ?? '') !== 'received')
-                                        <!-- Show complete button only for pending/not received items -->
                                         <button class="btn btn-sm btn-outline-success"
                                             wire:click="correctGRNItem({{ $index }})"
                                             title="Mark as Received">
                                             <i class="bi bi-check-circle"></i>
                                         </button>
                                         @endif
-                                        <!-- Delete button always available -->
                                         <button class="btn btn-sm btn-outline-danger"
                                             wire:click="deleteGRNItem({{ $index }})"
                                             title="Remove Item">
@@ -643,7 +673,6 @@
             @endif
         </div>
     </div>
-</div>
 </div>
 
 {{-- View Order Modal --}}
@@ -690,7 +719,7 @@
                         @endphp
                         <tr>
                             <td>{{ $item->product->code ?? 'N/A' }}</td>
-                            <td>{{ $item->product->name ?? 'N/A' }}</td>
+                            <td title="{{ $item->display_name ?? ($item->product->name ?? 'N/A') }}">{{ $item->display_name ?? ($item->product->name ?? 'N/A') }}</td>
                             <td>
                                 @if($item->status == 'pending')
                                 <span class="badge bg-warning">Pending</span>
@@ -763,26 +792,48 @@
                         @if(!empty($products) && count($products) > 0)
                         <ul class="list-group mt-1 position-absolute w-100 z-3 shadow-lg" style="max-height: 300px; overflow-y: auto;">
                             @foreach($products as $product)
-                            <li class="list-group-item list-group-item-action p-2"
-                                wire:key="edit-search-product-{{ $product->id }}"
-                                wire:click="addProductToEdit({{ $product->id }})"
-                                style="cursor: pointer;">
-                                <div class="d-flex align-items-center">
-                                    <img src="{{ $product->image ? asset('storage/' . $product->image) : asset('images/product.jpg') }}"
-                                        alt="{{ $product->name }}"
-                                        class="me-3"
-                                        style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
-                                    <div class="flex-grow-1">
-                                        <div class="fw-semibold">{{ $product->name }}</div>
-                                        <small class="text-muted">
-                                            <span class="badge bg-secondary">{{ $product->code }}</span>
-                                            @if($product->stock)
-                                            <span class="ms-2 badge {{ ($product->stock->available_stock ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">Available: {{ $product->stock->available_stock ?? 0 }} units</span>
-                                            @endif
-                                        </small>
+                                @if(is_array($product) && ($product['type'] ?? '') === 'variant')
+                                <li class="list-group-item list-group-item-action p-2"
+                                    wire:key="edit-search-product-{{ $product['product_id'] }}-{{ str_replace(' ', '-', $product['variant_value']) }}"
+                                    wire:click="addProductVariantToEdit({{ $product['product_id'] }}, '{{ addslashes($product['variant_value']) }}')"
+                                    style="cursor: pointer;">
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ $product['image'] ? asset('storage/' . $product['image']) : asset('images/product.jpg') }}"
+                                            alt="{{ $product['name'] }}"
+                                            class="me-3"
+                                            style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold">{{ $product['name'] }} - {{ $product['variant_name'] ?? 'Variant' }}: <strong>{{ $product['variant_value'] }}</strong></div>
+                                            <small class="text-muted">
+                                                <span class="badge bg-secondary">{{ $product['code'] }}</span>
+                                                <span class="ms-2 badge {{ ($product['available_stock'] ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">Available: {{ $product['available_stock'] ?? 0 }} units</span>
+                                            </small>
+                                        </div>
                                     </div>
-                                </div>
-                            </li>
+                                </li>
+                                @else
+                                @php $p = is_array($product) ? (object) $product : $product; @endphp
+                                <li class="list-group-item list-group-item-action p-2"
+                                    wire:key="edit-search-product-{{ $p->id ?? $p->product_id }}"
+                                    wire:click="addProductToEdit({{ $p->id ?? $p->product_id }})"
+                                    style="cursor: pointer;">
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ ($p->image ?? null) ? asset('storage/' . ($p->image ?? null)) : asset('images/product.jpg') }}"
+                                            alt="{{ $p->name }}"
+                                            class="me-3"
+                                            style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold">{{ $p->name }}</div>
+                                            <small class="text-muted">
+                                                <span class="badge bg-secondary">{{ $p->code }}</span>
+                                                @if(!empty($p->available_stock) || (isset($p->stock) && $p->stock))
+                                                <span class="ms-2 badge {{ (($p->available_stock ?? ($p->stock->available_stock ?? 0)) ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">Available: {{ $p->available_stock ?? ($p->stock->available_stock ?? 0) }} units</span>
+                                                @endif
+                                            </small>
+                                        </div>
+                                    </div>
+                                </li>
+                                @endif
                             @endforeach
                         </ul>
                         @endif
@@ -883,9 +934,40 @@
         </div>
     </div>
 </div>
-</div>
 
 </div>
+
+@push('styles')
+<style>
+    .custom-grn-container::-webkit-scrollbar {
+        height: 10px;
+        width: 8px;
+    }
+    .custom-grn-container::-webkit-scrollbar-track {
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    .custom-grn-container::-webkit-scrollbar-thumb {
+        background: #dee2e6;
+        border-radius: 10px;
+        border: 2px solid #f8f9fa;
+    }
+    .custom-grn-container::-webkit-scrollbar-thumb:hover {
+        background: #adb5bd;
+    }
+    #grnModal .modal-xl {
+        max-width: 98% !important;
+        margin: 1rem auto;
+    }
+    #grnModal .modal-body {
+        overflow-x: hidden;
+    }
+    .text-wrap {
+        white-space: normal !important;
+        word-break: break-all;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>

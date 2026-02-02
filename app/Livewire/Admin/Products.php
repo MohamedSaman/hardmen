@@ -255,30 +255,9 @@ class Products extends Component
      */
     private function sortVariantValues(array $values): array
     {
-        $values = array_values($values);
-
-        if (empty($values)) {
-            return [];
-        }
-
-        // Check whether values are numeric-like (all values look like numbers)
-        $allNumeric = true;
-        foreach ($values as $v) {
-            if (!is_numeric($v) && !preg_match('/^[+-]?\d+(?:\.\d+)?$/', (string) $v)) {
-                $allNumeric = false;
-                break;
-            }
-        }
-
-        if ($allNumeric) {
-            usort($values, function ($a, $b) {
-                return floatval($a) <=> floatval($b);
-            });
-            return $values;
-        }
-
-        // Fallback to natural case-insensitive sort
-        natcasesort($values);
+        // Preserve the order as stored in the database / model.
+        // Previously this function performed numeric or natural sorting; per request we
+        // must use the DB-stored order for display and editing.
         return array_values($values);
     }
 
@@ -293,9 +272,14 @@ class Products extends Component
     {
         $str = (string)$value;
         // replace non-alphanumeric with underscore
+        // Use a stable hash to ensure uniqueness even when the display value
+        // contains non-alphanumeric characters (e.g. quotes, +, -) which
+        // would otherwise collapse to identical sanitized strings.
+        // Keep a short readable suffix derived from the sanitized label for
+        // easier debugging but rely on the hash for uniqueness.
         $sanitized = preg_replace('/[^A-Za-z0-9]+/', '_', $str);
-        // ensure does not start with a digit only — prefix with 'v_'
-        return 'v_' . trim($sanitized, '_');
+        $hash = substr(md5($str), 0, 8);
+        return 'v_' . $hash . '_' . trim($sanitized, '_');
     }
 
     public function render()
@@ -304,13 +288,16 @@ class Products extends Component
         $categories = CategoryList::orderBy('category_name')->get();
         $suppliers = ProductSupplier::orderBy('name')->get();
 
-        // For staff, show only allocated products from staff_products table
+        // For staff, show all products (same as admin but read-only access)
         if ($this->isStaff()) {
-            $products = StaffProduct::join('product_details', 'staff_products.product_id', '=', 'product_details.id')
-                ->join('product_prices', 'product_details.id', '=', 'product_prices.product_id')
-                ->leftJoin('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
+            $products = ProductDetail::leftJoin('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
                 ->leftJoin('category_lists', 'product_details.category_id', '=', 'category_lists.id')
-                ->where('staff_products.staff_id', Auth::id())
+                ->leftJoin('product_stocks', 'product_details.id', '=', 'product_stocks.product_id')
+                ->leftJoin('product_prices', function ($join) {
+                    $join->on('product_details.id', '=', 'product_prices.product_id')
+                        ->where('product_prices.pricing_mode', '=', 'single')
+                        ->whereNull('product_prices.variant_id');
+                })
                 ->select(
                     'product_details.id',
                     'product_details.code',
@@ -320,18 +307,16 @@ class Products extends Component
                     'product_details.description',
                     'product_details.barcode',
                     'product_details.status',
-                    'product_prices.supplier_price',
-                    'product_prices.wholesale_price',
-                    'product_prices.distributor_price',
-                    'product_prices.retail_price',
-                    'staff_products.discount_per_unit as discount_price',
-                    DB::raw('(staff_products.quantity - staff_products.sold_quantity) as available_stock'),
-                    DB::raw('0 as damage_stock'),
-                    'staff_products.quantity as total_stock',
+                    DB::raw('COALESCE(product_prices.supplier_price, 0) as supplier_price'),
+                    DB::raw('COALESCE(product_prices.wholesale_price, 0) as wholesale_price'),
+                    DB::raw('COALESCE(product_prices.distributor_price, 0) as distributor_price'),
+                    DB::raw('COALESCE(product_prices.retail_price, 0) as retail_price'),
+                    DB::raw('COALESCE(product_prices.discount_price, 0) as discount_price'),
+                    DB::raw('SUM(product_stocks.available_stock) as available_stock'),
+                    DB::raw('SUM(product_stocks.damage_stock) as damage_stock'),
+                    DB::raw('SUM(product_stocks.total_stock) as total_stock'),
                     'brand_lists.brand_name as brand',
-                    'category_lists.category_name as category',
-                    'staff_products.sold_quantity',
-                    'staff_products.id as staff_product_id'
+                    'category_lists.category_name as category'
                 )
                 ->where(function ($query) {
                     $query->where('product_details.name', 'like', '%' . $this->search . '%')
@@ -339,8 +324,26 @@ class Products extends Component
                         ->orWhere('product_details.model', 'like', '%' . $this->search . '%')
                         ->orWhere('brand_lists.brand_name', 'like', '%' . $this->search . '%')
                         ->orWhere('category_lists.category_name', 'like', '%' . $this->search . '%')
+                        ->orWhere('product_details.status', 'like', '%' . $this->search . '%')
                         ->orWhere('product_details.barcode', 'like', '%' . $this->search . '%');
                 })
+                ->groupBy(
+                    'product_details.id',
+                    'product_details.code',
+                    'product_details.name',
+                    'product_details.model',
+                    'product_details.image',
+                    'product_details.description',
+                    'product_details.barcode',
+                    'product_details.status',
+                    'product_prices.supplier_price',
+                    'product_prices.wholesale_price',
+                    'product_prices.distributor_price',
+                    'product_prices.retail_price',
+                    'product_prices.discount_price',
+                    'brand_lists.brand_name',
+                    'category_lists.category_name'
+                )
                 ->orderByRaw("CASE WHEN product_details.code LIKE 'G-%' THEN 1 ELSE 0 END ASC")
                 ->orderBy('product_details.code', 'asc')
                 ->paginate($this->perPage);
@@ -411,6 +414,7 @@ class Products extends Component
             'categories' => $categories,
             'suppliers' => $suppliers,
             'isStaff' => $this->isStaff(),
+            'staffType' => Auth::user()->staff_type ?? null,
         ])->layout($this->layout);
     }
 
@@ -1191,26 +1195,39 @@ class Products extends Component
     // 🔹 View Product Details
     public function viewProductDetails($id)
     {
-        // For staff users, show only their allocated product details
+        // For staff users, show the same product details as admin (full product with variants)
         if ($this->isStaff()) {
-            $this->viewProduct = StaffProduct::where('staff_id', auth()->id())
-                ->where('product_id', $id)
-                ->leftJoin('product_details', 'staff_products.product_id', '=', 'product_details.id')
-                ->leftJoin('brand_lists', 'product_details.brand_id', '=', 'brand_lists.id')
-                ->select(
-                    'product_details.id',
-                    'product_details.name',
-                    'product_details.code',
-                    'product_details.model',
-                    'product_details.image',
-                    'product_details.status',
-                    'product_details.description',
-                    'staff_products.unit_price',
-                    'staff_products.quantity',
-                    'staff_products.sold_quantity',
-                    'brand_lists.brand_name as brand'
-                )
-                ->first();
+            $product = ProductDetail::with([
+                'price',
+                'stock',
+                'variant',
+                'prices' => function ($q) {
+                    $q->where('pricing_mode', 'variant')->orderBy('variant_value');
+                },
+                'stocks' => function ($q) {
+                    $q->orderBy('variant_value');
+                },
+                'brand',
+                'category'
+            ])->find($id);
+
+            if ($product) {
+                // Maintain backward compatible attributes for the blade (was using brand/category strings)
+                $product->brand = $product->brand->brand_name ?? null;
+                $product->category = $product->category->category_name ?? null;
+
+                // Prepare a sorted list of variant values for predictable display order
+                $variantValues = [];
+                if ($product->variant && is_array($product->variant->variant_values)) {
+                    $variantValues = $product->variant->variant_values;
+                } elseif ($product->prices && $product->prices->isNotEmpty()) {
+                    $variantValues = $product->prices->pluck('variant_value')->unique()->toArray();
+                }
+
+                $product->sorted_variant_values = $this->sortVariantValues($variantValues);
+            }
+
+            $this->viewProduct = $product;
         } else {
             // For admin users, show full product details (including variant prices/stocks if any)
             $product = ProductDetail::with([
@@ -1434,17 +1451,40 @@ class Products extends Component
                 // No batch exists, create a manual adjustment batch
                 $productPrice = ProductPrice::where('product_id', $product->id)->first();
 
-                ProductBatch::create([
-                    'product_id' => $product->id,
-                    'batch_number' => ProductBatch::generateBatchNumber($product->id),
-                    'purchase_order_id' => null,
-                    'supplier_price' => $productPrice->supplier_price ?? 0,
-                    'selling_price' => $productPrice->selling_price ?? 0,
-                    'quantity' => $addQty,
-                    'remaining_quantity' => $addQty,
-                    'received_date' => now(),
-                    'status' => 'active',
-                ]);
+                // Try to merge into an existing batch with same prices
+                $matchingBatch = ProductBatch::where('product_id', $product->id)
+                    ->where('status', 'active')
+                    ->where('supplier_price', $productPrice->supplier_price ?? 0)
+                    ->where('wholesale_price', $productPrice->wholesale_price ?? 0)
+                    ->where('retail_price', $productPrice->retail_price ?? 0)
+                    ->where('distributor_price', $productPrice->distributor_price ?? 0)
+                    ->orderBy('received_date', 'desc')
+                    ->orderBy('id', 'desc')
+                    ->first();
+
+                if ($matchingBatch) {
+                    $matchingBatch->quantity += $addQty;
+                    $matchingBatch->remaining_quantity += $addQty;
+                    $matchingBatch->save();
+                    Log::info("Added {$addQty} to existing batch {$matchingBatch->batch_number} for product {$product->id}");
+                } else {
+                    ProductBatch::create([
+                        'product_id' => $product->id,
+                        'batch_number' => ProductBatch::generateBatchNumber($product->id),
+                        'purchase_order_id' => null,
+                        'supplier_price' => $productPrice->supplier_price ?? 0,
+                        'selling_price' => $productPrice->selling_price ?? 0,
+                        'wholesale_price' => $productPrice->wholesale_price ?? 0,
+                        'retail_price' => $productPrice->retail_price ?? 0,
+                        'distributor_price' => $productPrice->distributor_price ?? 0,
+                        'quantity' => $addQty,
+                        'remaining_quantity' => $addQty,
+                        'received_date' => now(),
+                        'status' => 'active',
+                    ]);
+
+                    Log::info("Created new batch for {$product->id} with qty {$addQty}");
+                }
 
                 Log::info("Available stock increased: Created new batch for {$addQty} units");
             }

@@ -5,7 +5,6 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use App\Models\Setting;
 use App\Models\User;
-use App\Models\StaffPermission;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use Livewire\Attributes\Layout;
@@ -24,15 +23,6 @@ class Settings extends Component
     public $isEdit = false;
     public $editingId = null;
     public $deleteId = null;
-
-    // Staff Permission Management
-    public $staffMembers = [];
-    public $selectedStaffId = null;
-    public $selectedStaffName = '';
-    public $staffPermissions = [];
-    public $showPermissionModal = false;
-    public $availablePermissions = [];
-    public $permissionCategories = [];
 
     // Expense Management
     public $expenses = [];
@@ -80,11 +70,8 @@ class Settings extends Component
     public function mount()
     {
         $this->loadSettings();
-        $this->loadStaffMembers();
         $this->loadExpenses();
         $this->loadExpenseCategories();
-        $this->availablePermissions = StaffPermission::availablePermissions();
-        $this->permissionCategories = StaffPermission::permissionCategories();
         $this->expenseDate = now()->format('Y-m-d');
     }
 
@@ -103,11 +90,6 @@ class Settings extends Component
             ->pluck('type')
             ->toArray();
         $this->expenseType = ''; // Reset selected type
-    }
-
-    public function loadStaffMembers()
-    {
-        $this->staffMembers = User::where('role', 'staff')->get();
     }
 
     public function loadSettings()
@@ -212,75 +194,6 @@ class Settings extends Component
         } catch (\Exception $e) {
             $this->js("Swal.fire('Error!', 'Unable to delete configuration. Please try again.', 'error')");
         }
-    }
-
-    // Staff Permission Management Methods
-    public function openPermissionModal($staffId)
-    {
-        $staff = User::findOrFail($staffId);
-        $this->selectedStaffId = $staffId;
-        $this->selectedStaffName = $staff->name;
-
-        // Load current permissions for this staff
-        $this->staffPermissions = StaffPermission::getUserPermissions($staffId);
-
-        $this->showPermissionModal = true;
-    }
-
-    public function closePermissionModal()
-    {
-        $this->showPermissionModal = false;
-        $this->selectedStaffId = null;
-        $this->selectedStaffName = '';
-        $this->staffPermissions = [];
-    }
-
-    public function togglePermission($permissionKey)
-    {
-        if (in_array($permissionKey, $this->staffPermissions)) {
-            // Remove permission
-            $this->staffPermissions = array_diff($this->staffPermissions, [$permissionKey]);
-        } else {
-            // Add permission
-            $this->staffPermissions[] = $permissionKey;
-        }
-    }
-
-    public function savePermissions()
-    {
-        try {
-            if (!$this->selectedStaffId) {
-                throw new \Exception('No staff member selected.');
-            }
-
-            StaffPermission::syncPermissions($this->selectedStaffId, $this->staffPermissions);
-
-            $this->closePermissionModal();
-            $this->loadStaffMembers();
-
-            $this->js("Swal.fire('Success!', 'Staff permissions have been updated successfully.', 'success')");
-        } catch (\Exception $e) {
-            $this->js("Swal.fire('Error!', 'Unable to update permissions. Please try again.', 'error')");
-        }
-    }
-
-    public function selectAllPermissions()
-    {
-        // Only select permissions that are both available and in categories
-        $displayedPermissions = [];
-        foreach ($this->permissionCategories as $category => $permissions) {
-            foreach ($permissions as $permKey) {
-                if (isset($this->availablePermissions[$permKey])) {
-                    $displayedPermissions[] = $permKey;
-                }
-            }
-        }
-        $this->staffPermissions = $displayedPermissions;
-    }
-
-    public function clearAllPermissions()
-    {
-        $this->staffPermissions = [];
     }
 
     // Expense Management Methods

@@ -82,6 +82,21 @@ use App\Livewire\Admin\ProfitLoss;
 use App\Livewire\Admin\StaffSalesView;
 use App\Livewire\Admin\StaffPaymentApproval;
 
+// Staff Type Components
+use App\Livewire\Admin\SaleApproval;
+use App\Livewire\Admin\PaymentApproval;
+use App\Livewire\Salesman\SalesmanDashboard;
+use App\Livewire\Salesman\SalesmanBilling;
+use App\Livewire\Salesman\SalesmanProductList;
+use App\Livewire\Salesman\SalesmanSalesList;
+use App\Livewire\Salesman\SalesmanCustomerDues;
+use App\Livewire\DeliveryMan\DeliveryManDashboard;
+use App\Livewire\DeliveryMan\DeliveryManPendingDeliveries;
+use App\Livewire\DeliveryMan\DeliveryManCompletedDeliveries;
+use App\Livewire\DeliveryMan\DeliveryManPaymentCollection;
+use App\Livewire\ShopStaff\ShopStaffDashboard;
+use App\Livewire\ShopStaff\ShopStaffProductList;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -121,23 +136,24 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
             return redirect()->route('welcome');
         }
 
-        // If the User model uses a role helper (eg. spatie/laravel-permission)
-        // prefer calling hasRole() on the model. Otherwise fall back to
-        // checking a string `role` attribute.
-        if (method_exists($user, 'hasRole')) {
-            if ($user->hasRole('admin')) {
-                return redirect()->route('admin.dashboard');
-            }
-            if ($user->hasRole('staff')) {
-                return redirect()->route('staff.dashboard');
-            }
-        } else {
-            $role = strtolower($user->role ?? '');
-            if ($role === 'admin') {
-                return redirect()->route('admin.dashboard');
-            }
-            if ($role === 'staff') {
-                return redirect()->route('staff.dashboard');
+        // Admin users go to admin dashboard
+        if ($user->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        // Staff users - redirect based on staff_type
+        if ($user->isStaff()) {
+            // Check staff type and redirect accordingly
+            switch ($user->staff_type) {
+                case 'salesman':
+                    return redirect()->route('salesman.dashboard');
+                case 'delivery_man':
+                    return redirect()->route('delivery.dashboard');
+                case 'shop_staff':
+                    return redirect()->route('shop-staff.dashboard');
+                default:
+                    // If no staff_type set, use the general staff dashboard
+                    return redirect()->route('staff.dashboard');
             }
         }
 
@@ -481,3 +497,48 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         ]);
     })->name('test.product-history');
 });
+
+// ============================================================================
+// STAFF TYPE SPECIFIC ROUTES
+// ============================================================================
+
+// Admin Approval Routes (added to admin group)
+Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified', 'role:admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/sale-approval', SaleApproval::class)->name('sale-approval');
+        Route::get('/payment-approval', PaymentApproval::class)->name('payment-approval');
+    });
+
+// Salesman Routes
+Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified', 'staff_type:salesman'])
+    ->prefix('salesman')
+    ->name('salesman.')
+    ->group(function () {
+        Route::get('/dashboard', SalesmanDashboard::class)->name('dashboard');
+        Route::get('/billing', SalesmanBilling::class)->name('billing');
+        Route::get('/products', SalesmanProductList::class)->name('products');
+        Route::get('/sales', SalesmanSalesList::class)->name('sales');
+        Route::get('/customer-dues', SalesmanCustomerDues::class)->name('customer-dues');
+    });
+
+// Delivery Man Routes
+Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified', 'staff_type:delivery_man'])
+    ->prefix('delivery')
+    ->name('delivery.')
+    ->group(function () {
+        Route::get('/dashboard', DeliveryManDashboard::class)->name('dashboard');
+        Route::get('/pending', DeliveryManPendingDeliveries::class)->name('pending');
+        Route::get('/completed', DeliveryManCompletedDeliveries::class)->name('completed');
+        Route::get('/payments', DeliveryManPaymentCollection::class)->name('payments');
+    });
+
+// Shop Staff Routes
+Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified', 'staff_type:shop_staff'])
+    ->prefix('shop-staff')
+    ->name('shop-staff.')
+    ->group(function () {
+        Route::get('/dashboard', ShopStaffDashboard::class)->name('dashboard');
+        Route::get('/products', ShopStaffProductList::class)->name('products');
+    });
