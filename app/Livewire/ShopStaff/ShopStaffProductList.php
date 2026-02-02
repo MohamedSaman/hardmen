@@ -10,7 +10,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
 #[Title('Product List')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.shop-staff')]
 class ShopStaffProductList extends Component
 {
     use WithPagination;
@@ -22,7 +22,7 @@ class ShopStaffProductList extends Component
 
     public function mount()
     {
-        $this->categories = CategoryList::orderBy('name')->get();
+        $this->categories = CategoryList::orderBy('category_name')->get();
     }
 
     public function updatedSearch()

@@ -84,7 +84,7 @@
                             <th>Status</th>
                             <th>Delivery</th>
                             <th>Date</th>
-                            <th class="text-end pe-4">Action</th>
+                            <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -118,9 +118,21 @@
                             </td>
                             <td class="text-muted">{{ $sale->created_at->format('M d, Y') }}</td>
                             <td class="text-end pe-4">
-                                <button wire:click="viewDetails({{ $sale->id }})" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye"></i> View
-                                </button>
+                                <div class="btn-group">
+                                    <button wire:click="viewDetails({{ $sale->id }})" class="btn btn-sm btn-outline-primary" title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    @if($sale->status === 'pending')
+                                    <button wire:click="openEditModal({{ $sale->id }})" class="btn btn-sm btn-outline-warning" title="Edit Sale">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    @endif
+                                    @if($sale->status === 'confirm')
+                                    <button wire:click="openReturnModal({{ $sale->id }})" class="btn btn-sm btn-outline-danger" title="Return">
+                                        <i class="bi bi-arrow-return-left"></i>
+                                    </button>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                         @empty
@@ -221,6 +233,33 @@
                         </table>
                     </div>
 
+                    {{-- Returns Section --}}
+                    @if($saleReturns && count($saleReturns) > 0)
+                    <h6 class="fw-bold mb-2 text-danger"><i class="bi bi-arrow-return-left me-2"></i>Returns</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered border-danger">
+                            <thead class="table-danger">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Returned Qty</th>
+                                    <th class="text-end">Amount</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($saleReturns as $return)
+                                <tr>
+                                    <td>{{ $return->product->name ?? 'N/A' }}</td>
+                                    <td class="text-center">{{ $return->return_quantity }}</td>
+                                    <td class="text-end">Rs. {{ number_format($return->total_amount, 2) }}</td>
+                                    <td class="text-muted">{{ $return->created_at->format('M d, Y') }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @endif
+
                     {{-- Delivery Info --}}
                     @if($selectedSale->delivery_status)
                     <h6 class="fw-bold mb-2">Delivery Information</h6>
@@ -240,7 +279,230 @@
                     @endif
                 </div>
                 <div class="modal-footer">
+                    @if($selectedSale->status === 'confirm')
+                    <button wire:click="openReturnModal({{ $selectedSale->id }})" class="btn btn-outline-danger">
+                        <i class="bi bi-arrow-return-left me-2"></i>Create Return
+                    </button>
+                    @endif
                     <button type="button" class="btn btn-secondary" wire:click="closeDetailsModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Edit Sale Modal --}}
+    @if($showEditModal && $editingSale)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i>Edit Sale - {{ $editingSale->invoice_number }}
+                    </h5>
+                    <button type="button" class="btn-close" wire:click="closeEditModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        You can edit quantity and discounts for pending sales. Changes will be reflected when the sale is approved.
+                    </div>
+
+                    {{-- Sale Items --}}
+                    <h6 class="fw-bold mb-3">Order Items</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center" style="width: 100px;">Qty</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end" style="width: 100px;">Discount</th>
+                                    <th class="text-end">Total</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($editItems as $index => $item)
+                                <tr>
+                                    <td>{{ $item['product_name'] }}</td>
+                                    <td class="text-center">
+                                        <input type="number" 
+                                               wire:change="updateEditItemQuantity({{ $index }}, $event.target.value)"
+                                               value="{{ $item['quantity'] }}"
+                                               min="1"
+                                               class="form-control form-control-sm text-center">
+                                    </td>
+                                    <td class="text-end">Rs. {{ number_format($item['unit_price'], 2) }}</td>
+                                    <td class="text-end">
+                                        <input type="number" 
+                                               wire:model.live="editItems.{{ $index }}.discount"
+                                               min="0"
+                                               class="form-control form-control-sm text-end">
+                                    </td>
+                                    <td class="text-end fw-semibold">
+                                        Rs. {{ number_format(($item['unit_price'] - ($item['discount'] ?? 0)) * $item['quantity'], 2) }}
+                                    </td>
+                                    <td class="text-center">
+                                        @if(count($editItems) > 1)
+                                        <button wire:click="removeEditItem({{ $index }})" class="btn btn-sm btn-link text-danger p-0">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Additional Discount --}}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-medium">Additional Discount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs.</span>
+                                <input type="number" wire:model.live="editDiscount" class="form-control" min="0" step="0.01">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-medium">Notes</label>
+                            <textarea wire:model="editNotes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    {{-- Totals --}}
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Subtotal:</span>
+                                <span>Rs. {{ number_format($this->editSubtotal, 2) }}</span>
+                            </div>
+                            @if($editDiscount > 0)
+                            <div class="d-flex justify-content-between mb-2 text-danger">
+                                <span>Discount:</span>
+                                <span>- Rs. {{ number_format($editDiscount, 2) }}</span>
+                            </div>
+                            @endif
+                            <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-2">
+                                <span>Total:</span>
+                                <span class="text-primary">Rs. {{ number_format($this->editTotal, 2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" wire:click="closeEditModal">Cancel</button>
+                    <button wire:click="saveEditedSale" class="btn btn-warning" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="saveEditedSale">
+                            <i class="bi bi-check-circle me-2"></i>Save Changes
+                        </span>
+                        <span wire:loading wire:target="saveEditedSale">
+                            <span class="spinner-border spinner-border-sm me-2"></span>Saving...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Return Modal --}}
+    @if($showReturnModal && $selectedSale)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-arrow-return-left me-2"></i>Process Return - {{ $selectedSale->invoice_number }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closeReturnModal"></button>
+                </div>
+                <div class="modal-body">
+                    {{-- Customer Info --}}
+                    <div class="bg-light rounded p-3 mb-4">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Customer</small>
+                                <span class="fw-bold">{{ $selectedSale->customer->name ?? 'N/A' }}</span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Sale Date</small>
+                                <span class="fw-medium">{{ $selectedSale->created_at->format('M d, Y') }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Return Items --}}
+                    <h6 class="fw-bold mb-3">Select Items to Return</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Original</th>
+                                    <th class="text-center">Returned</th>
+                                    <th class="text-center">Available</th>
+                                    <th class="text-center" style="width: 100px;">Return Qty</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($returnItems as $index => $item)
+                                <tr>
+                                    <td>{{ $item['product_name'] }}</td>
+                                    <td class="text-center">{{ $item['original_qty'] }}</td>
+                                    <td class="text-center">{{ $item['returned_qty'] }}</td>
+                                    <td class="text-center">
+                                        <span class="badge {{ $item['available_qty'] > 0 ? 'bg-success' : 'bg-secondary' }}">
+                                            {{ $item['available_qty'] }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="number"
+                                               wire:change="updateReturnQty({{ $index }}, $event.target.value)"
+                                               value="{{ $item['return_qty'] }}"
+                                               min="0"
+                                               max="{{ $item['available_qty'] }}"
+                                               class="form-control form-control-sm text-center"
+                                               {{ $item['available_qty'] <= 0 ? 'disabled' : '' }}>
+                                    </td>
+                                    <td class="text-end fw-semibold text-danger">
+                                        Rs. {{ number_format($item['return_qty'] * $item['unit_price'], 2) }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-danger">
+                                    <td colspan="5" class="text-end fw-bold">Total Return Amount:</td>
+                                    <td class="text-end fw-bold">Rs. {{ number_format($this->returnTotal, 2) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    {{-- Return Notes --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Return Notes</label>
+                        <textarea wire:model="returnNotes" class="form-control" rows="2" placeholder="Reason for return, condition notes, etc."></textarea>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Note:</strong> Returned items will be added back to stock. This action cannot be undone.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" wire:click="closeReturnModal">Cancel</button>
+                    <button wire:click="processReturn" class="btn btn-danger" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="processReturn">
+                            <i class="bi bi-check-circle me-2"></i>Process Return
+                        </span>
+                        <span wire:loading wire:target="processReturn">
+                            <span class="spinner-border spinner-border-sm me-2"></span>Processing...
+                        </span>
+                    </button>
                 </div>
             </div>
         </div>

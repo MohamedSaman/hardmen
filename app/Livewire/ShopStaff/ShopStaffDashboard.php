@@ -9,7 +9,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
 #[Title('Shop Staff Dashboard')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.shop-staff')]
 class ShopStaffDashboard extends Component
 {
     public $totalProducts = 0;

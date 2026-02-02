@@ -509,6 +509,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
     ->group(function () {
         Route::get('/sale-approval', SaleApproval::class)->name('sale-approval');
         Route::get('/payment-approval', PaymentApproval::class)->name('payment-approval');
+        Route::get('/staff-expense-approval', \App\Livewire\Admin\StaffExpenseApproval::class)->name('staff-expense-approval');
     });
 
 // Salesman Routes
@@ -521,6 +522,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         Route::get('/products', SalesmanProductList::class)->name('products');
         Route::get('/sales', SalesmanSalesList::class)->name('sales');
         Route::get('/customer-dues', SalesmanCustomerDues::class)->name('customer-dues');
+        Route::get('/expenses', \App\Livewire\Salesman\SalesmanExpenses::class)->name('expenses');
     });
 
 // Delivery Man Routes
@@ -532,6 +534,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         Route::get('/pending', DeliveryManPendingDeliveries::class)->name('pending');
         Route::get('/completed', DeliveryManCompletedDeliveries::class)->name('completed');
         Route::get('/payments', DeliveryManPaymentCollection::class)->name('payments');
+        Route::get('/expenses', \App\Livewire\DeliveryMan\DeliveryManExpenses::class)->name('expenses');
     });
 
 // Shop Staff Routes

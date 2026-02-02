@@ -76,15 +76,15 @@
         <!-- Header Section -->
         <header class="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between shadow-sm shrink-0">
             <div class="flex items-center gap-3">
-                <div class="bg-[#e67e22] p-1.5 rounded text-white flex items-center">
-                    <img src="{{ asset('images/HARDMEN.png') }}" class="h-6 w-auto brightness-0 invert" alt="Logo">
+                <div class=" p-1.5 rounded flex items-center">
+                    <img src="{{ asset('images/HARDMEN.png') }}" class="h-10 w-auto t" alt="Logo">
                 </div>
-                <div>
+                {{--<div>
                     <h1 class="font-bold text-sm leading-tight tracking-tight text-slate-900 uppercase">
                         Hardmen <span class="text-[#e67e22]">(Pvt) Ltd</span>
                     </h1>
                     <p class="text-[10px] text-slate-500 font-medium tracking-wide">ADVANCED POS TERMINAL</p>
-                </div>
+                </div>--}}
             </div>
             
             <div class="flex items-center gap-4">
@@ -371,13 +371,13 @@
             </button>
         </div>
         <div class="p-2 overflow-y-auto flex-1 custom-scrollbar">
-            <button class="w-full mb-1 text-left flex justify-between items-center p-3 rounded-lg transition-all {{ !$selectedCategory ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
+            <button class=" mb-1 text-center  p-3 rounded-lg transition-all border border-slate-100 {{ !$selectedCategory ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
                 wire:click="showAllProducts">
                 <span class="font-black text-xs tracking-tight">Show All Items</span>
                 <span class="text-[10px] font-bold opacity-70">{{ count($products) }}</span>
             </button>
             @foreach($categories as $category)
-            <button class="w-full mb-1 text-left flex justify-between items-center p-3 rounded-lg transition-all {{ $selectedCategory == $category->id ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
+            <button class=" mb-1 text-center p-3 rounded-lg transition-all border border-slate-100 {{ $selectedCategory == $category->id ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
                 wire:click="selectCategory({{ $category->id }})">
                 <span class="font-black text-xs tracking-tight">{{ $category->category_name }}</span>
                 <span class="text-[10px] font-bold opacity-70">{{ $category->products_count }}</span>
@@ -396,13 +396,13 @@
             </button>
         </div>
         <div class="p-2 overflow-y-auto flex-1 custom-scrollbar">
-            <button class="w-full mb-1 text-left flex justify-between items-center p-3 rounded-lg transition-all {{ !$selectedBrand ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
+            <button class=" mb-1 text-center  p-3 rounded-lg transition-all border border-slate-100 {{ !$selectedBrand ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
                 wire:click="showAllBrands">
                 <span class="font-black text-xs tracking-tight">Show All Brands</span>
                 <span class="text-[10px] font-bold opacity-70">{{ count($products) }}</span>
             </button>
             @foreach($brands as $brand)
-            <button class="w-full mb-1 text-left flex justify-between items-center p-3 rounded-lg transition-all {{ $selectedBrand == $brand['id'] ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
+            <button class=" mb-1 text-center p-3 rounded-lg transition-all border border-slate-100 {{ $selectedBrand == $brand['id'] ? 'bg-[#e67e22] text-white shadow-lg shadow-orange-500/30' : 'hover:bg-slate-100 text-slate-600' }}"
                 wire:click="selectBrand({{ $brand['id'] }})">
                 <span class="font-black text-xs tracking-tight">{{ $brand['brand_name'] }}</span>
                 <span class="text-[10px] font-bold opacity-70">{{ $brand['products_count'] }}</span>
@@ -486,11 +486,31 @@
                     <button class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all {{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'percentage' ? 'bg-white text-[#e67e22] shadow-sm' : 'text-slate-400' }}"
                         wire:click="$set('{{ $showItemDiscountModal ? 'itemDiscountType' : 'saleDiscountType' }}', 'percentage')">Percentage (%)</button>
                 </div>
-                <div class="relative">
-                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'percentage' ? '%' : 'Rs.' }}</span>
-                    <input type="number" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black text-slate-700 outline-none focus:border-[#e67e22]" 
-                        wire:model.lazy="{{ $showItemDiscountModal ? 'itemDiscountValue' : 'saleDiscountValue' }}"
-                        placeholder="0">
+                <div class="space-y-2">
+                    <div class="relative">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'percentage' ? '%' : 'Rs.' }}</span>
+                        <input type="number" 
+                            step="0.01"
+                            min="0"
+                            max="{{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'percentage' ? '100' : '' }}"
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black text-slate-700 outline-none focus:border-[#e67e22]" 
+                            wire:model.live="{{ $showItemDiscountModal ? 'itemDiscountValue' : 'saleDiscountValue' }}"
+                            placeholder="0">
+                    </div>
+                    {{-- Validation Helper Text --}}
+                    <div class="text-[9px] font-bold text-slate-500 px-1">
+                        @if($showItemDiscountModal && $itemDiscountType == 'percentage')
+                            Max: <span class="text-[#e67e22]">100%</span>
+                        @elseif($showItemDiscountModal && $itemDiscountType == 'fixed')
+                            @if(isset($cart[$itemDiscountIndex]))
+                                Max: <span class="text-[#e67e22]">Rs. {{ number_format($cart[$itemDiscountIndex]['price'], 2) }}</span> (Item Price)
+                            @endif
+                        @elseif($showSaleDiscountModal && $saleDiscountType == 'percentage')
+                            Max: <span class="text-[#e67e22]">100%</span>
+                        @elseif($showSaleDiscountModal && $saleDiscountType == 'fixed')
+                            Max: <span class="text-[#e67e22]">Rs. {{ number_format($subtotalAfterItemDiscounts, 2) }}</span> (Sale Total)
+                        @endif
+                    </div>
                 </div>
             </div>
             <div class="p-4 bg-slate-50 flex gap-2">

@@ -94,19 +94,24 @@
 
     {{-- Quick Actions --}}
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
+        <div class="col-6 col-md-3">
             <a href="{{ route('delivery.pending') }}" class="btn btn-primary w-100 py-3">
-                <i class="bi bi-box-seam me-2"></i> View Pending Deliveries
+                <i class="bi bi-box-seam me-2"></i> Pending Deliveries
             </a>
         </div>
-        <div class="col-md-4">
+        <div class="col-6 col-md-3">
             <a href="{{ route('delivery.completed') }}" class="btn btn-outline-secondary w-100 py-3">
-                <i class="bi bi-check2-all me-2"></i> Completed Deliveries
+                <i class="bi bi-check2-all me-2"></i> Completed
             </a>
         </div>
-        <div class="col-md-4">
+        <div class="col-6 col-md-3">
             <a href="{{ route('delivery.payments') }}" class="btn btn-outline-success w-100 py-3">
                 <i class="bi bi-cash-stack me-2"></i> Collect Payment
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{{ route('delivery.expenses') }}" class="btn btn-outline-info w-100 py-3">
+                <i class="bi bi-cash-coin me-2"></i> Expenses
             </a>
         </div>
     </div>

@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\StaffTypePermission;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use App\Livewire\Concerns\WithDynamicLayout;
@@ -48,6 +49,11 @@ class Settings extends Component
     public $editingCategoryId = null;
     public $deleteCategoryTypeId = null;
 
+    // Staff Type Permission Management
+    public $selectedStaffType = 'salesman';
+    public $staffTypePermissions = [];
+    public $showStaffPermissionModal = false;
+
     protected $listeners = [
         'deleteConfirmed' => 'deleteConfiguration',
         'deleteExpenseConfirmed' => 'deleteExpense',
@@ -72,6 +78,7 @@ class Settings extends Component
         $this->loadSettings();
         $this->loadExpenses();
         $this->loadExpenseCategories();
+        $this->loadStaffTypePermissions();
         $this->expenseDate = now()->format('Y-m-d');
     }
 
@@ -413,6 +420,68 @@ class Settings extends Component
         } catch (\Exception $e) {
             $this->js("Swal.fire('Error!', 'Unable to delete category/type. Please try again.', 'error')");
         }
+    }
+
+    // Staff Type Permission Management Methods
+    public function loadStaffTypePermissions()
+    {
+        $this->staffTypePermissions = StaffTypePermission::getPermissions($this->selectedStaffType);
+
+        // If no custom permissions are set, load defaults
+        if (empty($this->staffTypePermissions)) {
+            $this->staffTypePermissions = StaffTypePermission::defaultPermissions()[$this->selectedStaffType] ?? [];
+        }
+    }
+
+    public function updatedSelectedStaffType()
+    {
+        $this->loadStaffTypePermissions();
+    }
+
+    public function togglePermission($permissionKey)
+    {
+        if (in_array($permissionKey, $this->staffTypePermissions)) {
+            $this->staffTypePermissions = array_diff($this->staffTypePermissions, [$permissionKey]);
+        } else {
+            $this->staffTypePermissions[] = $permissionKey;
+        }
+        $this->staffTypePermissions = array_values($this->staffTypePermissions);
+    }
+
+    public function saveStaffTypePermissions()
+    {
+        try {
+            StaffTypePermission::syncPermissions($this->selectedStaffType, $this->staffTypePermissions);
+            $this->js("Swal.fire('Success!', 'Staff type permissions have been updated successfully.', 'success')");
+        } catch (\Exception $e) {
+            $this->js("Swal.fire('Error!', 'Unable to save permissions. Please try again.', 'error')");
+        }
+    }
+
+    public function resetStaffTypePermissions()
+    {
+        try {
+            StaffTypePermission::resetToDefaults($this->selectedStaffType);
+            $this->loadStaffTypePermissions();
+            $this->js("Swal.fire('Success!', 'Permissions have been reset to defaults.', 'success')");
+        } catch (\Exception $e) {
+            $this->js("Swal.fire('Error!', 'Unable to reset permissions. Please try again.', 'error')");
+        }
+    }
+
+    public function getStaffTypesProperty()
+    {
+        return StaffTypePermission::staffTypes();
+    }
+
+    public function getAvailablePermissionsProperty()
+    {
+        return StaffTypePermission::availablePermissions();
+    }
+
+    public function getPermissionCategoriesProperty()
+    {
+        return StaffTypePermission::permissionCategories();
     }
 
     public function render()

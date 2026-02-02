@@ -11,8 +11,94 @@
 
     {{-- Accordion --}}
     <div class="accordion" id="settingsAccordion">
-        
 
+        {{-- Staff Type Permissions Accordion --}}
+        <div class="accordion-item border-0 mb-4 shadow-sm rounded-4">
+            <h2 class="accordion-header" id="headingStaffPermissions">
+                <button class="accordion-button fw-semibold bg-white text-dark rounded-4"
+                    type="button" data-bs-toggle="collapse"
+                    data-bs-target="#collapseStaffPermissions" aria-expanded="true"
+                    aria-controls="collapseStaffPermissions">
+                    <i class="bi bi-person-gear fs-5 me-3 text-primary"></i>
+                    Staff Type Permissions
+                </button>
+            </h2>
+            <div id="collapseStaffPermissions" class="accordion-collapse collapse show"
+                aria-labelledby="headingStaffPermissions" data-bs-parent="#settingsAccordion">
+                <div class="accordion-body">
+                    {{-- Staff Type Selector --}}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Select Staff Type</label>
+                            <select wire:model.live="selectedStaffType" class="form-select">
+                                @foreach($this->staffTypes as $typeKey => $typeName)
+                                    <option value="{{ $typeKey }}">{{ $typeName }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <button class="btn btn-outline-secondary me-2" wire:click="resetStaffTypePermissions">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Defaults
+                            </button>
+                            <button class="btn btn-primary" wire:click="saveStaffTypePermissions">
+                                <i class="bi bi-check-circle me-1"></i> Save Permissions
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Staff Type Info Card --}}
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>{{ $this->staffTypes[$selectedStaffType] ?? 'Staff' }}:</strong>
+                        @if($selectedStaffType === 'salesman')
+                            Salesmen can create sales orders, view their own sales, create returns, view customer dues (no payment collection), and add expenses.
+                        @elseif($selectedStaffType === 'delivery_man')
+                            Delivery men can view pending/completed deliveries, confirm deliveries, collect payments, view customer dues, and add expenses.
+                        @elseif($selectedStaffType === 'shop_staff')
+                            Shop staff can view products (without cost prices), only wholesale and retail prices are visible.
+                        @endif
+                    </div>
+
+                    {{-- Permissions Grid --}}
+                    <div class="row">
+                        @foreach($this->permissionCategories as $category => $permissions)
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0 fw-bold text-dark">
+                                        <i class="bi bi-folder2-open me-2 text-primary"></i>{{ $category }}
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    @foreach($permissions as $permKey)
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="perm_{{ $permKey }}"
+                                               {{ in_array($permKey, $staffTypePermissions) ? 'checked' : '' }}
+                                               wire:click="togglePermission('{{ $permKey }}')">
+                                        <label class="form-check-label" for="perm_{{ $permKey }}">
+                                            {{ $this->availablePermissions[$permKey] ?? $permKey }}
+                                        </label>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Pricing Visibility Note --}}
+                    <div class="alert alert-warning mt-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Pricing Visibility:</strong> 
+                        <ul class="mb-0 mt-2">
+                            <li><strong>Salesman & Delivery Man:</strong> Should only see distributor prices.</li>
+                            <li><strong>Shop Staff:</strong> Can see wholesale and retail prices, but NOT cost prices.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         {{-- Expense Categories Management Accordion --}}
         <div class="accordion-item border-0 mb-4 shadow-sm rounded-4">

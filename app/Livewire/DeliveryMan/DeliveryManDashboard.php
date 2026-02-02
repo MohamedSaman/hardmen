@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
 
 #[Title('Delivery Man Dashboard')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.delivery-man')]
 class DeliveryManDashboard extends Component
 {
     public $pendingDeliveries = 0;

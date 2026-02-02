@@ -9,7 +9,7 @@
         </div>
     </div>
 
-    {{-- Stats Cards --}}
+    {{-- Sales Stats Cards --}}
     <div class="row g-4 mb-4">
         <div class="col-md-6 col-lg-3">
             <div class="card border-0 shadow-sm h-100">
@@ -73,26 +73,124 @@
         </div>
     </div>
 
+    {{-- Delivery Stats Cards --}}
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <h5 class="fw-bold text-dark mb-3">
+                <i class="bi bi-truck text-info me-2"></i> Delivery Status
+            </h5>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted small mb-1">Pending Delivery</p>
+                            <h3 class="fw-bold text-warning mb-0">{{ $pendingDeliveries }}</h3>
+                        </div>
+                        <div class="bg-warning bg-opacity-25 rounded-circle p-3">
+                            <i class="bi bi-box-seam text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-info bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted small mb-1">In Transit</p>
+                            <h3 class="fw-bold text-info mb-0">{{ $inTransitDeliveries }}</h3>
+                        </div>
+                        <div class="bg-info bg-opacity-25 rounded-circle p-3">
+                            <i class="bi bi-truck text-info fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted small mb-1">Delivered</p>
+                            <h3 class="fw-bold text-success mb-0">{{ $completedDeliveries }}</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-25 rounded-circle p-3">
+                            <i class="bi bi-check2-all text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Customer Dues Stats --}}
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <h5 class="fw-bold text-dark mb-3">
+                <i class="bi bi-wallet2 text-danger me-2"></i> Customer Dues
+            </h5>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100 bg-danger bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted small mb-1">Total Due Amount</p>
+                            <h3 class="fw-bold text-danger mb-0">Rs. {{ number_format($totalDueAmount, 2) }}</h3>
+                        </div>
+                        <div class="bg-danger bg-opacity-25 rounded-circle p-3">
+                            <i class="bi bi-cash-stack text-danger fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted small mb-1">Customers with Dues</p>
+                            <h3 class="fw-bold text-primary mb-0">{{ $customersWithDues }}</h3>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+                            <i class="bi bi-people text-primary fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Quick Actions --}}
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
+        <div class="col-6 col-md-2">
             <a href="{{ route('salesman.billing') }}" class="btn btn-primary w-100 py-3">
                 <i class="bi bi-plus-circle me-2"></i> Create Order
             </a>
         </div>
-        <div class="col-md-3">
+        <div class="col-6 col-md-2">
             <a href="{{ route('salesman.products') }}" class="btn btn-outline-secondary w-100 py-3">
-                <i class="bi bi-box-seam me-2"></i> View Products
+                <i class="bi bi-box-seam me-2"></i> Products
             </a>
         </div>
-        <div class="col-md-3">
+        <div class="col-6 col-md-2">
             <a href="{{ route('salesman.sales') }}" class="btn btn-outline-secondary w-100 py-3">
                 <i class="bi bi-receipt me-2"></i> My Sales
             </a>
         </div>
-        <div class="col-md-3">
+        <div class="col-6 col-md-2">
             <a href="{{ route('salesman.customer-dues') }}" class="btn btn-outline-secondary w-100 py-3">
                 <i class="bi bi-wallet2 me-2"></i> Customer Dues
+            </a>
+        </div>
+        <div class="col-6 col-md-2">
+            <a href="{{ route('salesman.expenses') }}" class="btn btn-outline-info w-100 py-3">
+                <i class="bi bi-cash-coin me-2"></i> Expenses
             </a>
         </div>
     </div>

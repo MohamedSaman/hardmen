@@ -9,11 +9,13 @@ use Livewire\Attributes\On;
 use App\Livewire\Concerns\WithDynamicLayout;
 use Illuminate\Support\Facades\DB;
 use Exception;
+use Livewire\WithPagination;
 
 #[Title("Manage Variants")]
 class ProductVariants extends Component
 {
     use WithDynamicLayout;
+    use WithPagination;
 
     // Livewire events from JS
     protected $listeners = [
@@ -33,6 +35,8 @@ class ProductVariants extends Component
     public $editVariantValueInput = '';
     public $editStatus = 'active';
 
+    public $perPage = 10;
+
     // Delete field
     public $deleteId;
 
@@ -46,7 +50,7 @@ class ProductVariants extends Component
     public function render()
     {
         // Eager-load products count to avoid N+1 queries in the view
-        $variants = ProductVariant::withCount('products')->orderBy('id', 'desc')->get();
+        $variants = ProductVariant::withCount('products')->orderBy('id', 'desc')->paginate($this->perPage);
         return view('livewire.admin.product-variant-list', compact('variants'))->layout($this->layout);
     }
 

@@ -25,6 +25,18 @@
                         </h5>
                         <p class="text-muted small mb-0">View and manage all product variants</p>
                     </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="text-sm text-muted fw-medium">Show</label>
+                        <select wire:model.live="perPage" class="form-select form-select-sm" style="width: 80px;">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                            <option value="500">500</option>
+                        </select>
+                        <span class="text-sm text-muted">entries</span>
+                    </div>
                 </div>
 
                 <div class="card-body p-0">
@@ -88,6 +100,11 @@
                                 @endif
                             </tbody>
                         </table>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-center">
+                            {{ $variants->links('livewire.custom-pagination') }}
+                        </div>
                     </div>
                 </div>
             </div>

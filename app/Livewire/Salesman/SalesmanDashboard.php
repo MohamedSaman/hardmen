@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
 
 #[Title('Salesman Dashboard')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.salesman')]
 class SalesmanDashboard extends Component
 {
     public $totalSales = 0;
@@ -19,6 +19,15 @@ class SalesmanDashboard extends Component
     public $rejectedSales = 0;
     public $totalCustomers = 0;
     public $recentSales = [];
+
+    // Delivery statistics
+    public $pendingDeliveries = 0;
+    public $inTransitDeliveries = 0;
+    public $completedDeliveries = 0;
+
+    // Customer due statistics
+    public $totalDueAmount = 0;
+    public $customersWithDues = 0;
 
     public function mount()
     {
@@ -32,6 +41,34 @@ class SalesmanDashboard extends Component
 
         // Get total customers served
         $this->totalCustomers = Sale::where('user_id', $userId)
+            ->distinct('customer_id')
+            ->count('customer_id');
+
+        // Get delivery statistics for this salesman's sales
+        $this->pendingDeliveries = Sale::where('user_id', $userId)
+            ->where('status', 'confirm')
+            ->where('delivery_status', 'pending')
+            ->count();
+
+        $this->inTransitDeliveries = Sale::where('user_id', $userId)
+            ->where('status', 'confirm')
+            ->where('delivery_status', 'in_transit')
+            ->count();
+
+        $this->completedDeliveries = Sale::where('user_id', $userId)
+            ->where('status', 'confirm')
+            ->where('delivery_status', 'delivered')
+            ->count();
+
+        // Get customer due statistics for this salesman's sales
+        $this->totalDueAmount = Sale::where('user_id', $userId)
+            ->where('status', 'confirm')
+            ->where('due_amount', '>', 0)
+            ->sum('due_amount');
+
+        $this->customersWithDues = Sale::where('user_id', $userId)
+            ->where('status', 'confirm')
+            ->where('due_amount', '>', 0)
             ->distinct('customer_id')
             ->count('customer_id');
 

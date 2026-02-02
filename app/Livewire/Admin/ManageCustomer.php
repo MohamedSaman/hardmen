@@ -9,11 +9,13 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use App\Livewire\Concerns\WithDynamicLayout;
 use Illuminate\Support\Facades\Auth;
+use Livewire\WithPagination;
 
 #[Title('Manage Customer')]
 class ManageCustomer extends Component
 {
     use WithDynamicLayout;
+    use WithPagination;
 
     public $name;
     public $contactNumber;

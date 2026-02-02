@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
 
 #[Title('Completed Deliveries')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.delivery-man')]
 class DeliveryManCompletedDeliveries extends Component
 {
     use WithPagination;

@@ -27,13 +27,14 @@ class CustomLogin extends Component
 
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
             session()->regenerate();
-            
+
             $user = Auth::user();
-            
+
             if ($user && $user->role === 'admin') {
                 return redirect()->route('admin.dashboard');
             } else if ($user && $user->role === 'staff') {
-                return redirect()->route('staff.dashboard');
+                // Let the main dashboard route handle staff type redirects
+                return redirect()->route('dashboard');
             } else {
                 return redirect()->route('dashboard');
             }
@@ -49,5 +50,4 @@ class CustomLogin extends Component
      * Clear validation/error for a property when it is updated.
      * This helps remove the red border / shaking animation as soon as user starts typing.
      */
-
 }

@@ -9,11 +9,13 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\Hash;
 use App\Livewire\Concerns\WithDynamicLayout;
+use Livewire\WithPagination;
 
 #[Title('Manage Staff')]
 class ManageStaff extends Component
 {
     use WithDynamicLayout;
+    use WithPagination;
 
     public $viewUserDetail = [];
     public $name;

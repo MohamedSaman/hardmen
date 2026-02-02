@@ -11,7 +11,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
 #[Title('Product List')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.salesman')]
 class SalesmanProductList extends Component
 {
     use WithPagination;
@@ -19,6 +19,10 @@ class SalesmanProductList extends Component
     public $search = '';
     public $categoryFilter = '';
     public $categories = [];
+
+    // Product detail modal
+    public $selectedProduct = null;
+    public $showProductModal = false;
 
     protected StockAvailabilityService $stockService;
 
@@ -29,7 +33,7 @@ class SalesmanProductList extends Component
 
     public function mount()
     {
-        $this->categories = CategoryList::orderBy('name')->get();
+        $this->categories = CategoryList::orderBy('category_name')->get();
     }
 
     public function updatedSearch()
@@ -40,6 +44,19 @@ class SalesmanProductList extends Component
     public function updatedCategoryFilter()
     {
         $this->resetPage();
+    }
+
+    public function viewProduct($productId)
+    {
+        $this->selectedProduct = ProductDetail::with(['stock', 'price', 'category', 'variants', 'variants.stock'])
+            ->find($productId);
+        $this->showProductModal = true;
+    }
+
+    public function closeProductModal()
+    {
+        $this->showProductModal = false;
+        $this->selectedProduct = null;
     }
 
     public function render()

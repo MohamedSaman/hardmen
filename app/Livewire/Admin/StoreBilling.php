@@ -332,6 +332,7 @@ class StoreBilling extends Component
                             'price' => $priceValue,
                             'retail_price' => $priceRecord->retail_price ?? 0,
                             'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                            'distributor_price' => $priceRecord->distributor_price ?? 0,
                             'stock' => $stock->available_stock ?? 0,
                             'image' => $product->image ?? '',
                         ];
@@ -356,6 +357,7 @@ class StoreBilling extends Component
                             'price' => $priceValue,
                             'retail_price' => $priceRecord->retail_price ?? 0,
                             'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                            'distributor_price' => $priceRecord->distributor_price ?? 0,
                             'stock' => $stock->available_stock ?? 0,
                             'image' => $product->image ?? '',
                         ];
@@ -380,6 +382,7 @@ class StoreBilling extends Component
                     'price' => $priceValue,
                     'retail_price' => $priceRecord->retail_price ?? 0,
                     'wholesale_price' => $priceRecord->wholesale_price ?? 0,
+                    'distributor_price' => $priceRecord->distributor_price ?? 0,
                     'stock' => $stockQty,
                     'image' => $product->image ?? '',
                 ];
@@ -706,7 +709,7 @@ class StoreBilling extends Component
         return match ($this->priceType) {
             'retail' => $priceRecord->retail_price ?? 0,
             'wholesale' => $priceRecord->wholesale_price ?? 0,
-            'distribute' => $priceRecord->distribute_price ?? $priceRecord->wholesale_price ?? 0,
+            'distribute' => $priceRecord->distributor_price ?? $priceRecord->wholesale_price ?? 0,
             default => $priceRecord->retail_price ?? 0,
         };
     }
@@ -1314,7 +1317,7 @@ class StoreBilling extends Component
 
         $this->itemDiscountIndex = $index;
         $this->itemDiscountType = 'fixed';
-        $this->itemDiscountValue = $this->cart[$index]['discount'] ?? 0;
+        $this->itemDiscountValue = 0; // Always reset to 0 when opening modal
         $this->showItemDiscountModal = true;
     }
 
@@ -1325,12 +1328,27 @@ class StoreBilling extends Component
             return;
         }
 
-        $this->validate([
-            'itemDiscountValue' => 'required|numeric|min:0'
-        ]);
-
         $index = $this->itemDiscountIndex;
         $price = $this->cart[$index]['price'];
+
+        // Validate based on discount type
+        if ($this->itemDiscountType === 'percentage') {
+            $this->validate([
+                'itemDiscountValue' => 'required|numeric|min:0|max:100'
+            ], [
+                'itemDiscountValue.max' => 'Percentage discount cannot exceed 100%'
+            ]);
+        } else {
+            $this->validate([
+                'itemDiscountValue' => 'required|numeric|min:0'
+            ]);
+
+            // For fixed amount, ensure it doesn't exceed item price
+            if ($this->itemDiscountValue > $price) {
+                session()->flash('error', 'Discount amount cannot exceed item price (Rs. ' . number_format($price, 2) . ')');
+                return;
+            }
+        }
 
         if ($this->itemDiscountType === 'percentage') {
             $discountAmount = ($price * $this->itemDiscountValue) / 100;
@@ -1338,7 +1356,7 @@ class StoreBilling extends Component
             $discountAmount = $this->itemDiscountValue;
         }
 
-        // Ensure discount doesn't exceed price
+        // Ensure discount doesn't exceed price (safety check)
         $discountAmount = min($discountAmount, $price);
 
         $this->cart[$index]['discount'] = round($discountAmount, 2);
@@ -1346,30 +1364,45 @@ class StoreBilling extends Component
 
         $this->showItemDiscountModal = false;
         $this->itemDiscountIndex = null;
+        $this->showToast('success', 'Discount applied successfully!');
     }
 
     public function openSaleDiscountModal()
     {
         $this->saleDiscountType = $this->additionalDiscountType ?? 'fixed';
-        $this->saleDiscountValue = $this->additionalDiscount ?? 0;
+        $this->saleDiscountValue = 0; // Always reset to 0 when opening modal
         $this->showSaleDiscountModal = true;
     }
 
     public function applySaleDiscount()
     {
-        $this->validate([
-            'saleDiscountValue' => 'required|numeric|min:0'
-        ]);
-
+        // Validate based on discount type
         if ($this->saleDiscountType === 'percentage') {
+            $this->validate([
+                'saleDiscountValue' => 'required|numeric|min:0|max:100'
+            ], [
+                'saleDiscountValue.max' => 'Percentage discount cannot exceed 100%'
+            ]);
+
             $this->additionalDiscountType = 'percentage';
-            $this->additionalDiscount = min($this->saleDiscountValue, 100);
+            $this->additionalDiscount = $this->saleDiscountValue;
         } else {
+            $this->validate([
+                'saleDiscountValue' => 'required|numeric|min:0'
+            ]);
+
+            // For fixed amount, ensure it doesn't exceed subtotal
+            if ($this->saleDiscountValue > $this->subtotalAfterItemDiscounts) {
+                session()->flash('error', 'Discount amount cannot exceed total sale amount (Rs. ' . number_format($this->subtotalAfterItemDiscounts, 2) . ')');
+                return;
+            }
+
             $this->additionalDiscountType = 'fixed';
-            $this->additionalDiscount = min($this->saleDiscountValue, $this->subtotalAfterItemDiscounts);
+            $this->additionalDiscount = $this->saleDiscountValue;
         }
 
         $this->showSaleDiscountModal = false;
+        $this->showToast('success', 'Sale discount applied successfully!');
     }
 
     // -----------------------------------------------------------------

@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 #[Title('Payment Collection')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.delivery-man')]
 class DeliveryManPaymentCollection extends Component
 {
     use WithPagination;

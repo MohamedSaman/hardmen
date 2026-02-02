@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 #[Title('Create Sales Order')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.salesman')]
 class SalesmanBilling extends Component
 {
     // Search and Products

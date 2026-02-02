@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 #[Title('Customer Dues')]
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.salesman')]
 class SalesmanCustomerDues extends Component
 {
     use WithPagination;
