@@ -272,9 +272,14 @@ class Products extends Component
     {
         $str = (string)$value;
         // replace non-alphanumeric with underscore
+        // Use a stable hash to ensure uniqueness even when the display value
+        // contains non-alphanumeric characters (e.g. quotes, +, -) which
+        // would otherwise collapse to identical sanitized strings.
+        // Keep a short readable suffix derived from the sanitized label for
+        // easier debugging but rely on the hash for uniqueness.
         $sanitized = preg_replace('/[^A-Za-z0-9]+/', '_', $str);
-        // ensure does not start with a digit only — prefix with 'v_'
-        return 'v_' . trim($sanitized, '_');
+        $hash = substr(md5($str), 0, 8);
+        return 'v_' . $hash . '_' . trim($sanitized, '_');
     }
 
     public function render()
