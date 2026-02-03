@@ -148,7 +148,8 @@
                         </thead>
                         <tbody class="divide-y divide-slate-50">
                             @forelse($cart as $index => $item)
-                            <tr class="group hover:bg-slate-50/80 transition-colors">
+                            @php $cartKey = $item['key'] ?? $index; @endphp
+                            <tr class="group hover:bg-slate-50/80 transition-colors" wire:key="cart-{{ $cartKey }}">
                                 <td class="px-3 py-2">
                                     <div class="flex items-center gap-2">
                                         <div class="relative group/thumb">
@@ -166,7 +167,7 @@
                                     <div class="flex items-center gap-3">
                                         <button class="w-9 h-9 flex items-center justify-center hover:bg-white rounded text-[12px] font-bold transition-all bg-slate-100 border border-slate-200" wire:click="decrementQuantity({{ $index }})">-</button>
 
-                                        <input type="number" min="1" step="1" max="{{ $item['stock'] ?? 0 }}" value="{{ $item['quantity'] }}" wire:change="updateQuantity({{ $index }}, $event.target.value)" wire:keydown.enter="updateQuantity({{ $index }}, $event.target.value)" class="w-28 text-center text-[11px] font-black bg-slate-50 border border-slate-200 rounded px-3 py-2" />
+                                        <input type="number" min="1" step="1" max="{{ $item['stock'] ?? 0 }}" value="{{ $item['quantity'] }}" wire:change="updateQuantity({{ $index }}, $event.target.value)" wire:key="qty-{{ $cartKey }}" wire:keydown.enter="updateQuantity({{ $index }}, $event.target.value)" class="w-28 text-center text-[11px] font-black bg-slate-50 border border-slate-200 rounded px-3 py-2" />
 
                                         <button class="w-9 h-9 flex items-center justify-center hover:bg-white rounded text-[12px] font-bold transition-all bg-slate-100 border border-slate-200" wire:click="incrementQuantity({{ $index }})">+</button>
 
@@ -176,7 +177,7 @@
                                 <td class="px-2 py-2">
                                     <div class="flex items-center gap-2">
                                         <span class="text-[11px] font-bold text-slate-500">Rs.</span>
-                                        <input type="number" step="0.01" min="0" value="{{ $item['price'] }}" wire:change="updatePrice({{ $index }}, $event.target.value)" class="w-28 text-right text-[11px] font-bold bg-slate-50 border border-slate-200 rounded px-2 py-1" />
+                                        <input type="number" step="0.01" min="0" value="{{ $item['price'] }}" wire:change="updatePrice({{ $index }}, $event.target.value)" wire:key="price-{{ $cartKey }}" class="w-28 text-right text-[11px] font-bold bg-slate-50 border border-slate-200 rounded px-2 py-1" />
                                     </div>
                                 </td>
                                 <td class="px-2 py-2 text-center">

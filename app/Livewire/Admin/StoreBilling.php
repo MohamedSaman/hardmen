@@ -1177,7 +1177,7 @@ class StoreBilling extends Component
                 'image' => $product['image'] ?? null
             ];
 
-            // Prepend new item to the beginning of the cart so it appears at the top
+            // Prepend new item to the beginning of the cart so latest appears at top
             array_unshift($this->cart, $newItem);
         }
 
