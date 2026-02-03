@@ -347,7 +347,7 @@ class StaffSalesSystem extends Component
             // Create sale
             $sale = Sale::create([
                 'sale_id' => Sale::generateSaleId(),
-                'invoice_number' => $this->generateInvoiceNumber(),
+                'invoice_number' => Sale::generateInvoiceNumber(),
                 'customer_id' => $this->customerId,
                 'user_id' => Auth::id(),
                 'sale_type' => 'staff',
@@ -420,23 +420,6 @@ class StaffSalesSystem extends Component
             $staffProduct->save();
             $remaining -= $deductQty;
         }
-    }
-
-    private function generateInvoiceNumber()
-    {
-        $prefix = 'INV-';
-        $lastSale = Sale::where('invoice_number', 'like', $prefix . '%')
-            ->orderBy('invoice_number', 'desc')
-            ->first();
-
-        if ($lastSale) {
-            $lastNumber = intval(substr($lastSale->invoice_number, strlen($prefix)));
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
-
-        return $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
     public function render()

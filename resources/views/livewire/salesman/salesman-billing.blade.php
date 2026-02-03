@@ -382,22 +382,24 @@
                 <div class="modal-body">
                     <div class="text-center mb-4">
                         <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-                        <h4 class="mt-2 text-success">Sale Order #{{ $createdSale->id }}</h4>
+                        <h4 class="mt-2 text-success">Sale Order #{{ $createdSale->id ?? 'N/A' }}</h4>
                         <p class="text-muted">Your sale order has been created successfully and is pending admin approval.</p>
                     </div>
                     
+                    @if($createdSale)
                     <div class="row">
                         <div class="col-md-6">
                             <h6 class="fw-bold">Customer Details</h6>
-                            <p class="mb-1"><strong>Name:</strong> {{ $createdSale->customer->name }}</p>
+                            <p class="mb-1"><strong>Name:</strong> {{ $createdSale->customer->name ?? 'N/A' }}</p>
                             <p class="mb-1"><strong>Phone:</strong> {{ $createdSale->customer->phone ?? 'N/A' }}</p>
                         </div>
                         <div class="col-md-6">
                             <h6 class="fw-bold">Sale Summary</h6>
-                            <p class="mb-1"><strong>Items:</strong> {{ $createdSale->saleItems->count() }}</p>
+                            <p class="mb-1"><strong>Items:</strong> {{ $createdSale->items->count() ?? 0 }}</p>
                             <p class="mb-1"><strong>Total:</strong> Rs. {{ number_format($createdSale->total_amount, 2) }}</p>
                         </div>
                     </div>
+                    @endif
                 </div>
                 <div class="modal-footer justify-content-center">
                     <button type="button" class="btn btn-success" wire:click="createNewSale">

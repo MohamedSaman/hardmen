@@ -64,7 +64,7 @@ class SalesmanBilling extends Component
     public function mount($saleId = null)
     {
         $this->loadCustomers();
-        
+
         // Load existing sale for editing if saleId provided
         if ($saleId) {
             $this->loadSaleForEditing($saleId);
@@ -83,7 +83,7 @@ class SalesmanBilling extends Component
     {
         try {
             $sale = Sale::with(['items', 'customer'])->findOrFail($saleId);
-            
+
             // Only allow editing pending or draft sales
             if (!in_array($sale->status, ['pending', 'draft'])) {
                 session()->flash('error', 'Only pending sales can be edited');
@@ -409,7 +409,7 @@ class SalesmanBilling extends Component
             if ($this->editMode && $this->editingSaleId) {
                 // Update existing sale
                 $sale = Sale::findOrFail($this->editingSaleId);
-                
+
                 $sale->update([
                     'customer_id' => $this->customerId,
                     'subtotal' => $this->subtotal,
@@ -443,7 +443,7 @@ class SalesmanBilling extends Component
             } else {
                 // Create new sale
                 $saleId = Sale::generateSaleId();
-                $invoiceNumber = 'INV-' . $saleId;
+                $invoiceNumber = Sale::generateInvoiceNumber();
 
                 // Create Sale (status pending means awaiting admin approval)
                 $sale = Sale::create([

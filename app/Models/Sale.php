@@ -78,21 +78,30 @@ class Sale extends Model
         return $prefix . $date . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
-    // Generate unique invoice numbers
+    // Generate unique invoice numbers starting from 0678
     public static function generateInvoiceNumber()
     {
-        $prefix = 'INV-';
-        $lastInvoice = self::orderBy('id', 'desc')->first();
+        // Get the last invoice number from the database
+        $lastSale = self::orderBy('id', 'desc')->first();
 
-        $nextNumber = 1;
+        $nextNumber = 678; // Starting number
 
-        if ($lastInvoice) {
-            $parts = explode('-', $lastInvoice->invoice_number);
-            $lastNumber = intval(end($parts));
-            $nextNumber = $lastNumber + 1;
+        if ($lastSale && $lastSale->invoice_number) {
+            // Extract number from invoice (remove any prefix)
+            $invoiceNumber = $lastSale->invoice_number;
+            
+            // If it starts with prefix, remove it, otherwise use as is
+            if (strpos($invoiceNumber, 'INV-') === 0) {
+                $lastNumber = intval(substr($invoiceNumber, 4));
+            } else {
+                $lastNumber = intval($invoiceNumber);
+            }
+            
+            // If the last number is less than 678, start from 678, otherwise increment
+            $nextNumber = max(678, $lastNumber + 1);
         }
 
-        return $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
     public function returns()
