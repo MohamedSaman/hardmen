@@ -265,7 +265,7 @@
         }
 
         /* Responsive styles */
-        @media (max-width: 767.98px) {
+        @media (max-width: 1024px) {
             .sidebar {
                 transform: translateX(-100%);
                 width: 250px;
@@ -312,28 +312,27 @@
                 
                 @php
                     $staffType = auth()->user()->staff_type ?? 'salesman';
-                    $permissionModel = new \App\Models\StaffTypePermission();
                 @endphp
                 
                 {{-- Sales Section --}}
-                @if($permissionModel->hasPermission($staffType, 'sales_view') || $permissionModel->hasPermission($staffType, 'sales_create'))
+                @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'view_sales') || \App\Models\StaffTypePermission::hasPermission($staffType, 'create_sales'))
                 <li class="nav-item">
                     <a class="nav-link dropdown-toggle" href="#salesSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="salesSubmenu">
                         <i class="bi bi-cash-stack"></i> <span>Sales</span>
                     </a>
                     <div class="collapse" id="salesSubmenu">
                         <ul class="nav flex-column ms-3">
-                            @if($permissionModel->hasPermission($staffType, 'sales_create'))
+                            @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'create_sales'))
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('salesman.billing') ? 'active' : '' }}" href="{{ route('salesman.billing') }}">
-                                    <i class="bi bi-plus-circle"></i> <span>Add Sales</span>
+                                    <i class="bi bi-plus-circle"></i> <span>Create Sale</span>
                                 </a>
                             </li>
                             @endif
-                            @if($permissionModel->hasPermission($staffType, 'sales_view'))
+                            @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'view_sales'))
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('salesman.sales') ? 'active' : '' }}" href="{{ route('salesman.sales') }}">
-                                    <i class="bi bi-table"></i> <span>List Sales</span>
+                                    <i class="bi bi-table"></i> <span>My Sales</span>
                                 </a>
                             </li>
                             @endif
@@ -343,7 +342,7 @@
                 @endif
                 
                 {{-- Products Section --}}
-                @if($permissionModel->hasPermission($staffType, 'products_view'))
+                @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'view_products'))
                 <li class="nav-item">
                     <a class="nav-link dropdown-toggle" href="#productsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="productsSubmenu">
                         <i class="bi bi-basket3"></i> <span>Products</span>
@@ -352,7 +351,7 @@
                         <ul class="nav flex-column ms-3">
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('salesman.products') ? 'active' : '' }}" href="{{ route('salesman.products') }}">
-                                    <i class="bi bi-card-list"></i> <span>List Product</span>
+                                    <i class="bi bi-card-list"></i> <span>Product List</span>
                                 </a>
                             </li>
                         </ul>
@@ -361,46 +360,44 @@
                 @endif
                 
                 {{-- Customers Section --}}
-                @if($permissionModel->hasPermission($staffType, 'customers_view'))
+                @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'view_customers') || \App\Models\StaffTypePermission::hasPermission($staffType, 'view_customer_dues'))
                 <li class="nav-item">
                     <a class="nav-link dropdown-toggle" href="#customersSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="customersSubmenu">
-                        <i class="bi bi-people"></i> <span>Customer</span>
+                        <i class="bi bi-people"></i> <span>Customers</span>
                     </a>
                     <div class="collapse" id="customersSubmenu">
                         <ul class="nav flex-column ms-3">
+                            @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'view_customer_dues'))
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('salesman.customer-dues') ? 'active' : '' }}" href="{{ route('salesman.customer-dues') }}">
                                     <i class="bi bi-wallet"></i> <span>Customer Dues</span>
                                 </a>
                             </li>
+                            @endif
                         </ul>
                     </div>
                 </li>
                 @endif
                 
                 {{-- Finance Section --}}
-                @if($permissionModel->hasPermission($staffType, 'expenses_view'))
+                @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'add_expenses') || \App\Models\StaffTypePermission::hasPermission($staffType, 'view_expenses'))
                 <li class="nav-item">
                     <a class="nav-link dropdown-toggle" href="#financeSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="financeSubmenu">
                         <i class="bi bi-bank"></i> <span>Finance</span>
                     </a>
                     <div class="collapse" id="financeSubmenu">
                         <ul class="nav flex-column ms-3">
+                            @if(\App\Models\StaffTypePermission::hasPermission($staffType, 'add_expenses'))
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('salesman.expenses') ? 'active' : '' }}" href="{{ route('salesman.expenses') }}">
                                     <i class="bi bi-receipt"></i> <span>My Expenses</span>
                                 </a>
                             </li>
+                            @endif
                         </ul>
                     </div>
                 </li>
                 @endif
-                
-                <li>
-                    <a class="nav-link" href="{{ route('admin.settings') }}">
-                        <i class="bi bi-gear"></i> <span>Settings</span>
-                    </a>
-                </li>
             </ul>
         </div>
 
@@ -482,6 +479,22 @@
         // Sidebar toggle
         document.getElementById('sidebarToggler').addEventListener('click', function() {
             document.querySelector('.sidebar').classList.toggle('show');
+        });
+
+        // Auto-expand active menu sections
+        document.addEventListener('DOMContentLoaded', function() {
+            const activeLinks = document.querySelectorAll('.nav-link.active');
+            activeLinks.forEach(function(link) {
+                const parentCollapse = link.closest('.collapse');
+                if (parentCollapse) {
+                    parentCollapse.classList.add('show');
+                    const parentToggle = document.querySelector(`[data-bs-target="#${parentCollapse.id}"]`);
+                    if (parentToggle) {
+                        parentToggle.setAttribute('aria-expanded', 'true');
+                        parentToggle.classList.add('active');
+                    }
+                }
+            });
         });
     </script>
 </body>

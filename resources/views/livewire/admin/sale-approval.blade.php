@@ -27,6 +27,20 @@
                         <option value="">All Status</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="text-sm text-muted fw-medium">Show</label>
+                        <select wire:model.live="perPage" class="form-select form-select-sm" style="width: 80px;">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                            <option value="500">500</option>
+                        </select>
+                        <span class="text-sm text-muted">entries</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -95,14 +109,15 @@
                     </tbody>
                 </table>
             </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-center">
+                    {{ $sales->links('livewire.custom-pagination') }}
+                </div>
+            </div>
         </div>
     </div>
 
-    {{-- Pagination --}}
-    <div class="mt-4">
-        {{ $sales->links() }}
-    </div>
-
+    
     {{-- Details Modal --}}
     @if($showDetailsModal && $selectedSale)
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">

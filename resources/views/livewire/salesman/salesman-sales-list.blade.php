@@ -123,9 +123,9 @@
                                         <i class="bi bi-eye"></i>
                                     </button>
                                     @if($sale->status === 'pending')
-                                    <button wire:click="openEditModal({{ $sale->id }})" class="btn btn-sm btn-outline-warning" title="Edit Sale">
+                                    <a href="{{ route('salesman.billing.edit', $sale->id) }}" class="btn btn-sm btn-outline-warning" title="Edit Sale">
                                         <i class="bi bi-pencil"></i>
-                                    </button>
+                                    </a>
                                     @endif
                                     @if($sale->status === 'confirm')
                                     <button wire:click="openReturnModal({{ $sale->id }})" class="btn btn-sm btn-outline-danger" title="Return">

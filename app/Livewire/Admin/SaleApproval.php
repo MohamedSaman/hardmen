@@ -17,14 +17,15 @@ use Illuminate\Support\Facades\Log;
 #[Layout('components.layouts.admin')]
 class SaleApproval extends Component
 {
-    use WithPagination;
+    use WithPagination ,  WithPagination;
 
     public $search = '';
-    public $statusFilter = 'pending';
+    public $statusFilter = '';
     public $selectedSale = null;
     public $showDetailsModal = false;
     public $showRejectModal = false;
     public $rejectionReason = '';
+    public $perPage = 10;
 
     protected $queryString = ['search', 'statusFilter'];
 
@@ -161,7 +162,7 @@ class SaleApproval extends Component
             ->orderBy('created_at', 'desc');
 
         return view('livewire.admin.sale-approval', [
-            'sales' => $query->paginate(15),
+            'sales' => $query->paginate($this->perPage),
             'pendingCount' => Sale::where('status', 'pending')->count(),
             'approvedCount' => Sale::where('status', 'confirm')->count(),
             'rejectedCount' => Sale::where('status', 'rejected')->count(),

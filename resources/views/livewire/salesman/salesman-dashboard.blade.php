@@ -166,35 +166,6 @@
         </div>
     </div>
 
-    {{-- Quick Actions --}}
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-2">
-            <a href="{{ route('salesman.billing') }}" class="btn btn-primary w-100 py-3">
-                <i class="bi bi-plus-circle me-2"></i> Create Order
-            </a>
-        </div>
-        <div class="col-6 col-md-2">
-            <a href="{{ route('salesman.products') }}" class="btn btn-outline-secondary w-100 py-3">
-                <i class="bi bi-box-seam me-2"></i> Products
-            </a>
-        </div>
-        <div class="col-6 col-md-2">
-            <a href="{{ route('salesman.sales') }}" class="btn btn-outline-secondary w-100 py-3">
-                <i class="bi bi-receipt me-2"></i> My Sales
-            </a>
-        </div>
-        <div class="col-6 col-md-2">
-            <a href="{{ route('salesman.customer-dues') }}" class="btn btn-outline-secondary w-100 py-3">
-                <i class="bi bi-wallet2 me-2"></i> Customer Dues
-            </a>
-        </div>
-        <div class="col-6 col-md-2">
-            <a href="{{ route('salesman.expenses') }}" class="btn btn-outline-info w-100 py-3">
-                <i class="bi bi-cash-coin me-2"></i> Expenses
-            </a>
-        </div>
-    </div>
-
     {{-- Recent Sales --}}
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white py-3">

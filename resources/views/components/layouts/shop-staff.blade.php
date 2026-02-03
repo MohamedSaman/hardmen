@@ -300,24 +300,27 @@
                 </li>
                 
                 @php
-                    $staffType = auth()->user()->staff_type ?? 'shop-staff';
+                    $staffType = auth()->user()->staff_type ?? 'shop_staff';
                     $permissionModel = new \App\Models\StaffTypePermission();
                 @endphp
                 
                 {{-- Products Section --}}
-                @if($permissionModel->hasPermission($staffType, 'products_view'))
-                <li>
-                    <a class="nav-link {{ request()->routeIs('shop-staff.products') ? 'active' : '' }}" href="{{ route('shop-staff.products') }}">
+                @if($permissionModel->hasPermission($staffType, 'view_products'))
+                <li class="nav-item">
+                    <a class="nav-link dropdown-toggle" href="#productsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="true" aria-controls="productsSubmenu">
                         <i class="bi bi-basket3"></i> <span>Products</span>
                     </a>
+                    <div class="collapse show" id="productsSubmenu">
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <a class="nav-link py-2 {{ request()->routeIs('shop-staff.products') ? 'active' : '' }}" href="{{ route('shop-staff.products') }}">
+                                    <i class="bi bi-list-ul"></i> <span>View Products</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                 </li>
                 @endif
-                
-                <li>
-                    <a class="nav-link" href="{{ route('admin.settings') }}">
-                        <i class="bi bi-gear"></i> <span>Settings</span>
-                    </a>
-                </li>
             </ul>
         </div>
 

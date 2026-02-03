@@ -519,6 +519,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
     ->group(function () {
         Route::get('/dashboard', SalesmanDashboard::class)->name('dashboard');
         Route::get('/billing', SalesmanBilling::class)->name('billing');
+        Route::get('/billing/{saleId}/edit', SalesmanBilling::class)->name('billing.edit');
         Route::get('/products', SalesmanProductList::class)->name('products');
         Route::get('/sales', SalesmanSalesList::class)->name('sales');
         Route::get('/customer-dues', SalesmanCustomerDues::class)->name('customer-dues');
