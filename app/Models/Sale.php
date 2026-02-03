@@ -89,14 +89,14 @@ class Sale extends Model
         if ($lastSale && $lastSale->invoice_number) {
             // Extract number from invoice (remove any prefix)
             $invoiceNumber = $lastSale->invoice_number;
-            
+
             // If it starts with prefix, remove it, otherwise use as is
             if (strpos($invoiceNumber, 'INV-') === 0) {
                 $lastNumber = intval(substr($invoiceNumber, 4));
             } else {
                 $lastNumber = intval($invoiceNumber);
             }
-            
+
             // If the last number is less than 678, start from 678, otherwise increment
             $nextNumber = max(678, $lastNumber + 1);
         }
