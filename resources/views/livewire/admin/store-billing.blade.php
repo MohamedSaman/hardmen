@@ -184,7 +184,15 @@
                                     <button class="w-full px-2 py-1 text-[10px] font-bold bg-slate-100/50 border border-slate-200 rounded hover:bg-white hover:border-[#e67e22]/30 transition-all flex items-center justify-between group/disc"
                                         wire:click="openItemDiscountModal({{ $index }})">
                                         <span class="{{ $item['discount'] > 0 ? 'text-green-600' : 'text-slate-400' }}">
-                                            {{ $item['discount'] > 0 ? '-'.number_format($item['discount'] * $item['quantity'], 0) : '0%' }}
+                                            @if($item['discount'] > 0)
+                                                @if(($item['discount_type'] ?? 'fixed') === 'percentage')
+                                                    {{ ($item['discount_percentage'] ?? 0) }}%
+                                                @else
+                                                    -Rs.{{ number_format($item['discount'] * $item['quantity'], 0) }}
+                                                @endif
+                                            @else
+                                                0%
+                                            @endif
                                         </span>
                                         <span class="material-symbols-outlined text-[10px] text-slate-300 group-hover/disc:text-[#e67e22]">edit</span>
                                     </button>
@@ -222,8 +230,8 @@
                                 <span class="font-bold text-slate-700">Rs. {{ number_format($subtotal, 2) }}</span>
                             </div>
                             <div class="flex justify-between text-xs">
-                                <span class="text-slate-400 font-semibold">Discount</span>
-                                <span class="font-bold text-red-500">-Rs. {{ number_format($additionalDiscountAmount, 2) }}</span>
+                                <span class="text-slate-400 font-semibold">Total Discount</span>
+                                <span class="font-bold text-red-500">{{ number_format($this->totalDiscountPercentage, 2) }}%</span>
                             </div>
                             <div class="flex justify-between text-xs">
                                 <span class="text-slate-400 font-semibold">Tax (0%)</span>
@@ -413,33 +421,10 @@
     </aside>
 
     {{-- MODALS WRAPPER --}}
-    @if($showOpeningCashModal || $showPaymentModal || $showItemDiscountModal || $showSaleDiscountModal || $showCustomerModal || $showSaleModal || $showCloseRegisterModal)
+    @if($showPaymentModal || $showItemDiscountModal || $showSaleDiscountModal || $showCustomerModal || $showSaleModal || $showCloseRegisterModal)
     <div class="fixed inset-0 z-[3000] flex items-center justify-center p-4">
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
         
-        {{-- OPENING CASH MODAL --}}
-        @if($showOpeningCashModal)
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative transform transition-all">
-            <div class="bg-[#e67e22] p-6 text-center">
-                <div class="mx-auto w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4 text-white">
-                    <span class="material-symbols-outlined text-4xl">payments</span>
-                </div>
-                <h3 class="text-xl font-black text-white uppercase tracking-widest">New POS Session</h3>
-                <p class="text-orange-100 text-xs font-bold mt-1">{{ now()->format('l, F d, Y') }}</p>
-            </div>
-            <div class="p-8">
-                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 text-center">Initial Opening Cash</label>
-                <div class="relative">
-                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold">Rs.</span>
-                    <input type="number" step="0.01" class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-xl text-3xl font-black text-center text-[#e67e22] outline-none focus:border-[#e67e22] transition-colors" wire:model="openingCashAmount">
-                </div>
-                <button class="w-full mt-6 bg-[#e67e22] hover:bg-orange-600 text-white font-black py-4 rounded-xl shadow-xl shadow-orange-500/20 uppercase tracking-widest" wire:click="submitOpeningCash">
-                    Initialize Terminal
-                </button>
-            </div>
-        </div>
-        @endif
-
         {{-- CUSTOMER MODAL --}}
         @if($showCustomerModal)
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden relative transform transition-all">
@@ -733,26 +718,28 @@
                             <div class="receipt-center">
                                 <h2 class="mb-0">HARDMEN (PVT) LTD</h2>
                                 <p class="mb-0 text-muted" style="color:#666; font-size:12px;">TOOLS WITH POWER</p>
+                                <p style="margin:0; text-align:center;"><strong> 421/2, Doolmala, thihariya, Kalagedihena.</strong></p>
+                                <p style="margin:0; text-align:center;"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                <p style="margin:0; text-align:center; font-size:11px; margin-top:8px;"><strong></strong></p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Invoice / Customer Details -->
-                    <div style="display:flex; gap:20px; margin-bottom:12px;">
-                        <div style="flex:1;">
-                            
-                            <p style="margin:0;"><strong>Invoice Number:</strong> {{ $createdSale->invoice_number }}</p>
-                            <p style="margin:0;"><strong>Date:</strong> {{ $createdSale->created_at->format('d/m/Y h:i A') }}</p>
-                            <p style="margin:0;"><strong>Payment Status:</strong> {{ ucfirst($createdSale->payment_status ?? 'paid') }}</p>
-                        </div>
-                        <div style="flex:1; text-align:right;">
+                    <div style="display:flex; gap:20px; margin-bottom:12px; justify-content:space-between; align-items:flex-start;">
+                        <div style="flex:0 0 45%; text-align:left;">
                             @if($createdSale->customer)
-                            <p style="margin:0;"><strong>Name:</strong> {{ $createdSale->customer->name }}</p>
-                            <p style="margin:0;"><strong>Phone:</strong> {{ $createdSale->customer->phone }}</p>
-                            <p style="margin:0;"><strong>Type:</strong> {{ ucfirst($createdSale->customer_type) }}</p>
+                            <p style="margin:0; font-size:12px;"><strong>Name:</strong> {{ $createdSale->customer->name }}</p>
+                            <p style="margin:0; font-size:12px;"><strong>Phone:</strong> {{ $createdSale->customer->phone }}</p>
+                            <p style="margin:0; font-size:12px;"><strong>Type:</strong> {{ ucfirst($createdSale->customer_type) }}</p>
                             @else
                             <p class="text-muted">Walk-in Customer</p>
                             @endif
+                        </div>
+                        <div style="flex:0 0 45%; text-align:right;">
+                            <p style="margin:0; font-size:12px;"><strong>Invoice Number:</strong> {{ $createdSale->invoice_number }}</p>
+                            <p style="margin:0; font-size:12px;"><strong>Date:</strong> {{ $createdSale->created_at->format('d/m/Y h:i A') }}</p>
+                            <p style="margin:0; font-size:12px;"><strong>Payment Status:</strong> <span style="color:#e67e22; font-weight:bold;">{{ ucfirst($createdSale->payment_status ?? 'paid') }}</span></p>
                         </div>
                     </div>
 
@@ -780,7 +767,21 @@
                                 
                                 <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
                                 <td class="text-end">{{ $item->quantity }}</td>
-                                <td class="text-end">Rs.{{ number_format($item->discount * $item->quantity, 2) }}</td>
+                                <td class="text-end">
+                                    @php
+                                        $discountPercent = 0;
+                                        if($item->discount_type === 'percentage' && $item->discount_percentage) {
+                                            $discountPercent = $item->discount_percentage;
+                                        } else if($item->discount > 0 && $item->unit_price > 0) {
+                                            $discountPercent = ($item->discount / $item->unit_price) * 100;
+                                        }
+                                    @endphp
+                                    @if($discountPercent > 0)
+                                        {{ number_format($discountPercent, 2) }}%
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                                 <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
                             </tr>
                             @endforeach
@@ -806,7 +807,21 @@
                             <div >
                                 <h4 style="margin:0 0 8px 0; border-bottom:1px solid #000; padding-bottom:8px;">ORDER SUMMARY</h4>
                                 <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Subtotal:</span><span>Rs.{{ number_format($createdSale->subtotal, 2) }}</span></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Total Discount:</span><span>Rs.{{ number_format($createdSale->discount_amount, 2) }}</span></div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span>Total Discount:</span>
+                                    <span>
+                                        @php
+                                        // Calculate total discount percentage
+                                        $itemDiscountTotal = $createdSale->items->sum(function($item) {
+                                            return ($item->discount_per_unit ?? 0) * $item->quantity;
+                                        });
+                                        $additionalDiscountAmount = is_numeric($createdSale->discount_amount) ? max(0, $createdSale->discount_amount - $itemDiscountTotal) : 0;
+                                        $totalDiscountAmount = $itemDiscountTotal + $additionalDiscountAmount;
+                                        $totalDiscountPercent = $createdSale->subtotal > 0 ? (($totalDiscountAmount / $createdSale->subtotal) * 100) : 0;
+                                        @endphp
+                                        {{ number_format($totalDiscountPercent, 2) }}%
+                                    </span>
+                                </div>
                                 <hr>
                                 <div style="display:flex; justify-content:space-between;"><strong>Grand Total:</strong><strong>Rs.{{ number_format($createdSale->total_amount, 2) }}</strong></div>
                             </div>
@@ -820,11 +835,7 @@
                             
                             <div style="flex:0 0 50%; text-align:center;"><p><strong>....................</strong></p><p><strong>Customer Signature</strong></p></div>
                         </div>
-                        <div style=" padding-top:10px;">
-                            <p style="margin:0; text-align:center;"><strong>ADDRESS :</strong> 421/2, Doolmala, thihariya, Kalagedihena.</p>
-                            <p style="margin:0; text-align:center;"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
-                            <p style="margin:0; text-align:center; font-size:11px; margin-top:8px;"><strong></strong></p>
-                        </div>
+                        
                     </div>
                 </div>
             </div>
@@ -1002,7 +1013,7 @@
                     }
 
                     body { 
-                        font-family: 'Courier New', monospace; 
+                        font-family: sans-serif; 
                         color: #000; 
                         background: #fff; 
                         padding: 10mm;

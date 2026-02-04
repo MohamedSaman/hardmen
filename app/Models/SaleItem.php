@@ -19,7 +19,9 @@ class SaleItem extends Model
         'unit_price',
         'discount_per_unit',
         'total_discount',
-        'total'
+        'total',
+        'discount_type',
+        'discount_percentage'
     ];
 
     protected $casts = [

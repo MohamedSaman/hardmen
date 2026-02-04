@@ -1,18 +1,36 @@
-<div class="container-fluid py-3">
-    {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h3 class="fw-bold text-dark mb-2">
-                <i class="bi bi-people-fill text-success me-2"></i> Manage Customers
-            </h3>
-            <p class="text-muted mb-0">Manage all customer information efficiently</p>
-        </div>
-        <div>
-            <button class="btn btn-primary" wire:click="createCustomer">
-                <i class="bi bi-plus-lg me-2"></i> Create Customer
-            </button>
+<div class="container-fluid py-2">
+    {{-- Header with Search Bar --}}
+
+    {{-- Products List Header --}}
+    <div class="mb-4">
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="bi bi-list-ul me-2"></i> Customers List
+        </h3>
+        <p class="text-muted mb-0">View and manage all customers in your system</p>
+    </div>
+    <div class="mb-4 p-4" style="box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 12px;">
+        <div class="d-flex align-items-center justify-content-between gap-3">
+            <div class="search-bar flex-grow-1">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0" id="product-search"
+                        wire:model.live="search" placeholder="Search Customers...">
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn" style="background-color: #17a2b8; color: white; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 500;" wire:click="openImportModal">
+                    <i class="bi bi-download me-2"></i> Import Excel
+                </button>
+                <button class="btn btn-primary" wire:click="createCustomer" style="background-color: #ff8c42; border-color: #ff8c42; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 500;">
+                    <i class="bi bi-plus-lg me-2"></i> Add Customer
+                </button>
+            </div>
         </div>
     </div>
+
+    
 
     @if (session()->has('error'))
     <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
@@ -31,14 +49,10 @@
     {{-- Customer List --}}
     <div class="card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-                <h5 class="fw-bold text-dark mb-1">
-                    <i class="bi bi-journal-text text-primary me-2"></i> Customer List
-                </h5>
-            </div>
+            <div></div>
             <div class="d-flex align-items-center gap-2">
                 <label class="text-sm text-muted fw-medium">Show</label>
-                <select wire:model.live="perPage" class="form-select form-select-sm" style="width: 80px;">
+                <select wire:model.live="perPage" class="form-select form-select-sm" style="width: 80px; border-radius: 8px;">
                     <option value="10">10</option>
                     <option value="25">25</option>
                     <option value="50">50</option>
@@ -80,6 +94,8 @@
                                     <span class="badge bg-success">Retail</span>
                                     @elseif($customer->type == 'wholesale')
                                     <span class="badge bg-info">Wholesale</span>
+                                    @elseif($customer->type == 'distributor')
+                                    <span class="badge bg-warning">Distributor</span>
                                     @else
                                     <span class="badge bg-secondary">N/A</span>
                                     @endif
@@ -221,6 +237,7 @@
                                     <option value="">Select customer type</option>
                                     <option value="retail">Retail</option>
                                     <option value="wholesale">Wholesale</option>
+                                    <option value="distributor">Distributor</option>
                                 </select>
                                 @error('customerType') <span class="text-danger small">{{ $message }}</span> @enderror
                             </div>
@@ -304,6 +321,7 @@
                                     <select class="form-select @error('editCustomerType') is-invalid @enderror" wire:model="editCustomerType" required>
                                         <option value="retail">Retail</option>
                                         <option value="wholesale">Wholesale</option>
+                                        <option value="distributor">Distributor</option>
                                     </select>
                                     @error('editCustomerType') <span class="text-danger small">{{ $message }}</span> @enderror
                                 </div>
@@ -373,6 +391,8 @@
                                             <span class="badge bg-success">Retail</span>
                                         @elseif(($viewCustomerDetail['type'] ?? '') == 'wholesale')
                                             <span class="badge bg-info">Wholesale</span>
+                                        @elseif(($viewCustomerDetail['type'] ?? '') == 'distributor')
+                                            <span class="badge bg-warning">Distributor</span>
                                         @else
                                             <span class="badge bg-secondary">N/A</span>
                                         @endif
@@ -438,6 +458,76 @@
                         <span wire:loading.remove>Delete Customer</span>
                         <span wire:loading>Deleting...</span>
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Import Excel Modal --}}
+    @if($showImportModal)
+    <div class="modal fade show d-block" tabindex="-1" aria-labelledby="importExcelModalLabel" aria-hidden="false" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-file-earmark-excel text-success me-2"></i> Import Customers
+                    </h5>
+                    <button type="button" class="btn-close" wire:click="closeImportModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Instructions:</strong> Download the sample template, fill it with your customer data, and upload it here. Supported formats: XLSX, XLS, CSV
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3">Step 1: Download Template</h6>
+                        <button type="button" class="btn btn-outline-success" wire:click="downloadTemplate">
+                            <i class="bi bi-download me-2"></i> Download Sample Template
+                        </button>
+                    </div>
+
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3">Step 2: Upload File</h6>
+                        <form wire:submit.prevent="importCustomers">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Select Excel File</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control @error('importFile') is-invalid @enderror" 
+                                           wire:model="importFile" accept=".xlsx,.xls,.csv">
+                                </div>
+                                @error('importFile') <span class="text-danger small d-block mt-2">{{ $message }}</span> @enderror
+                                @if($importFile)
+                                <small class="text-success d-block mt-2">
+                                    <i class="bi bi-check-circle me-1"></i> File selected: {{ $importFile->getClientOriginalName() }}
+                                </small>
+                                @endif
+                            </div>
+
+                            <div class="alert alert-warning" role="alert">
+                                <h6 class="fw-bold mb-2">
+                                    <i class="bi bi-exclamation-triangle me-2"></i> Important Notes:
+                                </h6>
+                                <ul class="mb-0 small">
+                                    <li><strong>Row 1:</strong> Headers (do not modify)</li>
+                                    <li><strong>Customer Name:</strong> Required field</li>
+                                    <li><strong>Contact Number:</strong> Use comma (,) or slash (/) to separate multiple numbers</li>
+                                    <li><strong>Customer Type:</strong> Must be "retail" or "wholesale"</li>
+                                    <li><strong>Duplicate Check:</strong> Customers with same name and phone will be skipped</li>
+                                </ul>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">
+                                    <i class="bi bi-upload me-2"></i>
+                                    <span wire:loading.remove>Import Customers</span>
+                                    <span wire:loading>Importing...</span>
+                                </button>
+                                <button type="button" class="btn btn-secondary" wire:click="closeImportModal">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
