@@ -439,17 +439,32 @@
                     @error('customerName') <span class="text-red-500 text-[9px] font-bold mt-1">{{ $message }}</span> @enderror
                 </div>
                 <div class="col-span-2 md:col-span-1">
-                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Phone Number *</label>
-                    <input type="text" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" wire:model="customerPhone" placeholder="07xxxxxxxx">
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Phone Number * </label>
+                    <input type="text" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" wire:model="customerPhone" placeholder="07xxxxxxxx or 07xxxx, 07yyyy / 09zzzz">
                     @error('customerPhone') <span class="text-red-500 text-[9px] font-bold mt-1">{{ $message }}</span> @enderror
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Customer Type *</label>
+                    <select class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" wire:model="customerType">
+                        <option value="">-- Select Type --</option>
+                        <option value="retail">Retail</option>
+                        <option value="wholesale">Wholesale</option>
+                        <option value="distributor">Distributor</option>
+                    </select>
+                    @error('customerType') <span class="text-red-500 text-[9px] font-bold mt-1">{{ $message }}</span> @enderror
                 </div>
                 <div class="col-span-2">
                     <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Email Address</label>
                     <input type="email" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" wire:model="customerEmail" placeholder="email@example.com">
+                    @error('customerEmail') <span class="text-red-500 text-[9px] font-bold mt-1">{{ $message }}</span> @enderror
                 </div>
                 <div class="col-span-2">
                     <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Billing Address</label>
                     <textarea class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" wire:model="customerAddress" rows="2" placeholder="Address..."></textarea>
+                </div>
+                <div class="col-span-2">
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Business Name</label>
+                    <input type="text" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" wire:model="businessName" placeholder="Business name...">
                 </div>
             </div>
             <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
@@ -829,13 +844,21 @@
                     </div>
 
                     <!-- Footer -->
-                    <div style="margin-top:40px; text-align:center; padding-top:12px;">
+                    <div style="margin-top:auto; text-align:center; padding-top:12px; display:flex; flex-direction:column;">
                         <div style="display:flex; justify-content:center; gap:20px; margin-bottom:12px;">
                             <div style="flex:0 0 50%; text-align:center;"><p><strong>....................</strong></p><p><strong>Authorized Signature</strong></p></div>
                             
                             <div style="flex:0 0 50%; text-align:center;"><p><strong>....................</strong></p><p><strong>Customer Signature</strong></p></div>
                         </div>
                         
+                        <div>
+                            <p style="margin:0; font-size:12px;">Thank you for your business!</p>
+                            <p style="margin:0; font-size:12px; display:flex; align-items:center; justify-content:center; gap:12px;">
+                                <span class="material-symbols-outlined" style="font-size:14px;"></span> www.hardmen.lk
+                                <span class="material-symbols-outlined" style="font-size:14px;"></span> info@hardmen.lk
+                            </p>
+                            
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1028,10 +1051,14 @@
                         background: white;
                         display: flex;
                         flex-direction: column;
-                        min-height: calc(100vh - 20mm);
+                        min-height: 100vh;
+                        page-break-inside: avoid;
                     }
 
-                    .receipt-footer { margin-top: auto !important; }
+                    .receipt-footer { 
+                        margin-top: auto !important; 
+                        page-break-inside: avoid;
+                    }
                     
                     .receipt-header { 
                         border-bottom: 3px solid #000; 

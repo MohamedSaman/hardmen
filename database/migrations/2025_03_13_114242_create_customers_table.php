@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('business_name')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
-            $table->enum('type', ['retail', 'wholesale', 'distributor'])->default('retail');
+            $table->enum('type', ['retail', 'wholesale'])->default('retail');
             $table->text('address')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();

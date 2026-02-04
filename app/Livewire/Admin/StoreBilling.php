@@ -918,16 +918,16 @@ class StoreBilling extends Component
     {
         $this->validate([
             'customerName' => 'required|string|max:255',
-            'customerPhone' => 'nullable|string|max:10|unique:customers,phone',
+            'customerPhone' => 'required|string|regex:/^[0-9\s,\/\-\+]+$/',
             'customerEmail' => 'nullable|email|unique:customers,email',
-            'customerAddress' => 'required|string',
-            'customerType' => 'required|in:retail,wholesale',
+            'customerAddress' => 'nullable|string',
+            'customerType' => 'required|in:retail,wholesale,distributor',
         ]);
 
         try {
             $customer = Customer::create([
                 'name' => $this->customerName,
-                'phone' => $this->customerPhone ?: null,
+                'phone' => $this->customerPhone,
                 'email' => $this->customerEmail,
                 'address' => $this->customerAddress,
                 'type' => $this->customerType,
@@ -939,9 +939,10 @@ class StoreBilling extends Component
             $this->customerId = $customer->id;
             $this->selectedCustomer = $customer;
             $this->closeCustomerModal();
+            $this->resetCustomerFields();
 
-            // Set success message in session
-            session()->flash('customer_success', 'Customer created successfully!');
+            // Show success toast notification
+            $this->showToast('success', 'Customer "' . $customer->name . '" created successfully!');
         } catch (\Exception $e) {
             $this->showToast('error', 'Failed to create customer: ' . $e->getMessage());
         }
