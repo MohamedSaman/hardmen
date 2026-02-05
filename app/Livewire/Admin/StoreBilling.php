@@ -191,30 +191,39 @@ class StoreBilling extends Component
         // Check for open session
         $this->currentSession = POSSession::getTodaySession(Auth::id());
 
-        // If no session exists OR session is closed, show opening cash modal
-        // This ensures modal shows on:
-        // 1. First time opening POS each day (no session exists)
-        // 2. After closing and reopening POS (session exists but is closed)
+        // If no session exists OR session is closed, auto-create with 0 cash in hand
         if (!$this->currentSession || $this->currentSession->isClosed()) {
+            // Always start with 0 cash in hand for each day
+            $this->openingCashAmount = 0;
 
-            // Check if there's an existing session for today (closed or open)
-            $todaySession = POSSession::where('user_id', Auth::id())
-                ->whereDate('session_date', now()->toDateString())
-                ->first();
+            // Auto-submit opening cash with 0 amount
+            try {
+                DB::beginTransaction();
 
-            if ($todaySession) {
-                // If session exists (reopening scenario), use the session's opening cash
-                $this->openingCashAmount = $todaySession->opening_cash;
-            } else {
-                // If no session exists (first time opening), get from cash_in_hands table
-                $cashInHandRecord = DB::table('cash_in_hands')
-                    ->whereIn('key', ['cash_amount', 'cash in hand'])
+                // Check if a closed session exists for today
+                $existingSession = POSSession::where('user_id', Auth::id())
+                    ->whereDate('session_date', now()->toDateString())
+                    ->where('status', 'closed')
                     ->first();
-                $this->openingCashAmount = $cashInHandRecord ? $cashInHandRecord->value : 0;
-            }
 
-            // Show opening cash modal
-            $this->showOpeningCashModal = true;
+                if ($existingSession) {
+                    // Reopen existing closed session with 0 opening cash
+                    $existingSession->update([
+                        'status' => 'open',
+                        'opening_cash' => 0,
+                        'closed_at' => null,
+                    ]);
+                    $this->currentSession = $existingSession;
+                } else {
+                    // Create new POS session with 0 opening cash
+                    $this->currentSession = POSSession::openSession(Auth::id(), 0);
+                }
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error('Failed to auto-initialize POS session: ' . $e->getMessage());
+            }
         }
 
         $this->loadCustomers();
@@ -591,6 +600,29 @@ class StoreBilling extends Component
         });
     }
 
+    public function getTotalDiscountPercentageProperty()
+    {
+        $subtotalBeforeDiscount = collect($this->cart)->sum(function ($item) {
+            return ($item['price'] * $item['quantity']);
+        });
+
+        if ($subtotalBeforeDiscount == 0) {
+            return 0;
+        }
+
+        // Get item discounts total
+        $itemDiscountsTotal = $this->totalDiscount;
+
+        // Get additional discount amount
+        $additionalDiscountTotal = $this->additionalDiscountAmount;
+
+        // Combined total discount
+        $combinedDiscount = $itemDiscountsTotal + $additionalDiscountTotal;
+
+        // Calculate percentage
+        return ($combinedDiscount / $subtotalBeforeDiscount) * 100;
+    }
+
     public function getSubtotalAfterItemDiscountsProperty()
     {
         return $this->subtotal;
@@ -886,16 +918,16 @@ class StoreBilling extends Component
     {
         $this->validate([
             'customerName' => 'required|string|max:255',
-            'customerPhone' => 'nullable|string|max:10|unique:customers,phone',
+            'customerPhone' => 'required|string|regex:/^[0-9\s,\/\-\+]+$/',
             'customerEmail' => 'nullable|email|unique:customers,email',
-            'customerAddress' => 'required|string',
-            'customerType' => 'required|in:retail,wholesale',
+            'customerAddress' => 'nullable|string',
+            'customerType' => 'required|in:retail,wholesale,distributor',
         ]);
 
         try {
             $customer = Customer::create([
                 'name' => $this->customerName,
-                'phone' => $this->customerPhone ?: null,
+                'phone' => $this->customerPhone,
                 'email' => $this->customerEmail,
                 'address' => $this->customerAddress,
                 'type' => $this->customerType,
@@ -907,9 +939,10 @@ class StoreBilling extends Component
             $this->customerId = $customer->id;
             $this->selectedCustomer = $customer;
             $this->closeCustomerModal();
+            $this->resetCustomerFields();
 
-            // Set success message in session
-            session()->flash('customer_success', 'Customer created successfully!');
+            // Show success toast notification
+            $this->showToast('success', 'Customer "' . $customer->name . '" created successfully!');
         } catch (\Exception $e) {
             $this->showToast('error', 'Failed to create customer: ' . $e->getMessage());
         }
@@ -1172,12 +1205,14 @@ class StoreBilling extends Component
                 'price' => $product['price'],
                 'quantity' => 1,
                 'discount' => $discountPrice,
+                'discount_type' => 'fixed',  // Default discount type
+                'discount_percentage' => 0,  // Store percentage value if applicable
                 'total' => $product['price'] - $discountPrice,
                 'stock' => $product['stock'],
                 'image' => $product['image'] ?? null
             ];
 
-            // Prepend new item to the beginning of the cart so it appears at the top
+            // Prepend new item to the beginning of the cart so latest appears at top
             array_unshift($this->cart, $newItem);
         }
 
@@ -1360,6 +1395,8 @@ class StoreBilling extends Component
         $discountAmount = min($discountAmount, $price);
 
         $this->cart[$index]['discount'] = round($discountAmount, 2);
+        $this->cart[$index]['discount_type'] = $this->itemDiscountType;  // Store type: 'percentage' or 'fixed'
+        $this->cart[$index]['discount_percentage'] = $this->itemDiscountType === 'percentage' ? $this->itemDiscountValue : 0;
         $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
 
         $this->showItemDiscountModal = false;
@@ -1631,6 +1668,8 @@ class StoreBilling extends Component
                 'customer_type' => $customer->type,
                 'subtotal' => $this->subtotal,
                 'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
+                'additional_discount_type' => $this->additionalDiscountType,
+                'additional_discount_percentage' => $this->additionalDiscountType === 'percentage' ? $this->additionalDiscount : 0,
                 'total_amount' => $this->grandTotal,
                 'payment_type' => $this->databasePaymentType,
                 'payment_status' => $this->paymentStatus,
@@ -1656,6 +1695,8 @@ class StoreBilling extends Component
                     'unit_price' => $item['price'],
                     'discount_per_unit' => $item['discount'],
                     'total_discount' => $item['discount'] * $item['quantity'],
+                    'discount_type' => $item['discount_type'] ?? 'fixed',
+                    'discount_percentage' => $item['discount_percentage'] ?? 0,
                     'total' => $item['total']
                 ]);
 
