@@ -21,7 +21,9 @@ class SaleItem extends Model
         'total_discount',
         'total',
         'discount_type',
-        'discount_percentage'
+        'discount_percentage',
+        'variant_id',
+        'variant_value'
     ];
 
     protected $casts = [

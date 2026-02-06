@@ -1789,6 +1789,7 @@ class StoreBilling extends Component
                     'payment_status' => $this->paymentStatus,
                     'due_amount' => $this->dueAmount,
                     'notes' => $this->notes,
+                    'delivery_status' => 'delivered',
                 ]);
             } else {
                 // CREATE NEW SALE
@@ -1808,7 +1809,8 @@ class StoreBilling extends Component
                     'notes' => $this->notes,
                     'user_id' => Auth::id(),
                     'status' => 'confirm',
-                    'sale_type' => 'pos'
+                    'sale_type' => 'pos',
+                    'delivery_status' => 'delivered'
                 ]);
             }
 

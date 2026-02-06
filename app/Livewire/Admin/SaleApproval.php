@@ -20,10 +20,11 @@ class SaleApproval extends Component
     use WithPagination,  WithPagination;
 
     public $search = '';
-    public $statusFilter = '';
+    public $statusFilter = 'pending';
     public $selectedSale = null;
     public $showDetailsModal = false;
     public $showRejectModal = false;
+    public $showApproveModal = false;
     public $rejectionReason = '';
     public $perPage = 10;
 
@@ -55,12 +56,16 @@ class SaleApproval extends Component
     /**
      * Approve a sale and reduce stock
      */
-    public function approveSale($saleId)
+    public function approveSale()
     {
+        if (!$this->selectedSale) {
+            return;
+        }
+
         try {
             DB::beginTransaction();
 
-            $sale = Sale::with('items')->find($saleId);
+            $sale = Sale::with('items')->find($this->selectedSale->id);
 
             if (!$sale || $sale->status !== 'pending') {
                 $this->dispatch('show-toast', type: 'error', message: 'Sale not found or already processed.');
@@ -69,35 +74,70 @@ class SaleApproval extends Component
 
             // Update stock for each item
             foreach ($sale->items as $item) {
-                $stock = ProductStock::where('product_id', $item->product_id)->first();
+                // Check if item has variant
+                if ($item->variant_id || $item->variant_value) {
+                    // Handle variant stock
+                    $stock = ProductStock::where('product_id', $item->product_id)
+                        ->where(function ($q) use ($item) {
+                            if ($item->variant_id) {
+                                $q->where('variant_id', $item->variant_id);
+                            }
+                            if ($item->variant_value) {
+                                $q->where('variant_value', $item->variant_value);
+                            }
+                        })
+                        ->first();
+                } else {
+                    // Handle single product stock
+                    $stock = ProductStock::where('product_id', $item->product_id)
+                        ->whereNull('variant_value')
+                        ->first();
+                }
 
                 if ($stock) {
                     if ($stock->available_stock < $item->quantity) {
                         DB::rollBack();
                         $this->dispatch('show-toast', type: 'error', message: "Insufficient stock for {$item->product_name}. Available: {$stock->available_stock}");
+                        $this->closeApproveModal();
                         return;
                     }
 
                     $stock->available_stock -= $item->quantity;
+                    $stock->total_stock -= $item->quantity;
                     $stock->save();
+                } else {
+                    DB::rollBack();
+                    $this->dispatch('show-toast', type: 'error', message: "Stock record not found for {$item->product_name}.");
+                    $this->closeApproveModal();
+                    return;
                 }
             }
 
-            // Update sale status
+            // Update sale status and set due amount
             $sale->update([
                 'status' => 'confirm',
                 'approved_by' => Auth::id(),
                 'approved_at' => now(),
+                'due_amount' => $sale->total_amount,
             ]);
+
+            // Update customer due amount
+            $customer = $sale->customer;
+            if ($customer) {
+                $customer->due_amount = ($customer->due_amount ?? 0) + $sale->total_amount;
+                $customer->save();
+            }
 
             DB::commit();
 
+            $this->closeApproveModal();
             $this->closeDetailsModal();
             $this->dispatch('show-toast', type: 'success', message: 'Sale approved successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Sale approval error: ' . $e->getMessage());
             $this->dispatch('show-toast', type: 'error', message: 'Error approving sale: ' . $e->getMessage());
+            $this->closeApproveModal();
         }
     }
 
@@ -113,6 +153,18 @@ class SaleApproval extends Component
         $this->showRejectModal = false;
         $this->selectedSale = null;
         $this->rejectionReason = '';
+    }
+
+    public function openApproveModal($saleId)
+    {
+        $this->selectedSale = Sale::with('items')->find($saleId);
+        $this->showApproveModal = true;
+    }
+
+    public function closeApproveModal()
+    {
+        $this->showApproveModal = false;
+        $this->selectedSale = null;
     }
 
     /**
@@ -153,12 +205,9 @@ class SaleApproval extends Component
             $query->where('user_id', Auth::id());
         }
 
-        // Default filter - show pending sales for approval
-        // If statusFilter is set, use that instead
-        if ($this->statusFilter) {
+        // Apply status filter - only if statusFilter is not empty
+        if ($this->statusFilter !== '') {
             $query->where('status', $this->statusFilter);
-        } else {
-            $query->where('status', 'pending');
         }
 
         $query->when($this->search, function ($q) {

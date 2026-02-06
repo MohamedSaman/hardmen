@@ -74,7 +74,7 @@
             left: 0;
             width: 270px;
             height: 100vh;
-            background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+            background: linear-gradient(180deg, #cec1a5 0%, #bf9038 100%);
             color: #ffffff;
             z-index: 1030;
             transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -317,10 +317,10 @@
                 {{-- Delivery Section --}}
                 @if($permissionModel->hasPermission($staffType, 'view_pending_deliveries'))
                 <li class="nav-item">
-                    <a class="nav-link dropdown-toggle" href="#deliverySubmenu" data-bs-toggle="collapse" role="button" aria-expanded="true" aria-controls="deliverySubmenu">
+                    <a class="nav-link dropdown-toggle" href="#deliverySubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="deliverySubmenu">
                         <i class="bi bi-truck"></i> <span>Delivery</span>
                     </a>
-                    <div class="collapse show" id="deliverySubmenu">
+                    <div class="collapse" id="deliverySubmenu">
                         <ul class="nav flex-column ms-3">
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('delivery.pending') ? 'active' : '' }}" href="{{ route('delivery.pending') }}">
@@ -340,10 +340,10 @@
                 {{-- Payment Collection Section --}}
                 @if($permissionModel->hasPermission($staffType, 'collect_payments'))
                 <li class="nav-item">
-                    <a class="nav-link dropdown-toggle" href="#paymentsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="true" aria-controls="paymentsSubmenu">
+                    <a class="nav-link dropdown-toggle" href="#paymentsSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="paymentsSubmenu">
                         <i class="bi bi-credit-card"></i> <span>Payments</span>
                     </a>
-                    <div class="collapse show" id="paymentsSubmenu">
+                    <div class="collapse" id="paymentsSubmenu">
                         <ul class="nav flex-column ms-3">
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('delivery.payments') ? 'active' : '' }}" href="{{ route('delivery.payments') }}">
@@ -358,10 +358,10 @@
                 {{-- Finance Section --}}
                 @if($permissionModel->hasPermission($staffType, 'add_expenses'))
                 <li class="nav-item">
-                    <a class="nav-link dropdown-toggle" href="#financeSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="true" aria-controls="financeSubmenu">
+                    <a class="nav-link dropdown-toggle" href="#financeSubmenu" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="financeSubmenu">
                         <i class="bi bi-bank"></i> <span>Finance</span>
                     </a>
-                    <div class="collapse show" id="financeSubmenu">
+                    <div class="collapse" id="financeSubmenu">
                         <ul class="nav flex-column ms-3">
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('delivery.expenses') ? 'active' : '' }}" href="{{ route('delivery.expenses') }}">

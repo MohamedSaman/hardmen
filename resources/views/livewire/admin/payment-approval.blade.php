@@ -73,8 +73,7 @@
                             <td class="text-end pe-4">
                                 @if($payment->status === 'pending')
                                 <div class="btn-group">
-                                    <button wire:click="approvePayment({{ $payment->id }})" class="btn btn-sm btn-success"
-                                            wire:confirm="Are you sure you want to approve this payment?">
+                                    <button wire:click="openApproveModal({{ $payment->id }})" class="btn btn-sm btn-success">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
                                     <button wire:click="openRejectModal({{ $payment->id }})" class="btn btn-sm btn-danger">
@@ -104,6 +103,65 @@
     <div class="mt-4">
         {{ $payments->links() }}
     </div>
+
+    {{-- Approve Modal --}}
+    @if($showApproveModal && $selectedPayment)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-check-circle me-2"></i>Approve Payment</h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closeApproveModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="bg-light rounded p-3 mb-3">
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Customer</small>
+                                <span class="fw-bold">{{ $selectedPayment->customer->name ?? ($selectedPayment->sale->customer->name ?? 'N/A') }}</span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Amount</small>
+                                <span class="fw-bold text-success">Rs. {{ number_format($selectedPayment->amount, 2) }}</span>
+                            </div>
+                        </div>
+                        <hr class="my-2">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Payment Method</small>
+                                <span class="fw-medium">{{ ucfirst(str_replace('_', ' ', $selectedPayment->payment_method)) }}</span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Collected By</small>
+                                <span class="fw-medium">{{ $selectedPayment->collectedBy->name ?? 'N/A' }}</span>
+                            </div>
+                        </div>
+                        <hr class="my-2">
+                        <div>
+                            <small class="text-muted d-block">Collected At</small>
+                            <span class="fw-medium">{{ $selectedPayment->collected_at?->format('M d, Y H:i A') ?? 'N/A' }}</span>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Approving this payment will update the customer's due amount and mark this payment as approved.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" wire:click="closeApproveModal">Cancel</button>
+                    <button wire:click="approvePayment" class="btn btn-success" wire:loading.attr="disabled">
+                        <span wire:loading.remove wire:target="approvePayment">
+                            <i class="bi bi-check-lg me-2"></i>Approve Payment
+                        </span>
+                        <span wire:loading wire:target="approvePayment">
+                            <span class="spinner-border spinner-border-sm me-2"></span>Processing...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- Reject Modal --}}
     @if($showRejectModal && $selectedPayment)

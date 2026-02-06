@@ -115,10 +115,11 @@
                         @forelse($customers as $customer)
                         @php
                         $dueInvoices = $customer->sales->whereIn('payment_status', ['pending', 'partial'])->count();
-                        $totalDue = $customer->sales->whereIn('payment_status', ['pending', 'partial'])->sum(function($sale) {
+                        $salesDue = $customer->sales->whereIn('payment_status', ['pending', 'partial'])->sum(function($sale) {
                         $returnAmount = $sale->returns ? $sale->returns->sum('total_amount') : 0;
                         return max(0, $sale->due_amount - $returnAmount);
                         });
+                        $totalDue = ($customer->opening_balance ?? 0) + $salesDue;
                         @endphp
                         <tr wire:key="customer-{{ $customer->id }}">
                             <td class="ps-4">

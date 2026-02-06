@@ -256,11 +256,12 @@ class SalesmanBilling extends Component
                             if ($variantPrice && $variantStock) {
                                 $price = $variantPrice->distributor_price ?? 0;
 
-                                // Get pending quantity for this variant
+                                // Get pending quantity for this specific variant
                                 $pendingQuantity = SaleItem::whereHas('sale', function ($q) {
                                     $q->where('status', 'pending');
                                 })
                                     ->where('product_id', $product->id)
+                                    ->where('variant_value', $variantValue)
                                     ->sum('quantity');
 
                                 $availableStock = max(0, ($variantStock->available_stock ?? 0) - $pendingQuantity);
@@ -544,6 +545,8 @@ class SalesmanBilling extends Component
                         'discount_per_unit' => $item['discount'],
                         'total_discount' => $item['discount'] * $item['quantity'],
                         'total' => $item['total'],
+                        'variant_id' => $item['variant_id'] ?? null,
+                        'variant_value' => $item['variant_value'] ?? null,
                     ]);
                 }
 
@@ -583,6 +586,8 @@ class SalesmanBilling extends Component
                         'discount_per_unit' => $item['discount'],
                         'total_discount' => $item['discount'] * $item['quantity'],
                         'total' => $item['total'],
+                        'variant_id' => $item['variant_id'] ?? null,
+                        'variant_value' => $item['variant_value'] ?? null,
                     ]);
                 }
 

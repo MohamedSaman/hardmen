@@ -222,11 +222,32 @@ class AddCustomerReceipt extends Component
     }
 
     /**
-     * Load customer sales with return amounts calculated
+     * Load customer sales with return amounts calculated and opening balance
      */
     private function loadCustomerSales()
     {
         if (!$this->selectedCustomer) return;
+
+        // Start with opening balance if customer has one
+        $salesList = [];
+        if ($this->selectedCustomer->opening_balance > 0) {
+            $salesList[] = [
+                'id' => 'opening_balance_' . $this->selectedCustomer->id,
+                'invoice_number' => 'Opening Balance',
+                'sale_id' => 'OB',
+                'sale_date' => 'N/A',
+                'original_total_amount' => $this->selectedCustomer->opening_balance,
+                'total_amount' => $this->selectedCustomer->opening_balance,
+                'original_due_amount' => $this->selectedCustomer->opening_balance,
+                'due_amount' => $this->selectedCustomer->opening_balance,
+                'return_amount' => 0,
+                'paid_amount' => 0,
+                'payment_status' => 'pending',
+                'items_count' => 0,
+                'has_returns' => false,
+                'is_opening_balance' => true,
+            ];
+        }
 
         $query = Sale::with(['items', 'payments', 'returns'])
             ->where('customer_id', $this->selectedCustomer->id)
@@ -243,7 +264,7 @@ class AddCustomerReceipt extends Component
         $sales = $query->orderBy('created_at', 'asc')
             ->get();
 
-        $this->customerSales = $sales->map(function ($sale) {
+        $mappedSales = $sales->map(function ($sale) {
             $paidAmount = $sale->total_amount - $sale->due_amount;
 
             // Calculate total return amount for this sale
@@ -272,17 +293,21 @@ class AddCustomerReceipt extends Component
                 'payment_status' => $adjustedDueAmount <= 0.01 ? 'paid' : $sale->payment_status,
                 'items_count' => $sale->items->count(),
                 'has_returns' => $returnAmount > 0,
+                'is_opening_balance' => false,
             ];
         })->filter(function ($sale) {
             // Only show sales with due amount > 0 after returns
             return $sale['due_amount'] > 0.01;
         })->values()->toArray();
 
+        // Merge opening balance with sales
+        $this->customerSales = array_merge($salesList, $mappedSales);
+
         $this->calculateTotalDue();
     }
 
     /**
-     * Calculate total due amount for selected invoices
+     * Calculate total due amount for selected invoices (including opening balance if selected)
      */
     private function calculateTotalDue()
     {
@@ -627,40 +652,60 @@ class AddCustomerReceipt extends Component
 
                 if ($paymentAmount <= 0) continue;
 
-                // Update sale with adjusted due amount
-                $saleModel = Sale::find($saleId);
-                if ($saleModel) {
-                    $newDueAmount = $saleModel->due_amount - $paymentAmount;
-                    $returnAmount = $this->calculateReturnAmount($saleId);
+                // Check if this is opening balance
+                if (isset($sale['is_opening_balance']) && $sale['is_opening_balance']) {
+                    // Reduce opening balance from customer table
+                    $newOpeningBalance = max(0, $this->selectedCustomer->opening_balance - $paymentAmount);
+                    $this->selectedCustomer->opening_balance = $newOpeningBalance;
+                    $this->selectedCustomer->save();
 
-                    // Adjust for returns
-                    $adjustedDueAmount = max(0, $newDueAmount - $returnAmount);
-                    $saleModel->due_amount = $adjustedDueAmount;
-
-                    if ($saleModel->due_amount <= 0.01) {
-                        $saleModel->payment_status = 'paid';
-                        $saleModel->due_amount = 0;
-                    } else {
-                        $saleModel->payment_status = 'partial';
-                    }
-
-                    $saleModel->save();
-
-                    // Create payment allocation record
-                    DB::table('payment_allocations')->insert([
-                        'payment_id' => $payment->id,
-                        'sale_id' => $saleId,
-                        'allocated_amount' => $paymentAmount,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-
-                    Log::info('Sale updated and allocation created', [
-                        'sale_id' => $saleId,
+                    Log::info('Opening balance reduced', [
+                        'customer_id' => $this->selectedCustomer->id,
                         'payment_amount' => $paymentAmount,
-                        'return_amount' => $returnAmount,
-                        'new_due' => $saleModel->due_amount
+                        'remaining_balance' => $newOpeningBalance
                     ]);
+                } else {
+                    // Update sale with adjusted due amount
+                    $saleModel = Sale::find($saleId);
+                    if ($saleModel) {
+                        $newDueAmount = $saleModel->due_amount - $paymentAmount;
+                        $returnAmount = $this->calculateReturnAmount($saleId);
+
+                        // Adjust for returns
+                        $adjustedDueAmount = max(0, $newDueAmount - $returnAmount);
+                        $saleModel->due_amount = $adjustedDueAmount;
+
+                        if ($saleModel->due_amount <= 0.01) {
+                            $saleModel->payment_status = 'paid';
+                            $saleModel->due_amount = 0;
+                        } else {
+                            $saleModel->payment_status = 'partial';
+                        }
+
+                        $saleModel->save();
+
+                        // Create payment allocation record
+                        DB::table('payment_allocations')->insert([
+                            'payment_id' => $payment->id,
+                            'sale_id' => $saleId,
+                            'allocated_amount' => $paymentAmount,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                        Log::info('Sale updated and allocation created', [
+                            'sale_id' => $saleId,
+                            'payment_amount' => $paymentAmount,
+                            'return_amount' => $returnAmount,
+                            'new_due' => $saleModel->due_amount
+                        ]);
+                    }
+                }
+
+                // Also reduce customer's due_amount
+                if ($this->selectedCustomer->due_amount > 0) {
+                    $this->selectedCustomer->due_amount = max(0, $this->selectedCustomer->due_amount - $paymentAmount);
+                    $this->selectedCustomer->save();
                 }
 
                 $totalProcessed += $paymentAmount;
@@ -779,6 +824,21 @@ class AddCustomerReceipt extends Component
         }
     }
 
+    /**
+     * Calculate customer total due amount including opening balance
+     */
+    public function getCustomerTotalDue($customer)
+    {
+        $salesDue = $customer->sales
+            ->whereIn('payment_status', ['pending', 'partial'])
+            ->sum(function ($sale) {
+                $returnAmount = $sale->returns ? $sale->returns->sum('total_amount') : 0;
+                return max(0, $sale->due_amount - $returnAmount);
+            });
+
+        return ($customer->opening_balance ?? 0) + $salesDue;
+    }
+
     public function getCustomersProperty()
     {
         return Customer::with(['sales' => function ($query) {
@@ -803,25 +863,29 @@ class AddCustomerReceipt extends Component
                 }
             }
         }])
-            ->whereHas('sales', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('payment_status', 'pending')
-                        ->orWhere('payment_status', 'partial');
-                });
+            ->where(function ($query) {
+                // Show customers with either pending/partial sales OR opening balance
+                $query->whereHas('sales', function ($q) {
+                    $q->where(function ($sq) {
+                        $sq->where('payment_status', 'pending')
+                            ->orWhere('payment_status', 'partial');
+                    });
 
-                // Apply the same user filter to whereHas
-                if ($this->userFilter !== 'all') {
-                    if ($this->userFilter === 'admin') {
-                        $query->where(function ($q) {
-                            $q->whereNull('user_id')
-                                ->orWhereHas('user', function ($userQuery) {
-                                    $userQuery->where('role', 'admin');
-                                });
-                        });
-                    } else {
-                        $query->where('user_id', $this->userFilter);
+                    // Apply the same user filter to whereHas
+                    if ($this->userFilter !== 'all') {
+                        if ($this->userFilter === 'admin') {
+                            $q->where(function ($sq) {
+                                $sq->whereNull('user_id')
+                                    ->orWhereHas('user', function ($userQuery) {
+                                        $userQuery->where('role', 'admin');
+                                    });
+                            });
+                        } else {
+                            $q->where('user_id', $this->userFilter);
+                        }
                     }
-                }
+                })
+                    ->orWhere('opening_balance', '>', 0); // Also show if they have opening balance
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {

@@ -74,7 +74,7 @@
             left: 0;
             width: 270px;
             height: 100vh;
-            background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+            background: linear-gradient(180deg, #cec1a5 0%, #bf9038 100%);
             color: #ffffff;
             z-index: 1030;
             transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);

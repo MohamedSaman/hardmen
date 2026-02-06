@@ -21,6 +21,7 @@ class PaymentApproval extends Component
     public $search = '';
     public $statusFilter = 'pending';
     public $selectedPayment = null;
+    public $showApproveModal = false;
     public $showRejectModal = false;
     public $rejectionReason = '';
 
@@ -36,20 +37,33 @@ class PaymentApproval extends Component
         $this->resetPage();
     }
 
+    public function openApproveModal($paymentId)
+    {
+        $this->selectedPayment = Payment::with('sale.customer', 'collectedBy')->find($paymentId);
+        $this->showApproveModal = true;
+    }
+
+    public function closeApproveModal()
+    {
+        $this->showApproveModal = false;
+        $this->selectedPayment = null;
+    }
+
     /**
-     * Approve a payment and update sale due amount
+     * Approve a payment and update sale due amounts and opening balance
      */
-    public function approvePayment($paymentId)
+    public function approvePayment()
     {
         try {
             DB::beginTransaction();
 
-            $payment = Payment::with('sale')->find($paymentId);
-
-            if (!$payment || $payment->status !== 'pending') {
+            if (!$this->selectedPayment || $this->selectedPayment->status !== 'pending') {
                 $this->dispatch('show-toast', type: 'error', message: 'Payment not found or already processed.');
                 return;
             }
+
+            $payment = $this->selectedPayment;
+            $customer = $payment->customer;
 
             // Update payment status
             $payment->update([
@@ -59,20 +73,47 @@ class PaymentApproval extends Component
                 'is_completed' => true,
             ]);
 
-            // Update sale due amount if payment is linked to a sale
-            if ($payment->sale) {
-                $newDueAmount = max(0, $payment->sale->due_amount - $payment->amount);
-                $paymentStatus = $newDueAmount > 0 ? 'partial' : 'paid';
+            // Get payment allocations to process
+            $allocations = DB::table('payment_allocations')
+                ->where('payment_id', $payment->id)
+                ->get();
 
-                $payment->sale->update([
-                    'due_amount' => $newDueAmount,
-                    'payment_status' => $paymentStatus,
-                    'payment_type' => $newDueAmount > 0 ? 'partial' : 'full',
+            // Process each allocation
+            foreach ($allocations as $allocation) {
+                if ($allocation->sale_id) {
+                    // Update sale due amount
+                    $sale = Sale::find($allocation->sale_id);
+                    if ($sale) {
+                        $newDueAmount = max(0, $sale->due_amount - $allocation->allocated_amount);
+                        $paymentStatus = $newDueAmount > 0 ? 'partial' : 'paid';
+
+                        $sale->update([
+                            'due_amount' => $newDueAmount,
+                            'payment_status' => $paymentStatus,
+                            'payment_type' => $newDueAmount > 0 ? 'partial' : 'full',
+                        ]);
+                    }
+                } else {
+                    // Opening balance payment (sale_id is null)
+                    if ($customer) {
+                        $newOpeningBalance = max(0, $customer->opening_balance - $allocation->allocated_amount);
+                        $customer->opening_balance = $newOpeningBalance;
+                        $customer->save();
+                    }
+                }
+            }
+
+            // Reduce customer's total due_amount
+            if ($customer) {
+                $newCustomerDueAmount = max(0, $customer->due_amount - $payment->amount);
+                $customer->update([
+                    'due_amount' => $newCustomerDueAmount,
                 ]);
             }
 
             DB::commit();
 
+            $this->closeApproveModal();
             $this->dispatch('show-toast', type: 'success', message: 'Payment approved successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
