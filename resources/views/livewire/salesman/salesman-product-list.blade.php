@@ -35,49 +35,64 @@
     </div>
 
     {{-- Products Grid --}}
-    <div class="row g-4">
+    <div class="row g-3">
         @forelse($products as $product)
         @php
             $info = $stockInfo[$product->id] ?? ['stock' => 0, 'available' => 0, 'pending' => 0];
+            $imageUrl = $product->image ? asset('storage/' . $product->image) : null;
         @endphp
-        <div class="col-md-6 col-lg-4 col-xl-3">
-            <div class="card border-0 shadow-sm h-100" style="cursor: pointer;" wire:click="viewProduct({{ $product->id }})">
-                @if($product->image)
-                <img src="{{ asset('storage/' . $product->image) }}" class="card-img-top" alt="{{ $product->name }}" style="height: 150px; object-fit: cover;">
-                @else
-                <div class="bg-light d-flex align-items-center justify-content-center" style="height: 150px;">
-                    <i class="bi bi-box text-muted fs-1"></i>
+        
+        {{-- Product Card - 5 per row --}}
+        <div class="col-6 col-md-4 col-lg-3 col-xl-2-4">
+            <div class="card border-0 shadow-sm h-100 product-card" style="cursor: pointer; transition: all 0.3s ease;" wire:click="viewProduct({{ $product->id }})">
+                {{-- Product Image --}}
+                <div style="height: 180px; overflow: hidden; background-color: #f8f9fa;" class="position-relative">
+                    @if($imageUrl)
+                        <img src="{{ $imageUrl }}" class="w-100 h-100" alt="{{ $product->name }}" style="object-fit: cover; object-position: center;" onerror="this.parentElement.querySelector('.box-icon').style.display='flex';">
+                    @endif
+                    <div class="box-icon w-100 h-100 d-flex align-items-center justify-content-center" style="{{ $imageUrl ? 'display: none;' : '' }}">
+                        <i class="bi bi-box text-muted" style="font-size: 3rem;"></i>
+                    </div>
+                    @if($product->variant_id)
+                        <span class="badge bg-primary position-absolute" style="top: 10px; right: 10px;">Variant</span>
+                    @endif
                 </div>
-                @endif
-                <div class="card-body">
-                    <h6 class="card-title fw-bold mb-1">{{ $product->name }}</h6>
-                    <p class="text-muted small mb-2">
-                        <span class="badge bg-secondary">{{ $product->code }}</span>
+                
+                {{-- Product Info --}}
+                <div class="card-body pb-2">
+                    <h6 class="card-title fw-bold mb-2" style="font-size: 13px; line-height: 1.4;">{{ $product->name }}</h6>
+                    @if($product->variant_id && $product->variant)
+                        <p class="mb-2" style="font-size: 12px;">
+                            <span class="badge bg-purple">{{ $product->variant->variant_name ?? 'Variant' }}</span>
+                        </p>
+                    @endif
+                    <div class="mb-2">
+                        <span class="badge bg-secondary" style="font-size: 10px;">{{ $product->code }}</span>
                         @if($product->category)
-                        <span class="badge bg-info">{{ $product->category->name }}</span>
+                            <span class="badge bg-info" style="font-size: 10px;">{{ $product->category->name }}</span>
                         @endif
-                    </p>
-                    <div class="text-center">
-                        <small class="text-muted d-block">Distributor Price:</small>
-                        <span class="fw-bold text-success fs-5">Rs. {{ number_format($product->price->distribute_price ?? $product->price->wholesale_price ?? 0, 2) }}</span>
+                    </div>
+                    <div class="text-center py-2 border-top border-bottom">
+                        <small class="text-muted d-block" style="font-size: 11px;">Distributor Price</small>
+                        <span class="fw-bold text-success" style="font-size: 16px;">Rs. {{ number_format($product->price->distributor_price ?? $product->price->wholesale_price ?? 0, 2) }}</span>
                     </div>
                 </div>
-                <div class="card-footer bg-white border-top">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <small class="text-muted">Stock:</small>
-                            <span class="badge {{ $info['stock'] > 0 ? 'bg-success' : 'bg-danger' }}">{{ $info['stock'] }}</span>
+                
+                {{-- Stock Info Footer --}}
+                <div class="card-footer bg-white border-top p-2">
+                    <div class="row g-2 text-center" style="font-size: 11px;">
+                        <div class="col-4">
+                            <small class="text-muted d-block">Stock</small>
+                            <span class="badge {{ $info['stock'] > 0 ? 'bg-success' : 'bg-danger' }} w-100">{{ $info['stock'] }}</span>
                         </div>
-                        <div>
-                            <small class="text-muted">Available:</small>
-                            <span class="badge {{ $info['available'] > 0 ? 'bg-primary' : 'bg-secondary' }}">{{ $info['available'] }}</span>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Available</small>
+                            <span class="badge {{ $info['available'] > 0 ? 'bg-primary' : 'bg-secondary' }} w-100">{{ $info['available'] }}</span>
                         </div>
-                        @if($info['pending'] > 0)
-                        <div>
-                            <small class="text-muted">Pending:</small>
-                            <span class="badge bg-warning">{{ $info['pending'] }}</span>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Pending</small>
+                            <span class="badge {{ $info['pending'] > 0 ? 'bg-warning' : 'bg-light' }} w-100">{{ $info['pending'] }}</span>
                         </div>
-                        @endif
                     </div>
                 </div>
             </div>
@@ -93,6 +108,29 @@
         </div>
         @endforelse
     </div>
+
+    <style>
+        /* 5 columns per row for large screens */
+        @media (min-width: 1200px) {
+            .col-xl-2-4 {
+                flex: 0 0 auto;
+                width: 20%;
+            }
+        }
+
+        .product-card {
+            transition: all 0.3s ease;
+        }
+
+        .product-card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+            transform: translateY(-4px);
+        }
+
+        .badge.bg-purple {
+            background-color: #667eea !important;
+        }
+    </style>
 
     {{-- Pagination --}}
     <div class="mt-4">
@@ -125,43 +163,60 @@
                             </div>
                             @endif
                             
-                            <span class="badge bg-success fs-6 mb-3">
-                                <i class="bi bi-check-circle me-1"></i> Active
-                            </span>
-                            
                             <h4 class="fw-bold">{{ $selectedProduct->name }}</h4>
                             <p class="text-muted">
                                 <i class="bi bi-upc-scan me-1"></i> {{ $selectedProduct->code }}
                             </p>
-                            
-                            <!-- Stock Information -->
+
+                            <!-- Stock Summary -->
                             @php
+                                $productStockInfo = $this->stockService->getAvailableStock($selectedProduct->id);
                                 $totalStock = $selectedProduct->stock ? $selectedProduct->stock->available_stock : 0;
-                                $stockInfo = $this->stockService->getAvailableStock($selectedProduct->id);
+                                $damagedStock = $selectedProduct->stock ? $selectedProduct->stock->damage_stock : 0;
                             @endphp
                             
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-center align-items-center mb-2">
-                                    <i class="bi bi-box-seam text-primary fs-4 me-2"></i>
-                                    <span class="fs-2 fw-bold">{{ $stockInfo['available'] }}</span>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body text-center p-2">
+                                            <i class="bi bi-box text-primary fs-4"></i>
+                                            <div class="fw-bold fs-5">{{ $totalStock }}</div>
+                                            <small class="text-muted">Available Stock</small>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p class="text-muted small mb-0">Available Stock</p>
-                                @if($stockInfo['available'] > 0)
-                                    <span class="badge bg-success">Ready to sell</span>
-                                @else
-                                    <span class="badge bg-danger">Out of Stock</span>
-                                @endif
+                                <div class="col-6">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body text-center p-2">
+                                            <i class="bi bi-exclamation-triangle text-danger fs-4"></i>
+                                            <div class="fw-bold fs-5">{{ $damagedStock }}</div>
+                                            <small class="text-muted">Damaged Stock</small>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
-                            <!-- Unit Price -->
-                            <div class="text-center">
-                                <div class="d-flex justify-content-center align-items-center mb-2">
-                                    <i class="bi bi-currency-dollar text-success fs-4 me-2"></i>
-                                    <span class="fs-2 fw-bold text-success">
-                                        Rs. {{ number_format($selectedProduct->price->distribute_price ?? $selectedProduct->price->wholesale_price ?? 0, 2) }}
-                                    </span>
+                            <!-- Status Badge -->
+                            @if($productStockInfo['available'] > 0)
+                                <div class="alert alert-success d-flex align-items-center mb-3">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    <span><strong>Available</strong> - Ready to sell</span>
                                 </div>
-                                <p class="text-muted small mb-0">Distributor Price</p>
+                            @else
+                                <div class="alert alert-danger d-flex align-items-center mb-3">
+                                    <i class="bi bi-x-circle me-2"></i>
+                                    <span><strong>Out of Stock</strong></span>
+                                </div>
+                            @endif
+                            
+                            <!-- Unit Price -->
+                            <div class="card border-success mb-3">
+                                <div class="card-body text-center">
+                                    <div class="text-muted small">Distributor Price</div>
+                                    <div class="fw-bold text-success" style="font-size: 24px;">
+                                        Rs. {{ number_format($selectedProduct->price->distributor_price ?? $selectedProduct->price->wholesale_price ?? 0, 2) }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -172,63 +227,87 @@
                                     <i class="bi bi-info-circle me-2"></i> Product Information
                                 </h6>
                                 
-                                <div class="row">
+                                <div class="row g-3">
                                     <div class="col-6">
-                                        <p class="text-muted mb-1">Product Code</p>
-                                        <p class="fw-medium mb-3">{{ $selectedProduct->code }}</p>
+                                        <p class="text-muted mb-1 small">Product Code</p>
+                                        <p class="fw-medium mb-0">{{ $selectedProduct->code }}</p>
                                     </div>
                                     <div class="col-6">
-                                        <p class="text-muted mb-1">Brand</p>
-                                        <p class="fw-medium mb-3">{{ $selectedProduct->brand ?? 'N/A' }}</p>
+                                        <p class="text-muted mb-1 small">Brand</p>
+                                        <p class="fw-medium mb-0">
+                                            @if($selectedProduct->brand)
+                                                {{ $selectedProduct->brand->brand_name ?? 'N/A' }}
+                                            @else
+                                                N/A
+                                            @endif
+                                        </p>
                                     </div>
                                     <div class="col-6">
-                                        <p class="text-muted mb-1">Model</p>
-                                        <p class="fw-medium mb-3">{{ $selectedProduct->model ?? 'N/A' }}</p>
+                                        <p class="text-muted mb-1 small">Model</p>
+                                        <p class="fw-medium mb-0">{{ $selectedProduct->model ?? 'N/A' }}</p>
                                     </div>
                                     <div class="col-6">
-                                        <p class="text-muted mb-1">Category</p>
-                                        <p class="fw-medium mb-3">{{ $selectedProduct->category->name ?? 'N/A' }}</p>
+                                        <p class="text-muted mb-1 small">Category</p>
+                                        <p class="fw-medium mb-0">{{ $selectedProduct->category->name ?? 'N/A' }}</p>
                                     </div>
                                 </div>
                                 
                                 @if($selectedProduct->description)
-                                <div class="mb-3">
-                                    <h6 class="text-primary">
+                                <div class="mt-3 pt-3 border-top">
+                                    <h6 class="text-primary mb-2">
                                         <i class="bi bi-journal-text me-2"></i> Description
                                     </h6>
-                                    <p>{{ $selectedProduct->description }}</p>
+                                    <p class="text-muted" style="font-size: 13px;">{{ $selectedProduct->description }}</p>
                                 </div>
                                 @endif
                             </div>
                             
                             <!-- Variants Table (if variants exist) -->
-                            @if($selectedProduct->variants && $selectedProduct->variants->count() > 0)
+                            @php
+                                // Get all products with the same code (these are the variants)
+                                $variants = \App\Models\ProductDetail::where('code', $selectedProduct->code)
+                                    ->with(['price', 'stock', 'variant'])
+                                    ->orderBy('variant_id')
+                                    ->get();
+                            @endphp
+                            @if($variants && $variants->count() > 1)
                             <div class="mb-4">
                                 <h6 class="text-primary mb-3">
-                                    <i class="bi bi-list-task me-2"></i> Available Variants
+                                    <i class="bi bi-list-task me-2"></i> Variant Prices & Stock
                                 </h6>
                                 
                                 <div class="table-responsive">
-                                    <table class="table table-sm">
+                                    <table class="table table-sm table-bordered mb-0" style="font-size: 12px;">
                                         <thead class="table-light">
                                             <tr>
-                                                <th>Variant</th>
-                                                <th>Distributor Price</th>
-                                                <th>Available Stock</th>
+                                                <th class="text-center" style="width: 12%;">VALUE</th>
+                                                <th class="text-center" style="width: 12%;">COST</th>
+                                                <th class="text-center" style="width: 14%;">WHOLESALE</th>
+                                                <th class="text-center" style="width: 14%;">DISTRIBUTOR</th>
+                                                <th class="text-center" style="width: 12%;">RETAIL</th>
+                                                <th class="text-center" style="width: 10%;">AVAILABLE</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach($selectedProduct->variants as $variant)
+                                            @foreach($variants as $variant)
                                             @php
-                                                $variantStockInfo = $this->stockService->getAvailableStock($selectedProduct->id, $variant->variant);
+                                                $variantStock = \App\Models\ProductStock::where('product_id', $variant->id)->first();
+                                                $variantAvailable = $variantStock ? $variantStock->available_stock : 0;
                                             @endphp
                                             <tr>
-                                                <td>{{ $variant->variant }}</td>
-                                                <td>Rs. {{ number_format($variant->price->distribute_price ?? $variant->price->wholesale_price ?? 0, 2) }}</td>
-                                                <td>
-                                                    <span class="badge {{ $variantStockInfo['available'] > 0 ? 'bg-success' : 'bg-danger' }}">
-                                                        {{ $variantStockInfo['available'] }}
-                                                    </span>
+                                                <td class="text-center">
+                                                    @if($variant->variant_id)
+                                                        {{ $variant->variant?->variant_name ?? 'Variant' }}
+                                                    @else
+                                                        Size
+                                                    @endif
+                                                </td>
+                                                <td class="text-center">Rs.{{ number_format($variant->price?->supplier_price ?? 0, 2) }}</td>
+                                                <td class="text-center">Rs.{{ number_format($variant->price?->wholesale_price ?? 0, 2) }}</td>
+                                                <td class="text-center"><strong>Rs.{{ number_format($variant->price?->distributor_price ?? 0, 2) }}</strong></td>
+                                                <td class="text-center">Rs.{{ number_format($variant->price?->retail_price ?? 0, 2) }}</td>
+                                                <td class="text-center">
+                                                    <span class="badge {{ $variantAvailable > 0 ? 'bg-success' : 'bg-secondary' }}">{{ $variantAvailable }}</span>
                                                 </td>
                                             </tr>
                                             @endforeach
@@ -239,21 +318,24 @@
                             @endif
                             
                             <!-- Stock Information -->
-                            <div class="alert alert-info">
-                                <h6 class="alert-heading">
+                            <div class="alert alert-info mb-0">
+                                <h6 class="alert-heading mb-3">
                                     <i class="bi bi-exclamation-circle me-2"></i> Stock Information
                                 </h6>
+                                @php
+                                    $modalStockInfo = $this->stockService->getAvailableStock($selectedProduct->id);
+                                @endphp
                                 <div class="row text-center">
                                     <div class="col-4">
-                                        <div class="fw-bold fs-5">{{ $stockInfo['stock'] }}</div>
+                                        <div class="fw-bold fs-5 text-primary">{{ $modalStockInfo['stock'] }}</div>
                                         <small class="text-muted">Total Stock</small>
                                     </div>
                                     <div class="col-4">
-                                        <div class="fw-bold fs-5 text-success">{{ $stockInfo['available'] }}</div>
+                                        <div class="fw-bold fs-5 text-success">{{ $modalStockInfo['available'] }}</div>
                                         <small class="text-muted">Available</small>
                                     </div>
                                     <div class="col-4">
-                                        <div class="fw-bold fs-5 text-warning">{{ $stockInfo['pending'] }}</div>
+                                        <div class="fw-bold fs-5 text-warning">{{ $modalStockInfo['pending'] }}</div>
                                         <small class="text-muted">Pending Orders</small>
                                     </div>
                                 </div>

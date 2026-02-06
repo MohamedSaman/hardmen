@@ -36,8 +36,11 @@ class SalesmanBilling extends Component
     public $customerPhone = '';
     public $customerEmail = '';
     public $customerAddress = '';
-    public $customerType = 'regular';
+    public $customerType = 'distributor';
     public $businessName = '';
+    public $customerOpeningBalance = 0;
+    public $customerOverpaidAmount = 0;
+    public $showCustomerMoreInfo = false;
 
     // Sale Details
     public $notes = '';
@@ -73,7 +76,7 @@ class SalesmanBilling extends Component
 
     public function loadCustomers()
     {
-        $this->customers = Customer::orderBy('name')->get();
+        $this->customers = Customer::where('type', 'distributor')->orderBy('name')->get();
     }
 
     /**
@@ -149,13 +152,68 @@ class SalesmanBilling extends Component
     public function updatedSearch()
     {
         if (strlen($this->search) >= 2) {
-            $products = ProductDetail::with(['stock', 'price', 'prices', 'stocks', 'variant'])
+            // Split search term by space to check for combined searches (e.g., "weel 1/16")
+            $searchParts = array_filter(array_map('trim', explode(' ', $this->search)));
+
+            $productsByNameCode = ProductDetail::with(['stock', 'price', 'prices', 'stocks', 'variant'])
                 ->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
                         ->orWhere('code', 'like', '%' . $this->search . '%');
                 })
-                ->limit(10)
+                ->limit(50)
                 ->get();
+
+            // Also get all products with variants to search by variant values
+            $variantProducts = ProductDetail::with(['stock', 'price', 'prices', 'stocks', 'variant'])
+                ->whereHas('variant')
+                ->limit(100)
+                ->get()
+                ->filter(function ($product) {
+                    // Check if any variant value contains the search term
+                    if ($product->variant && is_array($product->variant->variant_values)) {
+                        return collect($product->variant->variant_values)->some(function ($value) {
+                            return stripos($value, $this->search) !== false;
+                        });
+                    }
+                    return false;
+                });
+
+            // If search contains multiple parts, also search for combined product name + variant
+            $combinedProducts = collect();
+            if (count($searchParts) > 1) {
+                $combinedProducts = ProductDetail::with(['stock', 'price', 'prices', 'stocks', 'variant'])
+                    ->whereHas('variant')
+                    ->limit(100)
+                    ->get()
+                    ->filter(function ($product) use ($searchParts) {
+                        // Check if product name/code matches one part AND variant matches another part
+                        $nameMatches = false;
+                        $variantMatches = false;
+
+                        foreach ($searchParts as $part) {
+                            if (stripos($product->name, $part) !== false || stripos($product->code, $part) !== false) {
+                                $nameMatches = true;
+                            }
+                        }
+
+                        if ($product->variant && is_array($product->variant->variant_values)) {
+                            foreach ($searchParts as $part) {
+                                if (collect($product->variant->variant_values)->some(function ($value) use ($part) {
+                                    return stripos($value, $part) !== false;
+                                })) {
+                                    $variantMatches = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Return true only if both product AND variant parts match
+                        return $nameMatches && $variantMatches;
+                    });
+            }
+
+            // Merge all result sets and deduplicate by product ID
+            $products = $productsByNameCode->merge($variantProducts)->merge($combinedProducts)->unique('id')->values();
 
             $this->searchResults = [];
 
@@ -170,7 +228,28 @@ class SalesmanBilling extends Component
                         $variantMatches = stripos($variantValue, $this->search) !== false;
                         $productMatches = stripos($product->name, $this->search) !== false || stripos($product->code, $this->search) !== false;
 
-                        if ($variantMatches || $productMatches) {
+                        // For combined searches, be strict: only show variant if BOTH product AND variant match
+                        if (count($searchParts) > 1) {
+                            $productMatchesAnyPart = false;
+                            $variantMatchesAnyPart = false;
+
+                            foreach ($searchParts as $part) {
+                                if (stripos($product->name, $part) !== false || stripos($product->code, $part) !== false) {
+                                    $productMatchesAnyPart = true;
+                                }
+                                if (stripos($variantValue, $part) !== false) {
+                                    $variantMatchesAnyPart = true;
+                                }
+                            }
+
+                            // For multi-part search, BOTH must match
+                            $shouldShow = $productMatchesAnyPart && $variantMatchesAnyPart;
+                        } else {
+                            // For single search term, show if variant OR product matches
+                            $shouldShow = $variantMatches || $productMatches;
+                        }
+
+                        if ($shouldShow) {
                             $variantPrice = $variantPrices->where('variant_value', $variantValue)->first();
                             $variantStock = $variantStocks->where('variant_value', $variantValue)->first();
 
@@ -271,21 +350,31 @@ class SalesmanBilling extends Component
         $this->customerPhone = '';
         $this->customerEmail = '';
         $this->customerAddress = '';
-        $this->customerType = 'regular';
+        $this->customerType = 'distributor';
         $this->businessName = '';
+        $this->customerOpeningBalance = 0;
+        $this->customerOverpaidAmount = 0;
+        $this->showCustomerMoreInfo = false;
     }
 
     public function createCustomer()
     {
         $this->validate([
             'customerName' => 'required|string|max:255',
-            'customerPhone' => 'required|string|max:20',
+            'customerPhone' => 'required|string|max:20|regex:/^[0-9\s,\/\-\+]+$/',
             'customerEmail' => 'nullable|email|max:255',
             'customerAddress' => 'required|string|max:500',
-            'customerType' => 'required|in:regular,wholesale',
+            'customerType' => 'required|in:distributor',
+            'customerOpeningBalance' => 'nullable|numeric|min:0',
+            'customerOverpaidAmount' => 'nullable|numeric|min:0',
+        ], [
+            'customerPhone.regex' => 'Phone number can only contain numbers, spaces, and separators (-, /, +, ,)',
         ]);
 
         try {
+            $openingBalance = $this->customerOpeningBalance ?? 0;
+            $totalDue = $openingBalance;
+
             $customer = Customer::create([
                 'name' => $this->customerName,
                 'phone' => $this->customerPhone,
@@ -293,6 +382,9 @@ class SalesmanBilling extends Component
                 'address' => $this->customerAddress,
                 'type' => $this->customerType,
                 'business_name' => $this->businessName,
+                'opening_balance' => $openingBalance,
+                'overpaid_amount' => $this->customerOverpaidAmount ?? 0,
+                'total_due' => $totalDue,
             ]);
 
             $this->customerId = $customer->id;

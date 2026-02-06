@@ -294,6 +294,28 @@
                         </div>
                     </div>
                     
+                    {{-- Customer Balance Information (Conditional) --}}
+                    @if($customerId && $customerId != '' && $selectedCustomer && $selectedCustomer->type != 'Walking Customer')
+                    <div class="p-3 bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-lg grid grid-cols-4 gap-2">
+                        <div class="text-center p-2 bg-white rounded border border-slate-100">
+                            <div class="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Opening Balance</div>
+                            <div class="text-sm font-black text-slate-800">{{ number_format($customerOpeningBalanceDisplay, 2) }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-white rounded border border-slate-100">
+                            <div class="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Due Amount</div>
+                            <div class="text-sm font-black text-amber-600">{{ number_format($customerDueAmountDisplay, 2) }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-white rounded border border-slate-100">
+                            <div class="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Overpaid</div>
+                            <div class="text-sm font-black text-green-600">{{ number_format($customerOverpaidAmountDisplay, 2) }}</div>
+                        </div>
+                        <div class="text-center p-2 bg-white rounded border border-slate-100">
+                            <div class="text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Total Due</div>
+                            <div class="text-sm font-black text-slate-800">{{ number_format($customerTotalDueDisplay, 2) }}</div>
+                        </div>
+                    </div>
+                    @endif
+                    
                     {{-- Filter Buttons --}}
                     <div class="grid grid-cols-2 gap-3">
                         <button class="flex items-center justify-center gap-2 py-2.5 bg-slate-100 border border-slate-200 rounded-md hover:bg-slate-200 hover:border-slate-300 transition-all font-black text-[10px] text-slate-600 uppercase tracking-tighter shadow-sm"
@@ -466,6 +488,37 @@
                     <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Business Name</label>
                     <input type="text" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" wire:model="businessName" placeholder="Business name...">
                 </div>
+                
+                {{-- More Information Toggle Button --}}
+                <div class="col-span-2">
+                    <button type="button" class="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition-colors text-xs font-bold text-slate-600"
+                            wire:click="$toggle('showCustomerMoreInfo')">
+                        <span class="material-symbols-outlined text-base transition-transform" style="transform: rotateZ({{ $showCustomerMoreInfo ? '180' : '0' }})deg)">
+                            expand_more
+                        </span>
+                        More Information
+                    </button>
+                </div>
+
+                {{-- More Information Section (Conditional) --}}
+                @if($showCustomerMoreInfo)
+                <div class="col-span-2 space-y-3 pt-2 border-t border-slate-200">
+                    <div>
+                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Opening Balance</label>
+                        <input type="number" step="0.01" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" 
+                               wire:model="customerOpeningBalance" placeholder="0.00">
+                        @error('customerOpeningBalance') <span class="text-red-500 text-[9px] font-bold mt-1">{{ $message }}</span> @enderror
+                        <small class="text-slate-500 text-[8px] mt-1">Amount customer owes at the start</small>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Overpaid Amount</label>
+                        <input type="number" step="0.01" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold" 
+                               wire:model="customerOverpaidAmount" placeholder="0.00">
+                        @error('customerOverpaidAmount') <span class="text-red-500 text-[9px] font-bold mt-1">{{ $message }}</span> @enderror
+                        <small class="text-slate-500 text-[8px] mt-1">Advance payment from customer</small>
+                    </div>
+                </div>
+                @endif
             </div>
             <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
                 <button class="px-6 py-2.5 text-[10px] font-black uppercase text-slate-400" wire:click="closeCustomerModal">Discard</button>

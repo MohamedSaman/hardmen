@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Log;
 #[Layout('components.layouts.admin')]
 class SaleApproval extends Component
 {
-    use WithPagination ,  WithPagination;
+    use WithPagination,  WithPagination;
 
     public $search = '';
     public $statusFilter = '';
@@ -146,26 +146,43 @@ class SaleApproval extends Component
 
     public function render()
     {
-        $query = Sale::with(['customer', 'user'])
-            ->when($this->search, function ($q) {
-                $q->where(function ($sq) {
-                    $sq->where('sale_id', 'like', '%' . $this->search . '%')
-                        ->orWhere('invoice_number', 'like', '%' . $this->search . '%')
-                        ->orWhereHas('customer', function ($cq) {
-                            $cq->where('name', 'like', '%' . $this->search . '%');
-                        });
-                });
-            })
-            ->when($this->statusFilter, function ($q) {
-                $q->where('status', $this->statusFilter);
-            })
+        $query = Sale::with(['customer', 'user']);
+
+        // If not admin, show only their own sales
+        if (Auth::user()->role !== 'admin') {
+            $query->where('user_id', Auth::id());
+        }
+
+        // Default filter - show pending sales for approval
+        // If statusFilter is set, use that instead
+        if ($this->statusFilter) {
+            $query->where('status', $this->statusFilter);
+        } else {
+            $query->where('status', 'pending');
+        }
+
+        $query->when($this->search, function ($q) {
+            $q->where(function ($sq) {
+                $sq->where('sale_id', 'like', '%' . $this->search . '%')
+                    ->orWhere('invoice_number', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('customer', function ($cq) {
+                        $cq->where('name', 'like', '%' . $this->search . '%');
+                    });
+            });
+        })
             ->orderBy('created_at', 'desc');
 
         return view('livewire.admin.sale-approval', [
             'sales' => $query->paginate($this->perPage),
-            'pendingCount' => Sale::where('status', 'pending')->count(),
-            'approvedCount' => Sale::where('status', 'confirm')->count(),
-            'rejectedCount' => Sale::where('status', 'rejected')->count(),
+            'pendingCount' => Sale::when(Auth::user()->role !== 'admin', function ($q) {
+                $q->where('user_id', Auth::id());
+            })->where('status', 'pending')->count(),
+            'approvedCount' => Sale::when(Auth::user()->role !== 'admin', function ($q) {
+                $q->where('user_id', Auth::id());
+            })->where('status', 'confirm')->count(),
+            'rejectedCount' => Sale::when(Auth::user()->role !== 'admin', function ($q) {
+                $q->where('user_id', Auth::id());
+            })->where('status', 'rejected')->count(),
         ]);
     }
 }

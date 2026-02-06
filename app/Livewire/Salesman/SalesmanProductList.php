@@ -48,7 +48,7 @@ class SalesmanProductList extends Component
 
     public function viewProduct($productId)
     {
-        $this->selectedProduct = ProductDetail::with(['stock', 'price', 'category', 'variants', 'variants.stock'])
+        $this->selectedProduct = ProductDetail::with(['stock', 'price', 'category', 'variant', 'brand'])
             ->find($productId);
         $this->showProductModal = true;
     }
@@ -61,7 +61,7 @@ class SalesmanProductList extends Component
 
     public function render()
     {
-        $query = ProductDetail::with(['stock', 'price', 'category', 'stocks', 'prices'])
+        $query = ProductDetail::with(['stock', 'price', 'category', 'stocks', 'prices', 'variant'])
             ->when($this->search, function ($q) {
                 $q->where(function ($sq) {
                     $sq->where('name', 'like', '%' . $this->search . '%')
@@ -72,13 +72,16 @@ class SalesmanProductList extends Component
             ->when($this->categoryFilter, function ($q) {
                 $q->where('category_id', $this->categoryFilter);
             })
-            ->orderBy('name');
+            ->orderBy('code')
+            ->orderBy('variant_id');
 
-        $products = $query->paginate(20);
+        $products = $query->paginate(24);
 
         // Add available stock info to each product
-        $productIds = $products->pluck('id')->toArray();
-        $stockInfo = $this->stockService->getAvailableStockBulk($productIds);
+        $stockInfo = [];
+        foreach ($products as $product) {
+            $stockInfo[$product->id] = $this->stockService->getAvailableStock($product->id);
+        }
 
         return view('livewire.salesman.salesman-product-list', [
             'products' => $products,

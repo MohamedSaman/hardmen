@@ -75,6 +75,9 @@
                             <th>Email</th>
                             <th>Type</th>
                             <th>Address</th>
+                            <th class="text-center">Opening Balance</th>
+                            <th class="text-center">Due Amount</th>
+                            <th class="text-center">Overpaid</th>
                             <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
@@ -101,6 +104,15 @@
                                     @endif
                                 </td>
                                 <td>{{ $customer->address ?? '-' }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark">{{ number_format($customer->opening_balance ?? 0, 2) }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-warning text-dark">{{ number_format($customer->due_amount ?? 0, 2) }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">{{ number_format($customer->overpaid_amount ?? 0, 2) }}</span>
+                                </td>
                                 <td class="text-end pe-2">
     <div class="dropdown">
         <button class="btn btn-outline-secondary dropdown-toggle"
@@ -251,11 +263,51 @@
                             </div>
                         </div>
                     </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">
-                            <i class="bi bi-check2-circle me-1"></i>
+                    
+                    {{-- More Information Button --}}
+                    <div class="row g-3 mt-2">
+                        <div class="col-12">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" wire:click="$toggle('showMoreInfo')">
+                                <i class="bi bi-{{ $showMoreInfo ? 'chevron-up' : 'chevron-down' }} me-1"></i>
+                                {{ $showMoreInfo ? 'Hide' : 'Show' }} More Information
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- More Information Fields --}}
+                    @if($showMoreInfo)
+                    <div class="row g-3 mt-1">
+                        <div class="col-12 col-md-6">
+                            <div class="mb-1">
+                                <label class="form-label fw-semibold">Opening Balance</label>
+                                <input type="number" step="0.01" class="form-control @error('openingBalance') is-invalid @enderror" 
+                                       wire:model="openingBalance" placeholder="0.00">
+                                @error('openingBalance') <span class="text-danger small">{{ $message }}</span> @enderror
+                                <small class="text-muted">Amount customer owes at the start</small>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="mb-1">
+                                <label class="form-label fw-semibold">Overpaid Amount</label>
+                                <input type="number" step="0.01" class="form-control @error('overpaidAmount') is-invalid @enderror" 
+                                       wire:model="overpaidAmount" placeholder="0.00">
+                                @error('overpaidAmount') <span class="text-danger small">{{ $message }}</span> @enderror
+                                <small class="text-muted">Advance payment from customer</small>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    <div class="d-grid mt-3">
+                        <button type="submit" class="btn" style="background: linear-gradient(135deg, #ff8c42 0%, #ff6b6b 100%); color: white; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; font-size: 1.05rem; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);" 
+                                onmouseover="this.style.boxShadow='0 6px 20px rgba(255, 107, 107, 0.5)'; this.style.transform='translateY(-2px)';" 
+                                onmouseout="this.style.boxShadow='0 4px 12px rgba(255, 107, 107, 0.3)'; this.style.transform='translateY(0)';" 
+                                wire:loading.attr="disabled">
+                            <i class="bi bi-check2-circle me-2"></i>
                             <span wire:loading.remove>Save Customer</span>
-                            <span wire:loading>Saving...</span>
+                            <span wire:loading>
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...
+                            </span>
                         </button>
                     </div>
                 </form>
@@ -335,11 +387,51 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">
-                                <i class="bi bi-check2-circle me-1"></i>
+                        
+                        {{-- More Information Button --}}
+                        <div class="row g-3 mt-2">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" wire:click="$toggle('showEditMoreInfo')">
+                                    <i class="bi bi-{{ $showEditMoreInfo ? 'chevron-up' : 'chevron-down' }} me-1"></i>
+                                    {{ $showEditMoreInfo ? 'Hide' : 'Show' }} More Information
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- More Information Fields --}}
+                        @if($showEditMoreInfo)
+                        <div class="row g-3 mt-1">
+                            <div class="col-12 col-md-6">
+                                <div class="mb-1">
+                                    <label class="form-label fw-semibold">Opening Balance</label>
+                                    <input type="number" step="0.01" class="form-control @error('editOpeningBalance') is-invalid @enderror" 
+                                           wire:model="editOpeningBalance" placeholder="0.00">
+                                    @error('editOpeningBalance') <span class="text-danger small">{{ $message }}</span> @enderror
+                                    <small class="text-muted">Amount customer owes at the start</small>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="mb-1">
+                                    <label class="form-label fw-semibold">Overpaid Amount</label>
+                                    <input type="number" step="0.01" class="form-control @error('editOverpaidAmount') is-invalid @enderror" 
+                                           wire:model="editOverpaidAmount" placeholder="0.00">
+                                    @error('editOverpaidAmount') <span class="text-danger small">{{ $message }}</span> @enderror
+                                    <small class="text-muted">Advance payment from customer</small>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
+                        <div class="d-grid mt-3">
+                            <button type="submit" class="btn" style="background: linear-gradient(135deg, #ff8c42 0%, #ff6b6b 100%); color: white; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; font-size: 1.05rem; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);" 
+                                    onmouseover="this.style.boxShadow='0 6px 20px rgba(255, 107, 107, 0.5)'; this.style.transform='translateY(-2px)';" 
+                                    onmouseout="this.style.boxShadow='0 4px 12px rgba(255, 107, 107, 0.3)'; this.style.transform='translateY(0)';" 
+                                    wire:loading.attr="disabled">
+                                <i class="bi bi-check2-circle me-2"></i>
                                 <span wire:loading.remove>Update Customer</span>
-                                <span wire:loading>Updating...</span>
+                                <span wire:loading>
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Updating...
+                                </span>
                             </button>
                         </div>
                     </form>
@@ -407,6 +499,38 @@
                                 <div class="row">
                                     <div class="col-12">
                                         <p class="mb-0">{{ $viewCustomerDetail['address'] ?? '-' }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4 pb-3 border-bottom">
+                                <h6 class="fw-bold text-primary mb-3">
+                                    <i class="bi bi-wallet2 me-1"></i> Balance Information
+                                </h6>
+                                <div class="row">
+                                    <div class="col-6 mb-3">
+                                        <div class="p-3 rounded" style="background-color: #f0f0f0;">
+                                            <div class="text-muted small fw-semibold mb-1">Opening Balance</div>
+                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['opening_balance'] ?? 0, 2) }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-3">
+                                        <div class="p-3 rounded" style="background-color: #fff3cd;">
+                                            <div class="text-muted small fw-semibold mb-1">Due Amount</div>
+                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['due_amount'] ?? 0, 2) }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="p-3 rounded" style="background-color: #d4edda;">
+                                            <div class="text-muted small fw-semibold mb-1">Overpaid Amount</div>
+                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['overpaid_amount'] ?? 0, 2) }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="p-3 rounded" style="background-color: #e7d4f5;">
+                                            <div class="text-muted small fw-semibold mb-1">Total Due</div>
+                                            <div class="fw-bold fs-6">{{ number_format($viewCustomerDetail['total_due'] ?? 0, 2) }}</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

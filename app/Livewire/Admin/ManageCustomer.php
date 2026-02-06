@@ -27,6 +27,9 @@ class ManageCustomer extends Component
     public $email;
     public $customerType;
     public $businessName;
+    public $openingBalance = 0;
+    public $overpaidAmount = 0;
+    public $showMoreInfo = false;
 
     public $editCustomerId;
     public $editName;
@@ -35,6 +38,9 @@ class ManageCustomer extends Component
     public $editEmail;
     public $editCustomerType;
     public $editBusinessName;
+    public $editOpeningBalance = 0;
+    public $editOverpaidAmount = 0;
+    public $showEditMoreInfo = false;
 
     public $deleteId;
     public $showEditModal = false;
@@ -87,13 +93,19 @@ class ManageCustomer extends Component
             'email',
             'customerType',
             'businessName',
+            'openingBalance',
+            'overpaidAmount',
+            'showMoreInfo',
             'editCustomerId',
             'editName',
             'editContactNumber',
             'editAddress',
             'editEmail',
             'editCustomerType',
-            'editBusinessName'
+            'editBusinessName',
+            'editOpeningBalance',
+            'editOverpaidAmount',
+            'showEditMoreInfo',
         ]);
         $this->resetErrorBag();
     }
@@ -125,6 +137,10 @@ class ManageCustomer extends Component
             'email' => $customer->email,
             'type' => $customer->type,
             'address' => $customer->address,
+            'opening_balance' => $customer->opening_balance ?? 0,
+            'due_amount' => $customer->due_amount ?? 0,
+            'overpaid_amount' => $customer->overpaid_amount ?? 0,
+            'total_due' => $customer->total_due ?? 0,
             'created_at' => $customer->created_at,
             'updated_at' => $customer->updated_at,
         ];
@@ -141,9 +157,15 @@ class ManageCustomer extends Component
             'address' => 'nullable',
             'email' => 'nullable|email|unique:customers,email',
             'businessName' => 'nullable',
+            'openingBalance' => 'nullable|numeric|min:0',
+            'overpaidAmount' => 'nullable|numeric|min:0',
         ]);
 
         try {
+            $openingBalance = floatval($this->openingBalance ?? 0);
+            $overpaidAmount = floatval($this->overpaidAmount ?? 0);
+            $totalDue = $openingBalance;
+
             Customer::create([
                 'name' => $this->name,
                 'phone' => $this->contactNumber,
@@ -152,6 +174,10 @@ class ManageCustomer extends Component
                 'type' => $this->customerType,
                 'business_name' => $this->businessName,
                 'user_id' => Auth::id(),
+                'opening_balance' => $openingBalance,
+                'due_amount' => 0,
+                'total_due' => $totalDue,
+                'overpaid_amount' => $overpaidAmount,
             ]);
 
             $this->js("Swal.fire('Success!', 'Customer Created Successfully', 'success')");
@@ -180,6 +206,9 @@ class ManageCustomer extends Component
         $this->editCustomerType = $customer->type;
         $this->editAddress = $customer->address;
         $this->editEmail = $customer->email;
+        $this->editOpeningBalance = $customer->opening_balance ?? 0;
+        $this->editOverpaidAmount = $customer->overpaid_amount ?? 0;
+        $this->showEditMoreInfo = ($this->editOpeningBalance > 0 || $this->editOverpaidAmount > 0);
 
         $this->showEditModal = true;
     }
@@ -193,6 +222,8 @@ class ManageCustomer extends Component
             'editContactNumber' => 'nullable',
             'editAddress' => 'nullable',
             'editEmail' => 'nullable|email|unique:customers,email,' . $this->editCustomerId,
+            'editOpeningBalance' => 'nullable|numeric|min:0',
+            'editOverpaidAmount' => 'nullable|numeric|min:0',
         ]);
 
         try {
@@ -202,6 +233,11 @@ class ManageCustomer extends Component
                 return;
             }
 
+            $openingBalance = floatval($this->editOpeningBalance ?? 0);
+            $overpaidAmount = floatval($this->editOverpaidAmount ?? 0);
+            $dueAmount = floatval($customer->due_amount ?? 0);
+            $totalDue = $openingBalance + $dueAmount;
+
             $customer->update([
                 'name' => $this->editName,
                 'phone' => $this->editContactNumber,
@@ -209,6 +245,9 @@ class ManageCustomer extends Component
                 'type' => $this->editCustomerType,
                 'address' => $this->editAddress,
                 'email' => $this->editEmail,
+                'opening_balance' => $openingBalance,
+                'total_due' => $totalDue,
+                'overpaid_amount' => $overpaidAmount,
             ]);
 
             $this->js("Swal.fire('Success!', 'Customer Updated Successfully', 'success')");
