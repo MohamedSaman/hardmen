@@ -645,30 +645,27 @@
                         </tbody>
                     </table>
                 </div>
-
-                <div class="mt-3 d-flex justify-content-between align-items-center">
+                @endif
+            </div>
+            @if($selectedPO)
+            <div class="grn-summary-footer border-top bg-light px-3 py-2">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <button class="btn btn-success" wire:click="addNewRow">
+                        <button class="btn btn-success btn-sm" wire:click="addNewRow">
                             <i class="bi bi-plus-circle"></i> Add New Item
                         </button>
                     </div>
-                    <div class="card bg-light">
-                        <div class="card-body py-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold text-dark pr-10">Grand Total:</span>
-                                <span class="fw-bold fs-5 text-primary">
-                                    {{ number_format($this->grnGrandTotal, 2) }}
-                                </span>
-                            </div>
-                        </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fw-bold text-dark">Grand Total:</span>
+                        <span class="fw-bold fs-5 text-primary">
+                            {{ number_format($this->grnGrandTotal, 2) }}
+                        </span>
                     </div>
                 </div>
-
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-primary" wire:click="saveGRN">Save GRN</button>
-                </div>
-
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" wire:click="saveGRN">Save GRN</button>
             </div>
             @endif
         </div>
@@ -985,8 +982,25 @@
         max-width: 98% !important;
         margin: 1rem auto;
     }
+    #grnModal .modal-content {
+        max-height: 95vh;
+        display: flex;
+        flex-direction: column;
+    }
     #grnModal .modal-body {
         overflow-x: hidden;
+        overflow-y: auto;
+        flex: 1 1 auto;
+        max-height: calc(95vh - 180px);
+    }
+    #grnModal .modal-footer {
+        flex-shrink: 0;
+        border-top: 1px solid #dee2e6;
+        background: #fff;
+    }
+    #grnModal .grn-summary-footer {
+        flex-shrink: 0;
+        border-top: 1px solid #dee2e6;
     }
     .text-wrap {
         white-space: normal !important;
