@@ -150,8 +150,8 @@
                             <thead class="table-light">
                                 <tr>
                                     <th class="ps-4">Product</th>
-                                    <th>Price</th>
-                                    <th style="width: 120px;">Quantity</th>
+                                    <th style="width: 130px;">Price</th>
+                                    <th style="width: 160px;">Quantity</th>
                                     <th style="width: 120px;">Discount</th>
                                     <th class="text-end">Total</th>
                                     <th class="text-center" style="width: 80px;">Action</th>
@@ -159,7 +159,7 @@
                             </thead>
                             <tbody>
                                 @foreach($cart as $index => $item)
-                                <tr>
+                                <tr wire:key="cart-item-{{ $item['cart_key'] }}">
                                     <td class="ps-4">
                                         <div class="fw-medium">{{ $item['name'] }}</div>
                                         @if(!empty($item['code']))
@@ -173,35 +173,38 @@
                                         @endif
                                     </td>
                                     <td>
-                                        @if($item['distributor_price'] > 0)
-                                            <span class="fw-bold">Rs. {{ number_format($item['distributor_price'], 2) }}</span>
-                                        @else
-                                            <span class="text-muted">-</span>
-                                        @endif
+                                        <input type="number" class="form-control form-control-sm text-primary fw-bold" 
+                                            value="{{ $item['price'] }}"
+                                            wire:change="updatePrice('{{ $item['cart_key'] }}', $event.target.value)"
+                                            wire:key="price-{{ $item['cart_key'] }}"
+                                            min="0" step="0.01"
+                                            placeholder="0.00">
                                     </td>
                                     <td>
                                         <div class="input-group input-group-sm">
                                             <button class="btn btn-outline-secondary" type="button"
-                                                wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] - 1 }})">-</button>
+                                                wire:click="updateQuantity('{{ $item['cart_key'] }}', {{ $item['quantity'] - 1 }})">-</button>
                                             <input type="number" class="form-control text-center" 
                                                 value="{{ $item['quantity'] }}"
-                                                wire:change="updateQuantity({{ $index }}, $event.target.value)"
+                                                wire:change="updateQuantity('{{ $item['cart_key'] }}', $event.target.value)"
+                                                wire:key="qty-{{ $item['cart_key'] }}"
                                                 min="1" max="{{ $item['available'] }}">
                                             <button class="btn btn-outline-secondary" type="button"
-                                                wire:click="updateQuantity({{ $index }}, {{ $item['quantity'] + 1 }})">+</button>
+                                                wire:click="updateQuantity('{{ $item['cart_key'] }}', {{ $item['quantity'] + 1 }})">+</button>
                                         </div>
                                     </td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-danger" 
                                             value="{{ $item['discount'] }}"
-                                            wire:change="updateDiscount({{ $index }}, $event.target.value)"
+                                            wire:change="updateDiscount('{{ $item['cart_key'] }}', $event.target.value)"
+                                            wire:key="disc-{{ $item['cart_key'] }}"
                                             min="0" max="{{ $item['price'] }}" step="0.01"
                                             placeholder="0.00">
                                     </td>
                                     <td class="text-end fw-bold">Rs. {{ number_format($item['total'], 2) }}</td>
                                     <td class="text-center">
                                         <button class="btn btn-sm btn-outline-danger" 
-                                            wire:click="removeFromCart({{ $index }})" title="Remove">
+                                            wire:click="removeFromCart('{{ $item['cart_key'] }}')" title="Remove">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </td>

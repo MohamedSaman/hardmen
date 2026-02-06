@@ -104,8 +104,9 @@ class SalesmanBilling extends Component
             // Load cart items from sale items
             $this->cart = [];
             foreach ($sale->items as $item) {
+                $cartKey = $item->product_id . ($item->variant_value ? '_' . $item->variant_value : '');
                 $this->cart[] = [
-                    'cart_key' => $item->product_id . ($item->variant_value ? '_' . $item->variant_value : ''),
+                    'cart_key' => $cartKey,
                     'id' => $item->product_id,
                     'variant_id' => $item->variant_id ?? null,
                     'variant_value' => $item->variant_value ?? null,
@@ -429,23 +430,27 @@ class SalesmanBilling extends Component
         // Create a unique identifier for cart items (product_id + variant info)
         $cartKey = $product['id'] . ($product['is_variant'] ? '_' . $product['variant_value'] : '');
 
-        $existing = collect($this->cart)->firstWhere('cart_key', $cartKey);
+        // Check if item already exists in cart
+        $existingIndex = null;
+        foreach ($this->cart as $index => $item) {
+            if ($item['cart_key'] === $cartKey) {
+                $existingIndex = $index;
+                break;
+            }
+        }
 
-        if ($existing) {
-            if (($existing['quantity'] + 1) > $product['available']) {
+        if ($existingIndex !== null) {
+            // Update existing item quantity
+            if (($this->cart[$existingIndex]['quantity'] + 1) > $product['available']) {
                 session()->flash('error', 'Not enough available stock!');
                 return;
             }
 
-            $this->cart = collect($this->cart)->map(function ($item) use ($cartKey) {
-                if ($item['cart_key'] == $cartKey) {
-                    $item['quantity'] += 1;
-                    $item['total'] = ($item['price'] - $item['discount']) * $item['quantity'];
-                }
-                return $item;
-            })->toArray();
+            $this->cart[$existingIndex]['quantity'] += 1;
+            $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
         } else {
-            $this->cart[] = [
+            // Add new item to TOP of cart array (newest first)
+            array_unshift($this->cart, [
                 'cart_key' => $cartKey, // Unique identifier for cart items
                 'id' => $product['id'],
                 'variant_id' => $product['variant_id'] ?? null,
@@ -460,20 +465,35 @@ class SalesmanBilling extends Component
                 'available' => $product['available'],
                 'image' => $product['image'] ?? '',
                 'is_variant' => $product['is_variant'] ?? false,
-            ];
+            ]);
         }
 
         $this->search = '';
         $this->searchResults = [];
     }
 
-    public function updateQuantity($index, $quantity)
+    public function updateQuantity($cartKey, $quantity)
     {
         $quantity = (int)$quantity;
-        if ($quantity <= 0) {
-            $this->removeFromCart($index);
+
+        // Find item by cart_key
+        $index = null;
+        foreach ($this->cart as $i => $item) {
+            if ($item['cart_key'] === $cartKey) {
+                $index = $i;
+                break;
+            }
+        }
+
+        if ($index === null) {
             return;
         }
+
+        if ($quantity <= 0) {
+            $this->removeFromCart($cartKey);
+            return;
+        }
+
         if ($quantity > $this->cart[$index]['available']) {
             session()->flash('error', 'Exceeds available stock!');
             return;
@@ -483,16 +503,61 @@ class SalesmanBilling extends Component
         $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $quantity;
     }
 
-    public function updateDiscount($index, $discount)
+    public function updatePrice($cartKey, $price)
     {
+        $price = (float)$price;
+
+        // Find item by cart_key
+        $index = null;
+        foreach ($this->cart as $i => $item) {
+            if ($item['cart_key'] === $cartKey) {
+                $index = $i;
+                break;
+            }
+        }
+
+        if ($index === null) {
+            return;
+        }
+
+        // Ensure price is not negative
+        $price = max(0, $price);
+        $this->cart[$index]['price'] = $price;
+
+        // Recalculate total with the new price
+        $this->cart[$index]['total'] = ($price - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
+    }
+
+    public function updateDiscount($cartKey, $discount)
+    {
+        // Find item by cart_key
+        $index = null;
+        foreach ($this->cart as $i => $item) {
+            if ($item['cart_key'] === $cartKey) {
+                $index = $i;
+                break;
+            }
+        }
+
+        if ($index === null) {
+            return;
+        }
+
         $discount = max(0, min($discount, $this->cart[$index]['price']));
         $this->cart[$index]['discount'] = $discount;
         $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $discount) * $this->cart[$index]['quantity'];
     }
 
-    public function removeFromCart($index)
+    public function removeFromCart($cartKey)
     {
-        unset($this->cart[$index]);
+        // Find and remove item by cart_key
+        foreach ($this->cart as $index => $item) {
+            if ($item['cart_key'] === $cartKey) {
+                unset($this->cart[$index]);
+                break;
+            }
+        }
+        // Re-index array to maintain order
         $this->cart = array_values($this->cart);
     }
 
@@ -527,6 +592,7 @@ class SalesmanBilling extends Component
                     'subtotal' => $this->subtotal,
                     'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
                     'total_amount' => $this->grandTotal,
+                    'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'notes' => $this->notes,
                 ]);
 
@@ -566,6 +632,7 @@ class SalesmanBilling extends Component
                     'customer_id' => $this->customerId,
                     'sale_type' => 'staff',
                     'user_id' => Auth::id(),
+                    'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'subtotal' => $this->subtotal,
                     'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
                     'total_amount' => $this->grandTotal,

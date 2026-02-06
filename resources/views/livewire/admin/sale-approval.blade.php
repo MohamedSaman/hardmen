@@ -130,106 +130,149 @@
                 </div>
                 <div class="modal-body p-4" style="background: #f8f9fa;">
                     {{-- Printable Invoice --}}
-                    <div id="printableInvoice" class="receipt-container" style="background: white; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px;">
-                        {{-- Header --}}
-                        <div class="text-center mb-4">
-                            <h4 class="fw-bold mb-2">HARDMEN (PVT) LTD</h4>
-                            <p class="text-muted mb-1">TOOLS WITH POWER</p>
-                            <p class="text-muted small">421/2, Doomala, thihariya, Kalagodithena.</p>
-                            <p class="text-muted small">TEL: (077) 9752950, EMAIL: Hardmenlanka@gmail.com</p>
-                        </div>
+                    <div id="printableInvoice">
+                        <div class="receipt-container" style="background: white; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; max-width: 800px; margin: 0 auto;">
+                            <style>
+                                .receipt-container { width: 100%; max-width: 800px; margin: 0 auto; padding: 20px; }
+                                .receipt-header { border-bottom: 3px solid #000; padding-bottom: 12px; margin-bottom: 12px; }
+                                .receipt-row { display:flex; align-items:center; justify-content:space-between; }
+                                .receipt-center { flex: 1; text-align:center; }
+                                .receipt-center h2 { margin: 0 0 4px 0; font-size: 2rem; letter-spacing: 2px; }
+                                .mb-0 { margin-bottom: 0; }
+                                .mb-1 { margin-bottom: 4px; }
+                                table.receipt-table { width:100%; border-collapse: collapse; margin-top: 12px; }
+                                table.receipt-table th{border-bottom: 1px solid #000; padding: 8px; text-align: left;}
+                                table.receipt-table td { border: 0px solid #000; padding: 8px; text-align: left; }
+                                table.receipt-table th { background: none; font-weight: bold; }
+                                .text-end { text-align: right; }
+                            </style>
 
-                        <hr class="my-3">
-
-                        {{-- Customer & Invoice Info --}}
-                        <div class="row mb-4">
-                            <div class="col-6">
-                                <p class="mb-1"><strong>Name:</strong> {{ $this->selectedSale->customer->name ?? 'N/A' }}</p>
-                                <p class="mb-1"><strong>Phone:</strong> {{ $this->selectedSale->customer->phone ?? 'N/A' }}</p>
-                                <p class="mb-1"><strong>Address:</strong> {{ $this->selectedSale->customer->address ?? 'N/A' }}</p>
-                                <p class="mb-0"><strong>Salesman:</strong> {{ $this->selectedSale->user->name ?? 'N/A' }}</p>
+                            {{-- Header --}}
+                            <div class="receipt-header">
+                                <div class="receipt-row">
+                                    <div class="receipt-center">
+                                        <h2 class="mb-0">HARDMEN (PVT) LTD</h2>
+                                        <p class="mb-0 text-muted" style="color:#666; font-size:12px;">TOOLS WITH POWER</p>
+                                        <p style="margin:0; text-align:center;"><strong>421/2, Doolmala, thihariya, Kalagedihena.</strong></p>
+                                        <p style="margin:0; text-align:center;"><strong>TEL :</strong> (077) 9752950, <strong>EMAIL :</strong> Hardmenlanka@gmail.com</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-6 text-end">
-                                <p class="mb-1"><strong>Invoice Number:</strong> {{ $this->selectedSale->invoice_number }}</p>
-                                <p class="mb-1"><strong>Date:</strong> {{ $this->selectedSale->created_at->format('m/d/Y h:i A') }}</p>
-                                <p class="mb-0"><strong>Payment Status:</strong> <span class="badge bg-success">Paid</span></p>
+
+                            {{-- Customer & Invoice Info --}}
+                            <div style="display:flex; gap:20px; margin-bottom:12px; justify-content:space-between; align-items:flex-start;">
+                                <div style="flex:0 0 45%; text-align:left;">
+                                    @if($this->selectedSale->customer)
+                                    <p style="margin:0; font-size:12px;"><strong>Name:</strong> {{ $this->selectedSale->customer->name }}</p>
+                                    <p style="margin:0; font-size:12px;"><strong>Phone:</strong> {{ $this->selectedSale->customer->phone }}</p>
+                                    <p style="margin:0; font-size:12px;"><strong>Address:</strong> {{ $this->selectedSale->customer->address ?? 'N/A' }}</p>
+                                    <p style="margin:0; font-size:12px;"><strong>Type:</strong> {{ ucfirst($this->selectedSale->customer_type ?? 'customer') }}</p>
+                                    @else
+                                    <p class="text-muted">Walk-in Customer</p>
+                                    @endif
+                                    <p style="margin:0; font-size:12px;"><strong>Salesman:</strong> {{ $this->selectedSale->user->name ?? 'N/A' }}</p>
+                                </div>
+                                <div style="flex:0 0 45%; text-align:right;">
+                                    <p style="margin:0; font-size:12px;"><strong>Invoice Number:</strong> {{ $this->selectedSale->invoice_number }}</p>
+                                    <p style="margin:0; font-size:12px;"><strong>Date:</strong> {{ $this->selectedSale->created_at->format('d/m/Y h:i A') }}</p>
+                                    <p style="margin:0; font-size:12px;"><strong>Payment Status:</strong> <span style="color:#e67e22; font-weight:bold;">{{ ucfirst($this->selectedSale->payment_status ?? 'paid') }}</span></p>
+                                </div>
                             </div>
-                        </div>
 
-                        <hr class="my-3">
-
-                        {{-- Items Table --}}
-                        <div class="table-responsive mb-4">
-                            <table class="table table-sm table-bordered mb-0">
-                                <thead class="table-light">
+                            {{-- Items Table --}}
+                            <table class="receipt-table">
+                                <thead>
                                     <tr>
-                                        <th style="width: 5%">#</th>
-                                        <th style="width: 15%">Code</th>
-                                        <th style="width: 35%">Item</th>
-                                        <th class="text-end" style="width: 15%">Price</th>
-                                        <th class="text-center" style="width: 10%">Qty</th>
-                                        <th class="text-end" style="width: 20%">Total</th>
+                                        <th>#</th>
+                                        <th>Code</th>
+                                        <th>Item</th>
+                                        <th style="text-align:center;">Price</th>
+                                        <th style="text-align:center;">Qty</th>
+                                        <th style="text-align:center;">Discount</th>
+                                        <th style="text-align:center;">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($this->selectedSale->items as $index => $item)
                                     <tr>
                                         <td>{{ $index + 1 }}</td>
-                                        <td>{{ $item->product_code ?? 'N/A' }}</td>
+                                        <td>{{ $item->product_code ?? '' }}</td>
                                         <td>{{ $item->product_name }}</td>
                                         <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
-                                        <td class="text-center">{{ $item->quantity }}</td>
-                                        <td class="text-end"><strong>Rs.{{ number_format($item->total, 2) }}</strong></td>
+                                        <td class="text-end">{{ $item->quantity }}</td>
+                                        <td class="text-end">
+                                            @php
+                                                $discountPercent = 0;
+                                                if(isset($item->discount_type) && $item->discount_type === 'percentage' && $item->discount_percentage) {
+                                                    $discountPercent = $item->discount_percentage;
+                                                } else if($item->discount > 0 && $item->unit_price > 0) {
+                                                    $discountPercent = ($item->discount / $item->unit_price) * 100;
+                                                }
+                                            @endphp
+                                            @if($discountPercent > 0)
+                                                {{ number_format($discountPercent, 2) }}%
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td class="text-end">Rs.{{ number_format($item->total, 2) }}</td>
                                     </tr>
                                     @endforeach
                                 </tbody>
                             </table>
-                        </div>
 
-                        <hr class="my-3">
-
-                        {{-- Summary --}}
-                        <div class="row">
-                            <div class="col-6">
-                                {{-- Empty column --}}
+                            {{-- Summary / Payments --}}
+                            <div style="display:flex; gap:20px; margin-top:25px; border-top:2px solid #000; padding-top:12px;">
+                                <div style="flex:1;">
+                                    <h4 style="margin:0 0 8px 0; color:#666;">PAYMENT INFORMATION</h4>
+                                    @if($this->selectedSale->payments && $this->selectedSale->payments->count() > 0)
+                                        @foreach($this->selectedSale->payments as $payment)
+                                        <div style="margin-bottom:8px; padding:8px; border-left:3px solid {{ $payment->is_completed ? '#28a745' : '#ffc107' }}; background:#f8f9fa;">
+                                            <p style="margin:0;"><strong>{{ $payment->is_completed ? 'Payment' : 'Scheduled Payment' }}:</strong> Rs.{{ number_format($payment->amount, 2) }}</p>
+                                            <p style="margin:0;"><strong>Method:</strong> {{ ucfirst(str_replace('_', ' ', $payment->payment_method)) }}</p>
+                                        </div>
+                                        @endforeach
+                                    @else
+                                        <p class="text-muted">No payment information available</p>
+                                    @endif
+                                </div>
+                                <div style="flex:1;">
+                                    <div>
+                                        <h4 style="margin:0 0 8px 0; border-bottom:1px solid #000; padding-bottom:8px;">ORDER SUMMARY</h4>
+                                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Subtotal:</span><span>Rs.{{ number_format($this->selectedSale->subtotal, 2) }}</span></div>
+                                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                            <span>Total Discount:</span>
+                                            <span>
+                                                @php
+                                                // Calculate total discount percentage
+                                                $itemDiscountTotal = $this->selectedSale->items->sum(function($item) {
+                                                    return ($item->discount_per_unit ?? 0) * $item->quantity;
+                                                });
+                                                $additionalDiscountAmount = is_numeric($this->selectedSale->discount_amount) ? max(0, $this->selectedSale->discount_amount - $itemDiscountTotal) : 0;
+                                                $totalDiscountAmount = $itemDiscountTotal + $additionalDiscountAmount;
+                                                $totalDiscountPercent = $this->selectedSale->subtotal > 0 ? (($totalDiscountAmount / $this->selectedSale->subtotal) * 100) : 0;
+                                                @endphp
+                                                {{ number_format($totalDiscountPercent, 2) }}%
+                                            </span>
+                                        </div>
+                                        <hr>
+                                        <div style="display:flex; justify-content:space-between;"><strong>Grand Total:</strong><strong>Rs.{{ number_format($this->selectedSale->total_amount, 2) }}</strong></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <table class="table table-sm table-borderless">
-                                    <tbody>
-                                        <tr>
-                                            <td class="text-end"><strong>Subtotal:</strong></td>
-                                            <td class="text-end">Rs.{{ number_format($this->selectedSale->subtotal, 2) }}</td>
-                                        </tr>
-                                        @if($this->selectedSale->discount_amount > 0)
-                                        <tr>
-                                            <td class="text-end text-danger"><strong>Discount:</strong></td>
-                                            <td class="text-end text-danger">- Rs.{{ number_format($this->selectedSale->discount_amount, 2) }}</td>
-                                        </tr>
-                                        @endif
-                                        <tr class="table-primary">
-                                            <td class="text-end fw-bold">Grand Total:</td>
-                                            <td class="text-end fw-bold">Rs.{{ number_format($this->selectedSale->total_amount, 2) }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
 
-                        <hr class="my-3">
-
-                        {{-- Signatures --}}
-                        <div class="row mt-5 pt-4 text-center">
-                            <div class="col-6">
-                                <p class="mb-4" style="border-top: 1px dotted #000; padding-top: 40px;">Authorized Signature</p>
+                            {{-- Footer --}}
+                            <div style="margin-top:auto; text-align:center; padding-top:12px; display:flex; flex-direction:column;">
+                                <div style="display:flex; justify-content:center; gap:20px; margin-bottom:12px;">
+                                    <div style="flex:0 0 50%; text-align:center;"><p><strong>....................</strong></p><p><strong>Authorized Signature</strong></p></div>
+                                    <div style="flex:0 0 50%; text-align:center;"><p><strong>....................</strong></p><p><strong>Customer Signature</strong></p></div>
+                                </div>
+                                
+                                <div>
+                                    <p style="margin:0; font-size:12px;">Thank you for your business!</p>
+                                    <p style="margin:0; font-size:12px;">www.hardmen.lk | info@hardmen.lk</p>
+                                </div>
                             </div>
-                            <div class="col-6">
-                                <p class="mb-4" style="border-top: 1px dotted #000; padding-top: 40px;">Customer Signature</p>
-                            </div>
-                        </div>
-
-                        <div class="text-center mt-4 text-muted small">
-                            <p>Thank you for your business!</p>
-                            <p>www.hardmen.lk | info@hardmen.lk</p>
                         </div>
                     </div>
                 </div>
@@ -316,30 +359,65 @@
 @push('scripts')
 <script>
     function printInvoice() {
+        console.log('=== Print Invoice Function Called ===');
+        
         const printEl = document.getElementById('printableInvoice');
         if (!printEl) { 
-            alert('Invoice not found. Please try again.');
+            console.error('ERROR: Printable invoice element not found');
+            setTimeout(function() {
+                console.log('Retrying print after 1 second...');
+                const retryEl = document.getElementById('printableInvoice');
+                if (retryEl) {
+                    printInvoice();
+                } else {
+                    alert('Invoice not ready for printing. Please try again.');
+                }
+            }, 1000);
             return; 
         }
 
+        console.log('Print element found:', printEl);
+
+        // Get the actual receipt container
+        const receiptContainer = printEl.querySelector('.receipt-container');
+        if (!receiptContainer) {
+            console.error('ERROR: Receipt container not found inside printableInvoice');
+            alert('Invoice content not ready. Please try again.');
+            return;
+        }
+
+        console.log('Receipt container found, preparing content...');
+
         // Clone the content to avoid modifying the original
-        let content = printEl.cloneNode(true);
+        let content = receiptContainer.cloneNode(true);
         
         // Remove any buttons or interactive elements from print
-        content.querySelectorAll('button, .no-print, .modal-footer').forEach(el => el.remove());
+        content.querySelectorAll('button, .no-print').forEach(el => el.remove());
+
+        // Ensure footer is anchored to bottom
+        const footerEl = content.querySelector('div[style*="border-top:2px solid #000"]') || content.querySelector('div:last-child');
+        if (footerEl) {
+            footerEl.classList.add('receipt-footer');
+            footerEl.style.marginTop = 'auto';
+        }
 
         // Get the HTML string
-        let htmlContent = content.innerHTML;
+        let htmlContent = content.outerHTML;
+
+        console.log('Content prepared, opening print window...');
 
         // Open a new window
-        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
         
         if (!printWindow) {
+            console.error('ERROR: Print window blocked by popup blocker');
             alert('Popup blocked. Please allow pop-ups for this site.');
             return;
         }
 
-        // Complete HTML document with print styles
+        console.log('Print window opened successfully');
+
+        // Complete HTML document with styles matching store billing
         const fullHtml = `
             <!DOCTYPE html>
             <html>
@@ -347,80 +425,142 @@
                 <meta charset="utf-8">
                 <title>Invoice - HARDMEN (PVT) LTD</title>
                 <style>
+                    @page { 
+                        size: letter portrait; 
+                        margin: 6mm; 
+                    }
+
+                    html, body { height: 100%; }
+
                     * {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
                     }
-                    body {
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+                    body { 
+                        font-family: sans-serif; 
+                        color: #000; 
+                        background: #fff; 
+                        padding: 10mm;
                         font-size: 12px;
                         line-height: 1.4;
-                        color: #000;
                     }
-                    .receipt-container {
-                        padding: 20px;
-                        max-width: 800px;
+
+                    .receipt-container { 
+                        max-width: 800px; 
                         margin: 0 auto;
+                        padding: 20px;
                         background: white;
+                        display: flex;
+                        flex-direction: column;
+                        min-height: 100vh;
+                        page-break-inside: avoid;
                     }
-                    h4 {
-                        font-size: 18px;
-                        font-weight: bold;
-                        margin-bottom: 5px;
+
+                    .receipt-footer { 
+                        margin-top: auto !important; 
+                        page-break-inside: avoid;
                     }
-                    .text-center { text-align: center; }
-                    .text-end { text-align: right; }
-                    .text-muted { color: #666; }
-                    .small { font-size: 11px; }
-                    .mb-1 { margin-bottom: 4px; }
-                    .mb-2 { margin-bottom: 8px; }
-                    .mb-4 { margin-bottom: 16px; }
-                    .my-3 { margin: 12px 0; }
-                    .my-4 { margin: 16px 0; }
-                    .row { display: flex; }
-                    .col-6 { flex: 0 0 50%; padding-right: 10px; }
-                    .col-6:last-child { padding-right: 0; padding-left: 10px; }
                     
-                    table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-bottom: 10px;
+                    .receipt-header { 
+                        border-bottom: 3px solid #000; 
+                        padding-bottom: 12px; 
+                        margin-bottom: 12px; 
                     }
-                    th, td {
-                        padding: 6px;
+                    
+                    .receipt-row { 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: space-between; 
+                    }
+                    
+                    .receipt-center { 
+                        flex: 1; 
+                        text-align: center; 
+                    }
+                    
+                    .receipt-center h2 { 
+                        margin: 0 0 4px 0; 
+                        font-size: 2rem; 
+                        letter-spacing: 2px;
+                        font-weight: bold;
+                    }
+                    
+                    table.receipt-table { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        margin-top: 12px; 
+                    }
+                    
+                    table.receipt-table th {
+                        border-bottom: 1px solid #000; 
+                        padding: 8px; 
                         text-align: left;
-                        border: 1px solid #ddd;
+                        font-weight: bold;
+                        background: none;
                     }
-                    th {
-                        background-color: #f5f5f5;
+                    
+                    table.receipt-table td { 
+                        padding: 8px; 
+                        text-align: left;
+                        border: none;
+                    }
+                    
+                    .text-end { 
+                        text-align: right; 
+                    }
+                    
+                    .text-muted {
+                        color: #000000;
+                    }
+                    
+                    p {
+                        margin: 4px 0;
+                    }
+                    
+                    strong {
                         font-weight: bold;
                     }
-                    .text-end { text-align: right; }
-                    .text-center { text-align: center; }
-                    .fw-bold { font-weight: bold; }
-                    .badge {
-                        background-color: #28a745;
-                        color: white;
-                        padding: 2px 6px;
-                        border-radius: 3px;
-                        font-size: 10px;
-                    }
-                    hr { border: none; border-top: 1px solid #000; margin: 12px 0; }
-                    .table-light th { background-color: #f5f5f5; }
-                    .table-primary { background-color: #e7f3ff; }
                     
-                    p { margin-bottom: 4px; }
-                    strong { font-weight: bold; }
+                    hr {
+                        border: none;
+                        border-top: 1px solid #000;
+                        margin: 8px 0;
+                    }
                     
                     @media print {
-                        body { margin: 0; padding: 0; }
-                        .receipt-container { padding: 10px; }
+                        body {
+                            padding: 0;
+                        }
+                        
+                        .receipt-container {
+                            box-shadow: none !important;
+                        }
+                        
+                        .receipt-container {
+                            page-break-inside: avoid;
+                        }
                     }
                 </style>
             </head>
             <body>
                 ${htmlContent}
+                <script>
+                    console.log('Print window document loaded');
+                    window.onload = function() {
+                        console.log('Print window fully loaded, triggering print dialog...');
+                        setTimeout(function() {
+                            try {
+                                window.print();
+                                console.log('Print dialog triggered');
+                            } catch(e) {
+                                console.error('Print failed:', e);
+                                alert('Print failed: ' + e.message);
+                            }
+                        }, 500);
+                    };
+                <\/script>
             </body>
             </html>
         `;
@@ -430,17 +570,18 @@
             printWindow.document.open();
             printWindow.document.write(fullHtml);
             printWindow.document.close();
+            console.log('=== Content written to print window successfully ===');
         } catch(e) {
+            console.error('ERROR writing to print window:', e);
             alert('Failed to prepare print: ' + e.message);
         }
         
         // Focus the print window
         printWindow.focus();
-        
-        // Trigger print after a short delay to ensure content is rendered
-        setTimeout(() => {
-            printWindow.print();
-        }, 250);
     }
+
+    // Make printInvoice available globally
+    window.printInvoice = printInvoice;
+    console.log('printInvoice function registered globally');
 </script>
 @endpush
