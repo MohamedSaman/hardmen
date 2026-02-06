@@ -676,7 +676,7 @@
 </div>
 
 {{-- View Order Modal --}}
-<div class="modal fade" id="viewOrderModal" tabindex="-1" aria-labelledby="viewOrderModalLabel" >
+<div wire:ignore.self class="modal fade" id="viewOrderModal" tabindex="-1" aria-labelledby="viewOrderModalLabel" style="z-index: 1060;">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -772,7 +772,7 @@
 </div>
 
 {{-- Edit Order Modal --}}
-<div class="modal fade" id="editOrderModal" tabindex="-1">
+<div wire:ignore.self class="modal fade" id="editOrderModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -940,6 +940,31 @@
 
 @push('styles')
 <style>
+    /* Fix viewOrderModal z-index stacking */
+    #viewOrderModal {
+        z-index: 1060 !important;
+    }
+    #viewOrderModal ~ .modal-backdrop {
+        z-index: 1055 !important;
+    }
+    
+    /* Force viewOrderModal to be fully visible when shown */
+    #viewOrderModal.show {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
+    #viewOrderModal.show .modal-dialog {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: translate(0, 0) !important;
+    }
+    #viewOrderModal.show .modal-content {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
     .custom-grn-container::-webkit-scrollbar {
         height: 10px;
         width: 8px;
@@ -997,43 +1022,186 @@
             }
         });
     });
-
-    // Listen for Livewire openModal event and ensure DOM is updated before showing
-    document.addEventListener('livewire:init', () => {
-        Livewire.on('openModal', (payload) => {
-            // payload may be an object like { modalId: 'id' } or a plain string
-            let modalId = null;
-            if (!payload) return;
-            if (typeof payload === 'string') modalId = payload;
-            else if (payload.modalId) modalId = payload.modalId;
-            else if (Array.isArray(payload) && payload.length > 0 && payload[0].modalId) modalId = payload[0].modalId;
-
-            if (!modalId) return;
-
-            // Wait two RAF cycles to allow Livewire to finish DOM patching
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const modalElement = document.getElementById(modalId);
-                    if (!modalElement) return;
-
-                    // Dispose existing instance to avoid stale content
-                    try {
-                        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                            const existing = bootstrap.Modal.getInstance(modalElement);
-                            if (existing) existing.dispose();
-                            new bootstrap.Modal(modalElement).show();
-                            return;
-                        }
-                    } catch (e) {
-                        console.error('Modal show error', e);
-                    }
-
-                    // Fallback to jQuery if available
-                    if (typeof $ !== 'undefined') {
-                        $('#' + modalId).modal('show');
-                    }
-                });
+    
+    // Listen for openViewOrderModal event
+    document.addEventListener('livewire:initialized', () => {
+        console.log('Livewire initialized - viewOrderModal listener ready');
+        
+        // Store original parent for viewOrderModal
+        let viewOrderModalOriginalParent = null;
+        
+        Livewire.on('openViewOrderModal', () => {
+            console.log('openViewOrderModal event received');
+            
+            // Close any open dropdowns first
+            document.querySelectorAll('.dropdown-menu.show').forEach(d => {
+                d.classList.remove('show');
             });
+            document.querySelectorAll('.dropdown-toggle').forEach(d => d.classList.remove('show'));
+            document.querySelectorAll('[aria-expanded=true]').forEach(d => d.setAttribute('aria-expanded', 'false'));
+            
+            // Remove any existing stray backdrops
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            
+            // Close any open modals properly
+            document.querySelectorAll('.modal.show').forEach(m => {
+                const instance = bootstrap.Modal.getInstance(m);
+                if (instance) {
+                    instance.hide();
+                }
+                m.classList.remove('show');
+                m.style.display = 'none';
+                m.removeAttribute('aria-modal');
+                m.removeAttribute('role');
+            });
+            
+            // Remove modal-open class from body
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+            
+            setTimeout(() => {
+                const el = document.getElementById('viewOrderModal');
+                console.log('viewOrderModal element found:', !!el);
+                
+                if (el) {
+                    try {
+                        // Dispose any existing instance
+                        const existingInstance = bootstrap.Modal.getInstance(el);
+                        if (existingInstance) {
+                            existingInstance.dispose();
+                        }
+                        
+                        // Store original parent and move modal to body
+                        if (el.parentElement !== document.body) {
+                            viewOrderModalOriginalParent = el.parentElement;
+                            console.log('Moving modal to body');
+                            document.body.appendChild(el);
+                        }
+                        
+                        // Remove aria-hidden that might be lingering
+                        el.removeAttribute('aria-hidden');
+                        
+                        // Create and show modal
+                        const modal = new bootstrap.Modal(el, {
+                            backdrop: true,
+                            keyboard: true
+                        });
+                        
+                        // Listen for modal hidden event to clean up
+                        el.addEventListener('hidden.bs.modal', function onHidden() {
+                            console.log('viewOrderModal hidden, cleaning up...');
+                            
+                            // Remove backdrop
+                            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+                            
+                            // Remove modal-open from body
+                            document.body.classList.remove('modal-open');
+                            document.body.style.removeProperty('overflow');
+                            document.body.style.removeProperty('padding-right');
+                            
+                            // Move modal back to original parent
+                            if (viewOrderModalOriginalParent && el.parentElement === document.body) {
+                                viewOrderModalOriginalParent.appendChild(el);
+                                console.log('Modal moved back to original parent');
+                            }
+                            
+                            // Remove this listener
+                            el.removeEventListener('hidden.bs.modal', onHidden);
+                        }, { once: true });
+                        
+                        modal.show();
+                        console.log('Modal shown');
+                    } catch (e) {
+                        console.error('Error showing modal:', e);
+                    }
+                } else {
+                    console.error('viewOrderModal element not found!');
+                }
+            }, 100);
+        });
+        
+        // Helper function to clean up modals before opening new one
+        function cleanupModals() {
+            // Close any open dropdowns
+            document.querySelectorAll('.dropdown-menu.show').forEach(d => d.classList.remove('show'));
+            document.querySelectorAll('.dropdown-toggle').forEach(d => d.classList.remove('show'));
+            document.querySelectorAll('[aria-expanded=true]').forEach(d => d.setAttribute('aria-expanded', 'false'));
+            
+            // Remove stray backdrops
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            
+            // Close any open modals
+            document.querySelectorAll('.modal.show').forEach(m => {
+                const instance = bootstrap.Modal.getInstance(m);
+                if (instance) {
+                    instance.hide();
+                }
+                m.classList.remove('show');
+                m.style.display = 'none';
+                m.removeAttribute('aria-modal');
+                m.removeAttribute('role');
+                m.removeAttribute('aria-hidden');
+            });
+            
+            // Clean body state
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+        
+        // Listen for openEditOrderModal event
+        Livewire.on('openEditOrderModal', () => {
+            console.log('openEditOrderModal event received');
+            cleanupModals();
+            
+            setTimeout(() => {
+                const el = document.getElementById('editOrderModal');
+                if (el) {
+                    try {
+                        const existingInstance = bootstrap.Modal.getInstance(el);
+                        if (existingInstance) {
+                            existingInstance.dispose();
+                        }
+                        el.removeAttribute('aria-hidden');
+                        const modal = new bootstrap.Modal(el, {
+                            backdrop: true,
+                            keyboard: true
+                        });
+                        modal.show();
+                        console.log('Edit modal shown');
+                    } catch (e) {
+                        console.error('Error showing edit modal:', e);
+                    }
+                }
+            }, 150);
+        });
+        
+        // Listen for openGRNModal event
+        Livewire.on('openGRNModal', () => {
+            console.log('openGRNModal event received');
+            cleanupModals();
+            
+            setTimeout(() => {
+                const el = document.getElementById('grnModal');
+                if (el) {
+                    try {
+                        const existingInstance = bootstrap.Modal.getInstance(el);
+                        if (existingInstance) {
+                            existingInstance.dispose();
+                        }
+                        el.removeAttribute('aria-hidden');
+                        const modal = new bootstrap.Modal(el, {
+                            backdrop: true,
+                            keyboard: true
+                        });
+                        modal.show();
+                        console.log('GRN modal shown');
+                    } catch (e) {
+                        console.error('Error showing GRN modal:', e);
+                    }
+                }
+            }, 150);
         });
     });
 </script>

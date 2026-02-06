@@ -556,8 +556,8 @@ class PurchaseOrderList extends Component
             $item->display_name = $this->formatOrderItemName($item);
         }
 
-        // Emit event to open modal (client will wait for DOM update)
-        $this->emit('openModal', ['modalId' => 'viewOrderModal']);
+        // Open the view order modal using dispatch event
+        $this->dispatch('openViewOrderModal');
     }
 
     public function editOrder($id)
@@ -586,8 +586,8 @@ class PurchaseOrderList extends Component
         $this->searchProduct = '';
         $this->products = [];
 
-        // Emit event to open modal (client will wait for DOM update)
-        $this->emit('openModal', ['modalId' => 'editOrderModal']);
+        // Open the edit order modal - with cleanup
+        $this->dispatch('openEditOrderModal');
     }
 
     // Add product to edit order items
@@ -1463,8 +1463,8 @@ class PurchaseOrderList extends Component
             ];
         }
 
-        // Emit event to open GRN modal (client will wait for DOM update)
-        $this->emit('openModal', ['modalId' => 'grnModal']);
+        // Open the GRN modal - with cleanup
+        $this->dispatch('openGRNModal');
     }
 
     public function reProcessGRN($orderId)
@@ -1515,8 +1515,8 @@ class PurchaseOrderList extends Component
             return;
         }
 
-        // Emit event to open GRN modal (client will wait for DOM update)
-        $this->emit('openModal', ['modalId' => 'grnModal']);
+        // Open the GRN modal - with cleanup
+        $this->dispatch('openGRNModal');
     }
 
     public function calculateCost($index)
