@@ -104,26 +104,26 @@ class SaleApproval extends Component
                 if ($item->variant_id || $item->variant_value) {
                     // Handle variant stock - try multiple approaches
                     $stockQuery = ProductStock::where('product_id', $item->product_id);
-                    
+
                     if ($item->variant_id) {
                         $stockQuery->where('variant_id', $item->variant_id);
                     }
                     if ($item->variant_value) {
                         $stockQuery->where('variant_value', $item->variant_value);
                     }
-                    
+
                     $stock = $stockQuery->first();
                 } else {
                     // Handle single product stock - check for null or empty variant_value
                     $stock = ProductStock::where('product_id', $item->product_id)
                         ->where(function ($q) {
                             $q->whereNull('variant_value')
-                              ->orWhere('variant_value', '')
-                              ->orWhere('variant_value', 'null');
+                                ->orWhere('variant_value', '')
+                                ->orWhere('variant_value', 'null');
                         })
                         ->whereNull('variant_id')
                         ->first();
-                    
+
                     // If still not found, try just by product_id (single stock product)
                     if (!$stock) {
                         $stock = ProductStock::where('product_id', $item->product_id)->first();
@@ -172,7 +172,7 @@ class SaleApproval extends Component
             $this->showApproveModal = false;
             $this->showDetailsModal = false;
             $this->selectedSaleId = null;
-            
+
             $this->dispatch('show-toast', type: 'success', message: 'Sale approved successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
