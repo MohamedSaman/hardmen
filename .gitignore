@@ -4,6 +4,7 @@
 /storage/framework/views/*.php
 /storage/app/public/*
 /public/build/
+storage/logs/*
 /usn-parts/
 
 /storage/logs/*.log
