@@ -547,7 +547,7 @@ class PurchaseOrderList extends Component
         $this->selectedOrder = PurchaseOrder::with(['supplier', 'items.product.variant'])->find($id);
 
         if (!$this->selectedOrder) {
-            $this->js("Swal.fire('Error', 'Order not found!', 'error');");
+            $this->dispatch('showToast', ['type' => 'error', 'message' => 'Order not found!']);
             return;
         }
 
@@ -556,15 +556,15 @@ class PurchaseOrderList extends Component
             $item->display_name = $this->formatOrderItemName($item);
         }
 
-        // Open modal using JavaScript with a small delay to ensure DOM is ready
-        $this->js("setTimeout(() => { new bootstrap.Modal(document.getElementById('viewOrderModal')).show(); }, 100);");
+        // Emit event to open modal (client will wait for DOM update)
+        $this->emit('openModal', ['modalId' => 'viewOrderModal']);
     }
 
     public function editOrder($id)
     {
         $order = PurchaseOrder::with(['supplier', 'items.product.variant'])->find($id);
         if (!$order) {
-            $this->js("Swal.fire('Error', 'Order not found!', 'error');");
+            $this->dispatch('showToast', ['type' => 'error', 'message' => 'Order not found!']);
             return;
         }
 
@@ -586,8 +586,8 @@ class PurchaseOrderList extends Component
         $this->searchProduct = '';
         $this->products = [];
 
-        // Open modal using JavaScript with a small delay to ensure DOM is ready
-        $this->js("setTimeout(() => { new bootstrap.Modal(document.getElementById('editOrderModal')).show(); }, 100);");
+        // Emit event to open modal (client will wait for DOM update)
+        $this->emit('openModal', ['modalId' => 'editOrderModal']);
     }
 
     // Add product to edit order items
@@ -1430,7 +1430,7 @@ class PurchaseOrderList extends Component
         $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product.detail'])->find($orderId);
 
         if (!$this->selectedPO) {
-            $this->js("Swal.fire('Error', 'Order not found!', 'error');");
+            $this->dispatch('showToast', ['type' => 'error', 'message' => 'Order not found!']);
             return;
         }
 
@@ -1463,8 +1463,8 @@ class PurchaseOrderList extends Component
             ];
         }
 
-        // Open GRN modal using JavaScript (small delay to ensure DOM is ready)
-        $this->js("setTimeout(() => { new bootstrap.Modal(document.getElementById('grnModal')).show(); }, 100);");
+        // Emit event to open GRN modal (client will wait for DOM update)
+        $this->emit('openModal', ['modalId' => 'grnModal']);
     }
 
     public function reProcessGRN($orderId)
@@ -1472,7 +1472,7 @@ class PurchaseOrderList extends Component
         $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product.detail'])->find($orderId);
 
         if (!$this->selectedPO) {
-            $this->js("Swal.fire('Error', 'Order not found!', 'error');");
+            $this->dispatch('showToast', ['type' => 'error', 'message' => 'Order not found!']);
             return;
         }
 
@@ -1511,12 +1511,12 @@ class PurchaseOrderList extends Component
         }
 
         if (empty($this->grnItems)) {
-            $this->js("Swal.fire('Info', 'No pending items to process!', 'info');");
+            $this->dispatch('showToast', ['type' => 'info', 'message' => 'No pending items to process!']);
             return;
         }
 
-        // Open GRN modal using JavaScript (small delay)
-        $this->js("setTimeout(() => { new bootstrap.Modal(document.getElementById('grnModal')).show(); }, 100);");
+        // Emit event to open GRN modal (client will wait for DOM update)
+        $this->emit('openModal', ['modalId' => 'grnModal']);
     }
 
     public function calculateCost($index)

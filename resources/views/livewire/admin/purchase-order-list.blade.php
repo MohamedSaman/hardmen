@@ -676,7 +676,7 @@
 </div>
 
 {{-- View Order Modal --}}
-<div wire:ignore.self class="modal fade" id="viewOrderModal" tabindex="-1" aria-labelledby="viewOrderModalLabel" >
+<div class="modal fade" id="viewOrderModal" tabindex="-1" aria-labelledby="viewOrderModalLabel" >
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -772,7 +772,7 @@
 </div>
 
 {{-- Edit Order Modal --}}
-<div wire:ignore.self class="modal fade" id="editOrderModal" tabindex="-1">
+<div class="modal fade" id="editOrderModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -842,15 +842,15 @@
                             <i class="bi bi-info-circle"></i> Type at least 2 characters to search
                     </div>
                     @endif
+                    </div>
                 </div>
-            </div>
 
-            <h6 class="mb-3">
-                <i class="bi bi-cart3 me-2"></i>Order Items
-                <span class="badge bg-primary">{{ count($editOrderItems) }}</span>
-            </h6>
+                <h6 class="mb-3">
+                    <i class="bi bi-cart3 me-2"></i>Order Items
+                    <span class="badge bg-primary">{{ count($editOrderItems) }}</span>
+                </h6>
 
-            <div class="table-responsive overflow-auto">
+                <div class="table-responsive overflow-auto">
                 <table class="table table-bordered">
                     <thead class="table-light">
                         <tr>
@@ -924,13 +924,14 @@
                     </tfoot>
                     @endif
                 </table>
+                </div>
             </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button class="btn btn-primary" wire:click="updateOrder">
-                <i class="bi bi-save me-1"></i> Save Changes
-            </button>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button class="btn btn-primary" wire:click="updateOrder">
+                    <i class="bi bi-save me-1"></i> Save Changes
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -994,6 +995,45 @@
                     @this.call('calculateGRNTotal', index);
                 }, 150);
             }
+        });
+    });
+
+    // Listen for Livewire openModal event and ensure DOM is updated before showing
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('openModal', (payload) => {
+            // payload may be an object like { modalId: 'id' } or a plain string
+            let modalId = null;
+            if (!payload) return;
+            if (typeof payload === 'string') modalId = payload;
+            else if (payload.modalId) modalId = payload.modalId;
+            else if (Array.isArray(payload) && payload.length > 0 && payload[0].modalId) modalId = payload[0].modalId;
+
+            if (!modalId) return;
+
+            // Wait two RAF cycles to allow Livewire to finish DOM patching
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const modalElement = document.getElementById(modalId);
+                    if (!modalElement) return;
+
+                    // Dispose existing instance to avoid stale content
+                    try {
+                        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            const existing = bootstrap.Modal.getInstance(modalElement);
+                            if (existing) existing.dispose();
+                            new bootstrap.Modal(modalElement).show();
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Modal show error', e);
+                    }
+
+                    // Fallback to jQuery if available
+                    if (typeof $ !== 'undefined') {
+                        $('#' + modalId).modal('show');
+                    }
+                });
+            });
         });
     });
 </script>

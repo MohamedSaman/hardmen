@@ -74,6 +74,15 @@ class StoreBilling extends Component
     public $customerAddress = '';
     public $customerType = 'retail';
     public $businessName = '';
+    public $customerOpeningBalance = 0;
+    public $customerOverpaidAmount = 0;
+    public $showCustomerMoreInfo = false;
+
+    // Customer Balance Properties (for selected customer display)
+    public $customerOpeningBalanceDisplay = 0;
+    public $customerDueAmountDisplay = 0;
+    public $customerOverpaidAmountDisplay = 0;
+    public $customerTotalDueDisplay = 0;
 
     // Sale Properties
     public $notes = '';
@@ -103,7 +112,7 @@ class StoreBilling extends Component
     public $additionalDiscountType = 'fixed'; // 'fixed' or 'percentage'
 
     // Price Type Selection
-    public $priceType = 'retail'; // 'retail', 'wholesale', or 'distribute'
+    public $priceType = 'wholesale'; // 'retail', 'wholesale', or 'distribute'
 
     // View Type Selection
     public $productViewType = 'grid'; // 'grid' or 'list'
@@ -122,8 +131,57 @@ class StoreBilling extends Component
     public $amountReceived = 0;
     public $paymentNotes = '';
 
+    // Edit Mode Properties
+    public $editingSaleId = null;
+    public $editingSale = null;
+
     public function mount()
     {
+        // Check if editing an existing sale
+        $editId = request()->query('edit');
+        if ($editId) {
+            $this->editingSaleId = $editId;
+            $this->editingSale = Sale::with(['customer', 'items'])->find($editId);
+
+            if ($this->editingSale) {
+                // Load sale data
+                $this->customerId = $this->editingSale->customer_id;
+                $this->selectedCustomer = $this->editingSale->customer;
+                $this->notes = $this->editingSale->notes ?? '';
+
+                // Load additional discount from sale
+                if ($this->editingSale->additional_discount_type) {
+                    $this->additionalDiscountType = $this->editingSale->additional_discount_type;
+                    $this->additionalDiscount = $this->editingSale->additional_discount_percentage ?? 0;
+                }
+
+                // Load cart items from sale
+                $this->cart = [];
+                foreach ($this->editingSale->items as $item) {
+                    $this->cart[] = [
+                        'id' => $item->product_id,
+                        'product_id' => $item->product_id,
+                        'product_name' => $item->product_name,
+                        'key' => $item->product_id . '-' . $item->id,
+                        'name' => $item->product_name,
+                        'code' => $item->product_code ?? '',
+                        'quantity' => $item->quantity,
+                        'price' => $item->unit_price,
+                        'discount' => $item->discount_per_unit ?? 0,
+                        'total' => $item->total,
+                        'variant_value' => $item->variant_value ?? '',
+                        'variant_id' => null,
+                        'model' => '',
+                        'stock' => 0,
+                        'image' => '',
+                        'retail_price' => $item->unit_price,
+                        'wholesale_price' => 0,
+                        'distributor_price' => 0,
+                        'sale_item_id' => $item->id,
+                    ];
+                }
+            }
+        }
         // Check for yesterday's open session - auto-close it
         $yesterdaySession = POSSession::where('user_id', Auth::id())
             ->whereDate('session_date', now()->subDay()->toDateString())
@@ -227,7 +285,9 @@ class StoreBilling extends Component
         }
 
         $this->loadCustomers();
-        $this->setDefaultCustomer();
+        if (!$this->editingSaleId) {
+            $this->setDefaultCustomer();
+        }
         $this->loadCategories();
         $this->loadBrands();
         $this->loadProducts();
@@ -702,10 +762,20 @@ class StoreBilling extends Component
             $customer = Customer::find($value);
             if ($customer) {
                 $this->selectedCustomer = $customer;
+                // Load balance information
+                $this->customerOpeningBalanceDisplay = $customer->opening_balance ?? 0;
+                $this->customerDueAmountDisplay = $customer->due_amount ?? 0;
+                $this->customerOverpaidAmountDisplay = $customer->overpaid_amount ?? 0;
+                $this->customerTotalDueDisplay = $customer->total_due ?? 0;
             }
         } else {
             // If customer is deselected, set back to walking customer
             $this->setDefaultCustomer();
+            // Reset balance displays
+            $this->customerOpeningBalanceDisplay = 0;
+            $this->customerDueAmountDisplay = 0;
+            $this->customerOverpaidAmountDisplay = 0;
+            $this->customerTotalDueDisplay = 0;
         }
     }
 
@@ -795,15 +865,7 @@ class StoreBilling extends Component
             return;
         }
 
-        // Calculate total cheques already added + new cheque
-        $totalCheques = collect($this->cheques)->sum('amount') + $this->tempChequeAmount;
-
-        // Validate that total cheques don't exceed grand total
-        if ($totalCheques > $this->grandTotal) {
-            $this->showToast('error', 'Total cheque amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
-            return;
-        }
-
+        // Add cheque without restricting to grand total (allow overpayment)
         $this->cheques[] = [
             'number' => $this->tempChequeNumber,
             'bank_name' => $this->tempBankName,
@@ -868,10 +930,9 @@ class StoreBilling extends Component
     {
         // Ensure cashAmount is numeric
         $value = floatval($value ?? 0);
-        $max = max(0, $this->grandTotal - collect($this->cheques)->sum('amount'));
-        if ($value > $max) {
-            $this->cashAmount = $max;
-        } elseif ($value < 0) {
+
+        // Allow overpayment - don't restrict cash amount
+        if ($value < 0) {
             $this->cashAmount = 0;
         } else {
             $this->cashAmount = $value;
@@ -897,6 +958,9 @@ class StoreBilling extends Component
         $this->customerAddress = '';
         $this->customerType = 'retail';
         $this->businessName = '';
+        $this->customerOpeningBalance = 0;
+        $this->customerOverpaidAmount = 0;
+        $this->showCustomerMoreInfo = false;
     }
 
     // Open customer modal
@@ -922,9 +986,15 @@ class StoreBilling extends Component
             'customerEmail' => 'nullable|email|unique:customers,email',
             'customerAddress' => 'nullable|string',
             'customerType' => 'required|in:retail,wholesale,distributor',
+            'customerOpeningBalance' => 'nullable|numeric|min:0',
+            'customerOverpaidAmount' => 'nullable|numeric|min:0',
         ]);
 
         try {
+            $openingBalance = floatval($this->customerOpeningBalance ?? 0);
+            $overpaidAmount = floatval($this->customerOverpaidAmount ?? 0);
+            $totalDue = $openingBalance;
+
             $customer = Customer::create([
                 'name' => $this->customerName,
                 'phone' => $this->customerPhone,
@@ -933,11 +1003,20 @@ class StoreBilling extends Component
                 'type' => $this->customerType,
                 'business_name' => $this->businessName,
                 'user_id' => Auth::id(),
+                'opening_balance' => $openingBalance,
+                'due_amount' => 0,
+                'total_due' => $totalDue,
+                'overpaid_amount' => $overpaidAmount,
             ]);
 
             $this->loadCustomers();
             $this->customerId = $customer->id;
             $this->selectedCustomer = $customer;
+            // Load balance information
+            $this->customerOpeningBalanceDisplay = $openingBalance;
+            $this->customerDueAmountDisplay = 0;
+            $this->customerOverpaidAmountDisplay = $overpaidAmount;
+            $this->customerTotalDueDisplay = $totalDue;
             $this->closeCustomerModal();
             $this->resetCustomerFields();
 
@@ -1506,11 +1585,11 @@ class StoreBilling extends Component
                 $this->showToast('error', 'Please add at least one cheque.');
                 return;
             }
-            // Require total of cheques to exactly match grand total (no due allowed)
+            // Allow cheque amounts >= grand total (including overpayment)
             $totalCheques = round(collect($this->cheques)->sum('amount'), 2);
             $grand = round($this->grandTotal, 2);
-            if ($totalCheques !== $grand) {
-                $this->showToast('error', 'Total cheque amount must equal the grand total of Rs. ' . number_format($this->grandTotal, 2) . '. Partial cheque payments are not allowed.');
+            if ($totalCheques < $grand) {
+                $this->showToast('error', 'Total cheque amount must be at least Rs. ' . number_format($this->grandTotal, 2));
                 return;
             }
         } elseif ($this->paymentMethod === 'multiple') {
@@ -1519,20 +1598,14 @@ class StoreBilling extends Component
                 $this->showToast('error', 'Please specify a cash amount or add at least one cheque.');
                 return;
             }
-            if ($totalMultiple > $this->grandTotal) {
-                $this->showToast('error', 'Total payment amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
-                return;
-            }
+            // Allow overpayment in multiple payments
+            // (removed check that prevented exceeding grand total)
         } elseif ($this->paymentMethod === 'bank_transfer') {
             if ($this->bankTransferAmount <= 0) {
                 $this->showToast('error', 'Please enter bank transfer amount.');
                 return;
             }
-            // Validate bank transfer amount doesn't exceed grand total
-            if ($this->bankTransferAmount > $this->grandTotal) {
-                $this->showToast('error', 'Bank transfer amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
-                return;
-            }
+            // Allow overpayment in bank transfers (removed check that prevented exceeding grand total)
         }
 
         // Set cash amount from amount received for cash payments
@@ -1572,11 +1645,11 @@ class StoreBilling extends Component
                 $this->showToast('error', 'Please add at least one cheque.');
                 return;
             }
-            // Require total of cheques to exactly match grand total (no due allowed)
+            // Allow cheque amounts >= grand total (including overpayment)
             $totalCheques = round(collect($this->cheques)->sum('amount'), 2);
             $grand = round($this->grandTotal, 2);
-            if ($totalCheques !== $grand) {
-                $this->showToast('error', 'Total cheque amount must equal the grand total of Rs. ' . number_format($this->grandTotal, 2) . '. Partial cheque payments are not allowed.');
+            if ($totalCheques < $grand) {
+                $this->showToast('error', 'Total cheque amount must be at least Rs. ' . number_format($this->grandTotal, 2));
                 return;
             }
         } elseif ($this->paymentMethod === 'multiple') {
@@ -1585,20 +1658,14 @@ class StoreBilling extends Component
                 $this->showToast('error', 'Please specify a cash amount or add at least one cheque.');
                 return;
             }
-            if ($totalMultiple > $this->grandTotal) {
-                $this->showToast('error', 'Total payment amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
-                return;
-            }
+            // Allow overpayment in multiple payments
+            // (removed check that prevented exceeding grand total)
         } elseif ($this->paymentMethod === 'bank_transfer') {
             if ($this->bankTransferAmount <= 0) {
                 $this->showToast('error', 'Please enter bank transfer amount.');
                 return;
             }
-            // Validate bank transfer amount doesn't exceed grand total
-            if ($this->bankTransferAmount > $this->grandTotal) {
-                $this->showToast('error', 'Bank transfer amount cannot exceed grand total of Rs. ' . number_format($this->grandTotal, 2));
-                return;
-            }
+            // Allow overpayment in bank transfers (removed check that prevented exceeding grand total)
         }
 
         // Set cash amount from amount received for cash payments
@@ -1640,6 +1707,7 @@ class StoreBilling extends Component
     {
         try {
             Log::info('createSale: starting', [
+                'editingSaleId' => $this->editingSaleId,
                 'cart' => $this->cart,
                 'subtotal' => $this->subtotal,
                 'grandTotal' => $this->grandTotal,
@@ -1660,25 +1728,89 @@ class StoreBilling extends Component
                 return;
             }
 
-            // Create sale
-            $sale = Sale::create([
-                'sale_id' => Sale::generateSaleId(),
-                'invoice_number' => Sale::generateInvoiceNumber(),
-                'customer_id' => $customer->id,
-                'customer_type' => $customer->type,
-                'subtotal' => $this->subtotal,
-                'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
-                'additional_discount_type' => $this->additionalDiscountType,
-                'additional_discount_percentage' => $this->additionalDiscountType === 'percentage' ? $this->additionalDiscount : 0,
-                'total_amount' => $this->grandTotal,
-                'payment_type' => $this->databasePaymentType,
-                'payment_status' => $this->paymentStatus,
-                'due_amount' => $this->dueAmount,
-                'notes' => $this->notes,
-                'user_id' => Auth::id(),
-                'status' => 'confirm',
-                'sale_type' => 'pos'
-            ]);
+            // Check if editing existing sale
+            if ($this->editingSaleId) {
+                // UPDATE EXISTING SALE
+                $sale = Sale::find($this->editingSaleId);
+                if (!$sale) {
+                    $this->showToast('error', 'Sale not found.');
+                    return;
+                }
+
+                // Restore previous stock quantities
+                $previousItems = SaleItem::where('sale_id', $sale->id)->get();
+                foreach ($previousItems as $prevItem) {
+                    $baseProductId = $prevItem->product_id;
+                    $variantValue = $prevItem->variant_value ?? null;
+                    $variantId = $prevItem->variant_id ?? null;
+
+                    if ($variantValue || $variantId) {
+                        $stockRecord = ProductStock::where('product_id', $baseProductId)
+                            ->when($variantId, function ($q) use ($variantId) {
+                                return $q->where('variant_id', $variantId);
+                            })
+                            ->when($variantValue, function ($q) use ($variantValue) {
+                                return $q->where('variant_value', $variantValue);
+                            })
+                            ->first();
+
+                        if ($stockRecord) {
+                            $stockRecord->available_stock += $prevItem->quantity;
+                            $stockRecord->total_stock += $prevItem->quantity;
+                            $stockRecord->save();
+                        }
+                    } else {
+                        $product = ProductDetail::find($baseProductId);
+                        if ($product && $product->stock) {
+                            $product->stock->available_stock += $prevItem->quantity;
+                            $product->stock->total_stock += $prevItem->quantity;
+                            $product->stock->save();
+                        }
+                    }
+                }
+
+                // Delete previous sale items and payments
+                SaleItem::where('sale_id', $sale->id)->delete();
+                Payment::where('sale_id', $sale->id)->delete();
+                Cheque::where('payment_id', '!=', null)->whereIn('payment_id', function ($q) use ($sale) {
+                    $q->select('id')->from('payments')->where('sale_id', $sale->id);
+                })->delete();
+
+                // Update sale
+                $sale->update([
+                    'customer_id' => $customer->id,
+                    'customer_type' => $customer->type,
+                    'subtotal' => $this->subtotal,
+                    'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
+                    'additional_discount_type' => $this->additionalDiscountType,
+                    'additional_discount_percentage' => $this->additionalDiscountType === 'percentage' ? $this->additionalDiscount : 0,
+                    'total_amount' => $this->grandTotal,
+                    'payment_type' => $this->databasePaymentType,
+                    'payment_status' => $this->paymentStatus,
+                    'due_amount' => $this->dueAmount,
+                    'notes' => $this->notes,
+                ]);
+            } else {
+                // CREATE NEW SALE
+                $sale = Sale::create([
+                    'sale_id' => Sale::generateSaleId(),
+                    'invoice_number' => Sale::generateInvoiceNumber(),
+                    'customer_id' => $customer->id,
+                    'customer_type' => $customer->type,
+                    'subtotal' => $this->subtotal,
+                    'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
+                    'additional_discount_type' => $this->additionalDiscountType,
+                    'additional_discount_percentage' => $this->additionalDiscountType === 'percentage' ? $this->additionalDiscount : 0,
+                    'total_amount' => $this->grandTotal,
+                    'payment_type' => $this->databasePaymentType,
+                    'payment_status' => $this->paymentStatus,
+                    'due_amount' => $this->dueAmount,
+                    'notes' => $this->notes,
+                    'user_id' => Auth::id(),
+                    'status' => 'confirm',
+                    'sale_type' => 'pos'
+                ]);
+            }
 
             // Create sale items and update stock
             foreach ($this->cart as $item) {
@@ -1697,7 +1829,9 @@ class StoreBilling extends Component
                     'total_discount' => $item['discount'] * $item['quantity'],
                     'discount_type' => $item['discount_type'] ?? 'fixed',
                     'discount_percentage' => $item['discount_percentage'] ?? 0,
-                    'total' => $item['total']
+                    'total' => $item['total'],
+                    'variant_value' => $item['variant_value'] ?? null,
+                    'variant_id' => $item['variant_id'] ?? null,
                 ]);
 
                 // Update product stock: if variant specified, update ProductStock for specific variant
@@ -1838,6 +1972,60 @@ class StoreBilling extends Component
                 }
             }
 
+            // UPDATE CUSTOMER BALANCE FOR CREDIT SALES AND OVERPAYMENTS
+            if ($customer && $customer->type !== 'Walking Customer') {
+                $dueAmount = floatval($this->dueAmount);
+                $totalPaid = floatval($this->totalPaidAmount);
+                $grandTotal = floatval($this->grandTotal);
+
+                // Handle Credit Sales (due amount gets added to customer's due_amount)
+                if ($dueAmount > 0) {
+                    // Add due amount to customer's due_amount column
+                    $customer->due_amount = ($customer->due_amount ?? 0) + $dueAmount;
+
+                    // Recalculate total_due = opening_balance + due_amount
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                }
+
+                // Handle Overpayments (payment exceeds grand total)
+                if ($totalPaid > $grandTotal) {
+                    $excessAmount = $totalPaid - $grandTotal;
+
+                    // Distribution logic: opening_balance → due_amount → overpaid_amount
+                    if ($excessAmount >= ($customer->opening_balance ?? 0)) {
+                        // Excess enough to clear opening balance
+                        $excessAmount -= ($customer->opening_balance ?? 0);
+                        $customer->opening_balance = 0;
+                    } else {
+                        // Reduce opening balance only
+                        $customer->opening_balance = ($customer->opening_balance ?? 0) - $excessAmount;
+                        $excessAmount = 0;
+                    }
+
+                    // If still excess, reduce due_amount
+                    if ($excessAmount > 0) {
+                        if ($excessAmount >= ($customer->due_amount ?? 0)) {
+                            $excessAmount -= ($customer->due_amount ?? 0);
+                            $customer->due_amount = 0;
+                        } else {
+                            $customer->due_amount = ($customer->due_amount ?? 0) - $excessAmount;
+                            $excessAmount = 0;
+                        }
+                    }
+
+                    // Remaining excess goes to overpaid_amount
+                    if ($excessAmount > 0) {
+                        $customer->overpaid_amount = ($customer->overpaid_amount ?? 0) + $excessAmount;
+                    }
+
+                    // Recalculate total_due
+                    $customer->total_due = ($customer->opening_balance ?? 0) + ($customer->due_amount ?? 0);
+                }
+
+                // Save updated customer balance
+                $customer->save();
+            }
+
             DB::commit();
 
             // Ensure there is an open POS session for this user and update its totals
@@ -1860,7 +2048,9 @@ class StoreBilling extends Component
             $this->createdSale = Sale::with(['customer', 'items', 'payments'])->find($sale->id);
             $this->showSaleModal = true;
 
-            $statusMessage = 'Sale created successfully! Payment status: ' . ucfirst($this->paymentStatus);
+            $isEditMode = (bool)$this->editingSaleId;
+            $actionType = $isEditMode ? 'updated' : 'created';
+            $statusMessage = 'Sale ' . $actionType . ' successfully! Payment status: ' . ucfirst($this->paymentStatus);
             if ($this->dueAmount > 0) {
                 $statusMessage .= ' | Due Amount: Rs.' . number_format($this->dueAmount, 2);
             }
@@ -1871,12 +2061,23 @@ class StoreBilling extends Component
             $this->additionalDiscountType = 'fixed';
             $this->resetPaymentFields();
             $this->notes = '';
-
+            $this->editingSaleId = null;
+            $this->editingSale = null;
 
             // Reset to walking customer
             $this->setDefaultCustomer();
 
             $this->showToast('success', $statusMessage);
+
+            // If edited, redirect to POS sales list after showing toast
+            if ($isEditMode) {
+                $this->js("
+                    setTimeout(() => {
+                        window.location.href = '" . route('admin.pos-sales') . "';
+                    }, 1500);
+                ");
+                return;
+            }
 
             // Auto-print if flag is set
             if ($this->autoPrintAfterSale && $this->createdSale) {

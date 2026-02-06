@@ -255,6 +255,43 @@ class PosSales extends Component
             $this->dispatch('showToast', ['type' => 'error', 'message' => 'Error deleting sale: ' . $e->getMessage()]);
         }
     }
+    public function editSaleRedirect($saleId)
+    {
+        $sale = Sale::find($saleId);
+        if (!$sale) {
+            $this->dispatch('showToast', ['type' => 'error', 'message' => 'Sale not found.']);
+            return;
+        }
+        // Redirect to store-billing page with sale ID for editing
+        return redirect()->route('admin.store-billing', ['edit' => $sale->id]);
+    }
+
+    public function printSaleModal($saleId)
+    {
+        // Load the sale and show the view modal
+        $this->selectedSale = Sale::with([
+            'customer',
+            'items',
+            'user',
+            'returns' => function ($q) {
+                $q->with('product');
+            }
+        ])
+            ->where('sale_type', 'pos')
+            ->find($saleId);
+
+        if (!$this->selectedSale) {
+            $this->dispatch('showToast', ['type' => 'error', 'message' => 'Sale not found.']);
+            return;
+        }
+
+        $this->showViewModal = true;
+        $this->dispatch('showModal', 'viewModal');
+
+        // Trigger print after modal is shown
+        $this->js("setTimeout(() => { printInvoice(); }, 500);");
+    }
+
     public function printInvoice($saleId)
     {
         $sale = \App\Models\Sale::with(['customer', 'items', 'payments', 'returns' => function ($q) {

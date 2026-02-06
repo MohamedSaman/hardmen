@@ -339,8 +339,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Customer Type *</label>
                             <select class="form-select" wire:model="customerType">
-                                <option value="regular">Regular</option>
-                                <option value="wholesale">Wholesale</option>
+                                <option value="distributor">Distributor</option>
                             </select>
                             @error('customerType') <span class="text-danger small">{{ $message }}</span> @enderror
                         </div>
@@ -353,6 +352,24 @@
                             <textarea class="form-control" wire:model="customerAddress" rows="3" placeholder="Enter address"></textarea>
                             @error('customerAddress') <span class="text-danger small">{{ $message }}</span> @enderror
                         </div>
+                        <div class="col-12">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" wire:click="$toggle('showCustomerMoreInfo')">
+                                <i class="bi bi-chevron-{{ $showCustomerMoreInfo ? 'up' : 'down' }} me-1"></i>
+                                More Information
+                            </button>
+                        </div>
+                        @if($showCustomerMoreInfo)
+                        <div class="col-md-6">
+                            <label class="form-label">Opening Balance</label>
+                            <input type="number" class="form-control" wire:model="customerOpeningBalance" placeholder="0.00" step="0.01" min="0">
+                            @error('customerOpeningBalance') <span class="text-danger small">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Overpaid Amount</label>
+                            <input type="number" class="form-control" wire:model="customerOverpaidAmount" placeholder="0.00" step="0.01" min="0">
+                            @error('customerOverpaidAmount') <span class="text-danger small">{{ $message }}</span> @enderror
+                        </div>
+                        @endif
                     </div>
                 </div>
                 <div class="modal-footer">

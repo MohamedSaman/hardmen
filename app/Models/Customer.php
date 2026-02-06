@@ -20,6 +20,17 @@ class Customer extends Model
         'business_name',
         'created_by',
         'user_id',
+        'opening_balance',
+        'due_amount',
+        'total_due',
+        'overpaid_amount',
+    ];
+
+    protected $casts = [
+        'opening_balance' => 'decimal:2',
+        'due_amount' => 'decimal:2',
+        'total_due' => 'decimal:2',
+        'overpaid_amount' => 'decimal:2',
     ];
 
     public function sales()
