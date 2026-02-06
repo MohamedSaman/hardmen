@@ -154,7 +154,7 @@ class SalesmanBilling extends Component
         if (strlen($this->search) >= 2) {
             // Split search term by space to check for combined searches (e.g., "weel 1/16")
             $searchParts = array_filter(array_map('trim', explode(' ', $this->search)));
-            
+
             $productsByNameCode = ProductDetail::with(['stock', 'price', 'prices', 'stocks', 'variant'])
                 ->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
@@ -189,13 +189,13 @@ class SalesmanBilling extends Component
                         // Check if product name/code matches one part AND variant matches another part
                         $nameMatches = false;
                         $variantMatches = false;
-                        
+
                         foreach ($searchParts as $part) {
                             if (stripos($product->name, $part) !== false || stripos($product->code, $part) !== false) {
                                 $nameMatches = true;
                             }
                         }
-                        
+
                         if ($product->variant && is_array($product->variant->variant_values)) {
                             foreach ($searchParts as $part) {
                                 if (collect($product->variant->variant_values)->some(function ($value) use ($part) {
@@ -206,7 +206,7 @@ class SalesmanBilling extends Component
                                 }
                             }
                         }
-                        
+
                         // Return true only if both product AND variant parts match
                         return $nameMatches && $variantMatches;
                     });
@@ -232,7 +232,7 @@ class SalesmanBilling extends Component
                         if (count($searchParts) > 1) {
                             $productMatchesAnyPart = false;
                             $variantMatchesAnyPart = false;
-                            
+
                             foreach ($searchParts as $part) {
                                 if (stripos($product->name, $part) !== false || stripos($product->code, $part) !== false) {
                                     $productMatchesAnyPart = true;
@@ -241,7 +241,7 @@ class SalesmanBilling extends Component
                                     $variantMatchesAnyPart = true;
                                 }
                             }
-                            
+
                             // For multi-part search, BOTH must match
                             $shouldShow = $productMatchesAnyPart && $variantMatchesAnyPart;
                         } else {
