@@ -295,7 +295,7 @@ class SalesmanBilling extends Component
                     if (!$productPrice && $product->price) {
                         $productPrice = $product->price; // Old singular relationship
                     }
-                    
+
                     if (!$productStock && $product->stock) {
                         $productStock = $product->stock; // Old singular relationship
                     }
