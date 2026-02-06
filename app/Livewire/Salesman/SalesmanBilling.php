@@ -286,34 +286,53 @@ class SalesmanBilling extends Component
                         }
                     }
                 } else {
-                    // Single product (no variants) - original logic
-                    if ($product->stock && $product->stock->available_stock > 0) {
-                        $stockInfo = $this->stockService->getAvailableStock($product->id);
+                    // Single product (no variants) - check both old and new pricing/stock structure
+                    // First try new structure (prices/stocks tables)
+                    $productPrice = $product->prices()->where('pricing_mode', 'single')->first();
+                    $productStock = $product->stocks()->whereNull('variant_value')->first();
 
-                        // Get pending quantity for this product
+                    // Fallback to old structure if new structure doesn't exist
+                    if (!$productPrice && $product->price) {
+                        $productPrice = $product->price; // Old singular relationship
+                    }
+
+                    if (!$productStock && $product->stock) {
+                        $productStock = $product->stock; // Old singular relationship
+                    }
+
+                    // Only proceed if product has price and stock
+                    if ($productPrice && $productStock) {
+                        $price = $productPrice->distributor_price ?? 0;
+                        $totalStock = $productStock->total_stock ?? 0;
+                        $availableStockRaw = $productStock->available_stock ?? 0;
+
+                        // Get pending quantity for this product (all variants combined if any)
                         $pendingQuantity = SaleItem::whereHas('sale', function ($q) {
                             $q->where('status', 'pending');
                         })
                             ->where('product_id', $product->id)
                             ->sum('quantity');
 
-                        $availableStock = max(0, ($stockInfo['available'] ?? 0) - $pendingQuantity);
+                        $availableStock = max(0, $availableStockRaw - $pendingQuantity);
 
-                        $this->searchResults[] = [
-                            'id' => $product->id,
-                            'variant_id' => null,
-                            'variant_value' => null,
-                            'name' => $product->name,
-                            'code' => $product->code,
-                            'display_name' => $product->name,
-                            'price' => $product->price->distributor_price ?? 0,
-                            'distributor_price' => $product->price->distributor_price ?? 0,
-                            'stock' => $stockInfo['stock'],
-                            'available' => $availableStock,
-                            'pending' => $pendingQuantity,
-                            'image' => $product->image ?? '',
-                            'is_variant' => false,
-                        ];
+                        // Add to results if there's available stock
+                        if ($availableStock > 0) {
+                            $this->searchResults[] = [
+                                'id' => $product->id,
+                                'variant_id' => null,
+                                'variant_value' => null,
+                                'name' => $product->name,
+                                'code' => $product->code,
+                                'display_name' => $product->name,
+                                'price' => $price,
+                                'distributor_price' => $price,
+                                'stock' => $totalStock,
+                                'available' => $availableStock,
+                                'pending' => $pendingQuantity,
+                                'image' => $product->image ?? '',
+                                'is_variant' => false,
+                            ];
+                        }
                     }
                 }
             }
