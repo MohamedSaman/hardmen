@@ -17,16 +17,26 @@ use Illuminate\Support\Facades\Log;
 #[Layout('components.layouts.admin')]
 class SaleApproval extends Component
 {
-    use WithPagination,  WithPagination;
+    use WithPagination;
 
     public $search = '';
     public $statusFilter = 'pending';
-    public $selectedSale = null;
+    public $selectedSaleId = null;
     public $showDetailsModal = false;
     public $showRejectModal = false;
     public $showApproveModal = false;
     public $rejectionReason = '';
     public $perPage = 10;
+    public $isProcessing = false;
+
+    // Computed property to get selected sale
+    public function getSelectedSaleProperty()
+    {
+        if (!$this->selectedSaleId) {
+            return null;
+        }
+        return Sale::with(['customer', 'items.product', 'user'])->find($this->selectedSaleId);
+    }
 
     protected $queryString = ['search', 'statusFilter'];
 
@@ -42,15 +52,14 @@ class SaleApproval extends Component
 
     public function viewDetails($saleId)
     {
-        $this->selectedSale = Sale::with(['customer', 'items.product', 'user'])
-            ->find($saleId);
+        $this->selectedSaleId = $saleId;
         $this->showDetailsModal = true;
     }
 
     public function closeDetailsModal()
     {
         $this->showDetailsModal = false;
-        $this->selectedSale = null;
+        $this->selectedSaleId = null;
     }
 
     /**
@@ -58,84 +67,117 @@ class SaleApproval extends Component
      */
     public function approveSale()
     {
-        if (!$this->selectedSale) {
+        if (!$this->selectedSaleId) {
             return;
         }
+
+        if ($this->isProcessing) {
+            return;
+        }
+
+        $this->isProcessing = true;
 
         try {
             DB::beginTransaction();
 
-            $sale = Sale::with('items')->find($this->selectedSale->id);
+            $sale = Sale::with(['items', 'customer'])->find($this->selectedSaleId);
 
-            if (!$sale || $sale->status !== 'pending') {
-                $this->dispatch('show-toast', type: 'error', message: 'Sale not found or already processed.');
+            if (!$sale) {
+                $this->isProcessing = false;
+                $this->dispatch('show-toast', type: 'error', message: 'Sale not found.');
+                $this->closeApproveModal();
+                return;
+            }
+
+            if ($sale->status !== 'pending') {
+                $this->isProcessing = false;
+                $this->dispatch('show-toast', type: 'error', message: 'Sale is already processed.');
+                $this->closeApproveModal();
                 return;
             }
 
             // Update stock for each item
             foreach ($sale->items as $item) {
+                $stock = null;
+
                 // Check if item has variant
                 if ($item->variant_id || $item->variant_value) {
-                    // Handle variant stock
-                    $stock = ProductStock::where('product_id', $item->product_id)
-                        ->where(function ($q) use ($item) {
-                            if ($item->variant_id) {
-                                $q->where('variant_id', $item->variant_id);
-                            }
-                            if ($item->variant_value) {
-                                $q->where('variant_value', $item->variant_value);
-                            }
-                        })
-                        ->first();
+                    // Handle variant stock - try multiple approaches
+                    $stockQuery = ProductStock::where('product_id', $item->product_id);
+                    
+                    if ($item->variant_id) {
+                        $stockQuery->where('variant_id', $item->variant_id);
+                    }
+                    if ($item->variant_value) {
+                        $stockQuery->where('variant_value', $item->variant_value);
+                    }
+                    
+                    $stock = $stockQuery->first();
                 } else {
-                    // Handle single product stock
+                    // Handle single product stock - check for null or empty variant_value
                     $stock = ProductStock::where('product_id', $item->product_id)
-                        ->whereNull('variant_value')
+                        ->where(function ($q) {
+                            $q->whereNull('variant_value')
+                              ->orWhere('variant_value', '')
+                              ->orWhere('variant_value', 'null');
+                        })
+                        ->whereNull('variant_id')
                         ->first();
+                    
+                    // If still not found, try just by product_id (single stock product)
+                    if (!$stock) {
+                        $stock = ProductStock::where('product_id', $item->product_id)->first();
+                    }
                 }
 
-                if ($stock) {
-                    if ($stock->available_stock < $item->quantity) {
-                        DB::rollBack();
-                        $this->dispatch('show-toast', type: 'error', message: "Insufficient stock for {$item->product_name}. Available: {$stock->available_stock}");
-                        $this->closeApproveModal();
-                        return;
-                    }
-
-                    $stock->available_stock -= $item->quantity;
-                    $stock->total_stock -= $item->quantity;
-                    $stock->save();
-                } else {
+                if (!$stock) {
                     DB::rollBack();
+                    $this->isProcessing = false;
+                    Log::error("Stock not found for product: {$item->product_name} (ID: {$item->product_id})");
                     $this->dispatch('show-toast', type: 'error', message: "Stock record not found for {$item->product_name}.");
                     $this->closeApproveModal();
                     return;
                 }
+
+                if ($stock->available_stock < $item->quantity) {
+                    DB::rollBack();
+                    $this->isProcessing = false;
+                    $this->dispatch('show-toast', type: 'error', message: "Insufficient stock for {$item->product_name}. Available: {$stock->available_stock}, Required: {$item->quantity}");
+                    $this->closeApproveModal();
+                    return;
+                }
+
+                $stock->available_stock -= $item->quantity;
+                $stock->total_stock -= $item->quantity;
+                $stock->sold_count = ($stock->sold_count ?? 0) + $item->quantity;
+                $stock->save();
             }
 
             // Update sale status and set due amount
-            $sale->update([
-                'status' => 'confirm',
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
-                'due_amount' => $sale->total_amount,
-            ]);
+            $sale->status = 'confirm';
+            $sale->approved_by = Auth::id();
+            $sale->approved_at = now();
+            $sale->due_amount = $sale->total_amount;
+            $sale->save();
 
             // Update customer due amount
-            $customer = $sale->customer;
-            if ($customer) {
-                $customer->due_amount = ($customer->due_amount ?? 0) + $sale->total_amount;
-                $customer->save();
+            if ($sale->customer) {
+                $sale->customer->due_amount = ($sale->customer->due_amount ?? 0) + $sale->total_amount;
+                $sale->customer->save();
             }
 
             DB::commit();
 
-            $this->closeApproveModal();
-            $this->closeDetailsModal();
+            $this->isProcessing = false;
+            $this->showApproveModal = false;
+            $this->showDetailsModal = false;
+            $this->selectedSaleId = null;
+            
             $this->dispatch('show-toast', type: 'success', message: 'Sale approved successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Sale approval error: ' . $e->getMessage());
+            $this->isProcessing = false;
+            Log::error('Sale approval error: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
             $this->dispatch('show-toast', type: 'error', message: 'Error approving sale: ' . $e->getMessage());
             $this->closeApproveModal();
         }
@@ -143,7 +185,7 @@ class SaleApproval extends Component
 
     public function openRejectModal($saleId)
     {
-        $this->selectedSale = Sale::find($saleId);
+        $this->selectedSaleId = $saleId;
         $this->rejectionReason = '';
         $this->showRejectModal = true;
     }
@@ -151,20 +193,21 @@ class SaleApproval extends Component
     public function closeRejectModal()
     {
         $this->showRejectModal = false;
-        $this->selectedSale = null;
+        $this->selectedSaleId = null;
         $this->rejectionReason = '';
     }
 
     public function openApproveModal($saleId)
     {
-        $this->selectedSale = Sale::with('items')->find($saleId);
+        $this->selectedSaleId = $saleId;
         $this->showApproveModal = true;
     }
 
     public function closeApproveModal()
     {
         $this->showApproveModal = false;
-        $this->selectedSale = null;
+        $this->selectedSaleId = null;
+        $this->isProcessing = false;
     }
 
     /**
@@ -172,7 +215,7 @@ class SaleApproval extends Component
      */
     public function rejectSale()
     {
-        if (!$this->selectedSale) {
+        if (!$this->selectedSaleId) {
             return;
         }
 
@@ -181,7 +224,14 @@ class SaleApproval extends Component
         ]);
 
         try {
-            $this->selectedSale->update([
+            $sale = Sale::find($this->selectedSaleId);
+            if (!$sale) {
+                $this->dispatch('show-toast', type: 'error', message: 'Sale not found.');
+                $this->closeRejectModal();
+                return;
+            }
+
+            $sale->update([
                 'status' => 'rejected',
                 'approved_by' => Auth::id(),
                 'approved_at' => now(),

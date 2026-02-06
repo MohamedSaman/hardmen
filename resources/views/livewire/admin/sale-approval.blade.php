@@ -118,13 +118,13 @@
 
     
     {{-- Details Modal --}}
-    @if($showDetailsModal && $selectedSale)
+    @if($showDetailsModal && $this->selectedSale)
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header bg-dark text-white">
                     <h5 class="modal-title">
-                        <i class="bi bi-receipt me-2"></i>Invoice Preview - {{ $selectedSale->invoice_number }}
+                        <i class="bi bi-receipt me-2"></i>Invoice Preview - {{ $this->selectedSale->invoice_number }}
                     </h5>
                     <button type="button" class="btn-close btn-close-white" wire:click="closeDetailsModal"></button>
                 </div>
@@ -144,14 +144,14 @@
                         {{-- Customer & Invoice Info --}}
                         <div class="row mb-4">
                             <div class="col-6">
-                                <p class="mb-1"><strong>Name:</strong> {{ $selectedSale->customer->name ?? 'N/A' }}</p>
-                                <p class="mb-1"><strong>Phone:</strong> {{ $selectedSale->customer->phone ?? 'N/A' }}</p>
-                                <p class="mb-1"><strong>Address:</strong> {{ $selectedSale->customer->address ?? 'N/A' }}</p>
-                                <p class="mb-0"><strong>Salesman:</strong> {{ $selectedSale->user->name ?? 'N/A' }}</p>
+                                <p class="mb-1"><strong>Name:</strong> {{ $this->selectedSale->customer->name ?? 'N/A' }}</p>
+                                <p class="mb-1"><strong>Phone:</strong> {{ $this->selectedSale->customer->phone ?? 'N/A' }}</p>
+                                <p class="mb-1"><strong>Address:</strong> {{ $this->selectedSale->customer->address ?? 'N/A' }}</p>
+                                <p class="mb-0"><strong>Salesman:</strong> {{ $this->selectedSale->user->name ?? 'N/A' }}</p>
                             </div>
                             <div class="col-6 text-end">
-                                <p class="mb-1"><strong>Invoice Number:</strong> {{ $selectedSale->invoice_number }}</p>
-                                <p class="mb-1"><strong>Date:</strong> {{ $selectedSale->created_at->format('m/d/Y h:i A') }}</p>
+                                <p class="mb-1"><strong>Invoice Number:</strong> {{ $this->selectedSale->invoice_number }}</p>
+                                <p class="mb-1"><strong>Date:</strong> {{ $this->selectedSale->created_at->format('m/d/Y h:i A') }}</p>
                                 <p class="mb-0"><strong>Payment Status:</strong> <span class="badge bg-success">Paid</span></p>
                             </div>
                         </div>
@@ -172,7 +172,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($selectedSale->items as $index => $item)
+                                    @foreach($this->selectedSale->items as $index => $item)
                                     <tr>
                                         <td>{{ $index + 1 }}</td>
                                         <td>{{ $item->product_code ?? 'N/A' }}</td>
@@ -198,17 +198,17 @@
                                     <tbody>
                                         <tr>
                                             <td class="text-end"><strong>Subtotal:</strong></td>
-                                            <td class="text-end">Rs.{{ number_format($selectedSale->subtotal, 2) }}</td>
+                                            <td class="text-end">Rs.{{ number_format($this->selectedSale->subtotal, 2) }}</td>
                                         </tr>
-                                        @if($selectedSale->discount_amount > 0)
+                                        @if($this->selectedSale->discount_amount > 0)
                                         <tr>
                                             <td class="text-end text-danger"><strong>Discount:</strong></td>
-                                            <td class="text-end text-danger">- Rs.{{ number_format($selectedSale->discount_amount, 2) }}</td>
+                                            <td class="text-end text-danger">- Rs.{{ number_format($this->selectedSale->discount_amount, 2) }}</td>
                                         </tr>
                                         @endif
                                         <tr class="table-primary">
                                             <td class="text-end fw-bold">Grand Total:</td>
-                                            <td class="text-end fw-bold">Rs.{{ number_format($selectedSale->total_amount, 2) }}</td>
+                                            <td class="text-end fw-bold">Rs.{{ number_format($this->selectedSale->total_amount, 2) }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -247,7 +247,7 @@
     @endif
 
     {{-- Reject Modal --}}
-    @if($showRejectModal && $selectedSale)
+    @if($showRejectModal && $this->selectedSale)
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -256,7 +256,7 @@
                     <button type="button" class="btn-close btn-close-white" wire:click="closeRejectModal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>You are about to reject sale <strong>{{ $selectedSale->invoice_number }}</strong>.</p>
+                    <p>You are about to reject sale <strong>{{ $this->selectedSale->invoice_number }}</strong>.</p>
                     <div class="mb-3">
                         <label class="form-label fw-medium">Rejection Reason <span class="text-danger">*</span></label>
                         <textarea wire:model="rejectionReason" class="form-control" rows="3" placeholder="Please provide a reason for rejection..."></textarea>
@@ -275,7 +275,7 @@
     @endif
 
     {{-- Approve Confirmation Modal --}}
-    @if($showApproveModal && $selectedSale)
+    @if($showApproveModal && $this->selectedSale)
     <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -288,17 +288,23 @@
                         <i class="bi bi-exclamation-triangle me-2"></i>
                         <strong>Important:</strong> Approving this sale will reduce the stock quantities.
                     </div>
-                    <p>You are about to approve sale <strong>{{ $selectedSale->invoice_number }}</strong>.</p>
+                    <p>You are about to approve sale <strong>{{ $this->selectedSale->invoice_number }}</strong>.</p>
                     <div class="bg-light rounded p-3">
-                        <p class="mb-1"><strong>Customer:</strong> {{ $selectedSale->customer->name ?? 'N/A' }}</p>
-                        <p class="mb-1"><strong>Total Amount:</strong> <span class="text-primary fw-bold">Rs. {{ number_format($selectedSale->total_amount, 2) }}</span></p>
-                        <p class="mb-0"><strong>Items:</strong> {{ $selectedSale->items->count() }} products</p>
+                        <p class="mb-1"><strong>Customer:</strong> {{ $this->selectedSale->customer->name ?? 'N/A' }}</p>
+                        <p class="mb-1"><strong>Total Amount:</strong> <span class="text-primary fw-bold">Rs. {{ number_format($this->selectedSale->total_amount, 2) }}</span></p>
+                        <p class="mb-0"><strong>Items:</strong> {{ $this->selectedSale->items->count() }} products</p>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" wire:click="closeApproveModal">Cancel</button>
-                    <button wire:click="approveSale" class="btn btn-success">
-                        <i class="bi bi-check-circle me-2"></i>Confirm Approval
+                    <button type="button" class="btn btn-secondary" wire:click="closeApproveModal" wire:loading.attr="disabled">Cancel</button>
+                    <button wire:click="approveSale" class="btn btn-success" wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                        <span wire:loading.remove wire:target="approveSale">
+                            <i class="bi bi-check-circle me-2"></i>Confirm Approval
+                        </span>
+                        <span wire:loading wire:target="approveSale">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Processing...
+                        </span>
                     </button>
                 </div>
             </div>
