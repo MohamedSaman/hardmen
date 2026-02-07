@@ -76,13 +76,11 @@
                                         <i class="bi bi-eye"></i>
                                     </button>
                                     @if($sale->delivery_status === 'pending')
-                                    <button wire:click="markInTransit({{ $sale->id }})" class="btn btn-sm btn-info text-white" 
-                                            wire:confirm="Mark this order as In Transit?">
+                                    <button wire:click="showConfirmation('transit', {{ $sale->id }})" class="btn btn-sm btn-info text-white">
                                         <i class="bi bi-truck"></i>
                                     </button>
                                     @endif
-                                    <button wire:click="markDelivered({{ $sale->id }})" class="btn btn-sm btn-success"
-                                            wire:confirm="Mark this order as Delivered?">
+                                    <button wire:click="showConfirmation('delivered', {{ $sale->id }})" class="btn btn-sm btn-success">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
                                 </div>
@@ -170,14 +168,85 @@
                 </div>
                 <div class="modal-footer">
                     @if($selectedSale->delivery_status === 'pending')
-                    <button wire:click="markInTransit({{ $selectedSale->id }})" class="btn btn-info text-white">
+                    <button wire:click="showConfirmation('transit', {{ $selectedSale->id }})" class="btn btn-info text-white">
                         <i class="bi bi-truck me-2"></i>Mark In Transit
                     </button>
                     @endif
-                    <button wire:click="markDelivered({{ $selectedSale->id }})" class="btn btn-success">
+                    <button wire:click="showConfirmation('delivered', {{ $selectedSale->id }})" class="btn btn-success">
                         <i class="bi bi-check-circle me-2"></i>Mark Delivered
                     </button>
                     <button type="button" class="btn btn-secondary" wire:click="closeDetailsModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Confirmation Modal --}}
+    @if($showConfirmModal)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-exclamation-circle text-warning me-2"></i>Confirm Action
+                    </h5>
+                    <button type="button" class="btn-close" wire:click="closeConfirmModal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <p class="mb-0 fs-6">
+                        @if($confirmAction === 'transit')
+                            Are you sure you want to mark this order as <strong class="text-info">In Transit</strong>?
+                        @elseif($confirmAction === 'delivered')
+                            Are you sure you want to mark this order as <strong class="text-success">Delivered</strong>?
+                        @endif
+                    </p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary" wire:click="closeConfirmModal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn {{ $confirmAction === 'transit' ? 'btn-info text-white' : 'btn-success' }}" wire:click="executeConfirmedAction">
+                        <i class="bi bi-check-circle me-2"></i>Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Payment Modal --}}
+    @if($showPaymentModal && $paymentSale)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-check-circle me-2"></i>Delivery Completed!
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" wire:click="closePaymentModal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-exclamation-triangle text-warning fs-1 mb-3 d-block"></i>
+                        <h6 class="fw-bold mb-3">Outstanding Payment</h6>
+                        <p class="mb-2">Invoice: <strong>{{ $paymentSale->invoice_number }}</strong></p>
+                        <p class="mb-2">Customer: <strong>{{ $paymentSale->customer->name ?? 'N/A' }}</strong></p>
+                        <div class="alert alert-danger d-inline-block px-4 py-3 mt-3">
+                            <h4 class="mb-0">Due Amount: <strong>Rs. {{ number_format($paymentSale->due_amount, 2) }}</strong></h4>
+                        </div>
+                    </div>
+                    <p class="text-muted text-center mb-0">
+                        This sale has an outstanding balance. Would you like to collect payment now?
+                    </p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary" wire:click="closePaymentModal">
+                        <i class="bi bi-x-circle me-2"></i>Skip for Now
+                    </button>
+                    <button type="button" class="btn btn-primary" wire:click="goToPayment">
+                        <i class="bi bi-cash-coin me-2"></i>Collect Payment
+                    </button>
                 </div>
             </div>
         </div>

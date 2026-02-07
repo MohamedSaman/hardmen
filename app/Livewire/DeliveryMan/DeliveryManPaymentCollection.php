@@ -66,11 +66,16 @@ class DeliveryManPaymentCollection extends Component
         'bankTransfer.reference_number' => 'required_if:paymentData.payment_method,bank_transfer|string|max:100',
     ];
 
-    public function mount()
+    public function mount($customer_id = null)
     {
         $this->paymentData['payment_date'] = now()->format('Y-m-d');
         $this->cheque['cheque_date'] = now()->format('Y-m-d');
         $this->bankTransfer['transfer_date'] = now()->format('Y-m-d');
+
+        // Auto-select customer if provided
+        if ($customer_id) {
+            $this->selectCustomer($customer_id);
+        }
     }
 
     public function updatedSearch()
@@ -467,6 +472,17 @@ class DeliveryManPaymentCollection extends Component
         return view('livewire.delivery-man.delivery-man-payment-collection', [
             'customers' => $customers,
             'pendingPayments' => $pendingPayments,
+            'selectedCustomer' => $this->selectedCustomer,
+            'customerSales' => $this->customerSales,
+            'selectedInvoices' => $this->selectedInvoices,
+            'totalDueAmount' => $this->totalDueAmount,
+            'totalPaymentAmount' => $this->totalPaymentAmount,
+            'remainingAmount' => $this->remainingAmount,
+            'showCollectModal' => $this->showCollectModal,
+            'paymentData' => $this->paymentData,
+            'cheque' => $this->cheque,
+            'bankTransfer' => $this->bankTransfer,
+            'allocations' => $this->allocations,
         ]);
     }
 }

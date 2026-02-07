@@ -18,6 +18,11 @@ class DeliveryManPendingDeliveries extends Component
     public $search = '';
     public $selectedSale = null;
     public $showDetailsModal = false;
+    public $showConfirmModal = false;
+    public $confirmAction = '';
+    public $confirmSaleId = null;
+    public $showPaymentModal = false;
+    public $paymentSale = null;
 
     public function updatedSearch()
     {
@@ -35,6 +40,40 @@ class DeliveryManPendingDeliveries extends Component
     {
         $this->showDetailsModal = false;
         $this->selectedSale = null;
+    }
+
+    /**
+     * Show confirmation modal
+     */
+    public function showConfirmation($action, $saleId)
+    {
+        $this->confirmAction = $action;
+        $this->confirmSaleId = $saleId;
+        $this->showConfirmModal = true;
+    }
+
+    /**
+     * Close confirmation modal
+     */
+    public function closeConfirmModal()
+    {
+        $this->showConfirmModal = false;
+        $this->confirmAction = '';
+        $this->confirmSaleId = null;
+    }
+
+    /**
+     * Execute confirmed action
+     */
+    public function executeConfirmedAction()
+    {
+        if ($this->confirmAction === 'transit') {
+            $this->markInTransit($this->confirmSaleId);
+        } elseif ($this->confirmAction === 'delivered') {
+            $this->markDelivered($this->confirmSaleId);
+        }
+
+        $this->closeConfirmModal();
     }
 
     /**
@@ -68,8 +107,34 @@ class DeliveryManPendingDeliveries extends Component
                 'delivered_at' => now(),
             ]);
 
-            $this->dispatch('show-toast', type: 'success', message: 'Delivery completed!');
-            $this->closeDetailsModal();
+            // Check if there's a due amount
+            if ($sale->due_amount > 0) {
+                $this->paymentSale = $sale;
+                $this->showPaymentModal = true;
+                $this->closeDetailsModal();
+            } else {
+                $this->dispatch('show-toast', type: 'success', message: 'Delivery completed!');
+                $this->closeDetailsModal();
+            }
+        }
+    }
+
+    /**
+     * Close payment modal
+     */
+    public function closePaymentModal()
+    {
+        $this->showPaymentModal = false;
+        $this->paymentSale = null;
+    }
+
+    /**
+     * Redirect to payment page
+     */
+    public function goToPayment()
+    {
+        if ($this->paymentSale) {
+            return redirect()->route('delivery.payments', ['customer_id' => $this->paymentSale->customer_id]);
         }
     }
 
