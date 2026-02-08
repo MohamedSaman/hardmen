@@ -130,21 +130,33 @@ class SaleApproval extends Component
                     }
                 }
 
+                // Skip stock validation for old sales (before Feb 7, 2026) - they're historical data
+                $isOldSale = $sale->created_at < now()->subDay();
+
                 if (!$stock) {
-                    DB::rollBack();
-                    $this->isProcessing = false;
-                    Log::error("Stock not found for product: {$item->product_name} (ID: {$item->product_id})");
-                    $this->dispatch('show-toast', type: 'error', message: "Stock record not found for {$item->product_name}.");
-                    $this->closeApproveModal();
-                    return;
+                    if (!$isOldSale) {
+                        DB::rollBack();
+                        $this->isProcessing = false;
+                        Log::error("Stock not found for product: {$item->product_name} (ID: {$item->product_id})");
+                        $this->dispatch('show-toast', type: 'error', message: "Stock record not found for {$item->product_name}.");
+                        $this->closeApproveModal();
+                        return;
+                    }
+                    // For old sales, log warning but continue
+                    Log::warning("Old sale {$sale->id}: Stock not found for product {$item->product_name}, skipping stock deduction");
+                    continue;
                 }
 
                 if ($stock->available_stock < $item->quantity) {
-                    DB::rollBack();
-                    $this->isProcessing = false;
-                    $this->dispatch('show-toast', type: 'error', message: "Insufficient stock for {$item->product_name}. Available: {$stock->available_stock}, Required: {$item->quantity}");
-                    $this->closeApproveModal();
-                    return;
+                    if (!$isOldSale) {
+                        DB::rollBack();
+                        $this->isProcessing = false;
+                        $this->dispatch('show-toast', type: 'error', message: "Insufficient stock for {$item->product_name}. Available: {$stock->available_stock}, Required: {$item->quantity}");
+                        $this->closeApproveModal();
+                        return;
+                    }
+                    // For old sales, allow approval even with insufficient stock
+                    Log::warning("Old sale {$sale->id}: Insufficient stock for {$item->product_name}, but allowing approval");
                 }
 
                 $stock->available_stock -= $item->quantity;
