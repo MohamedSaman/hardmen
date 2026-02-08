@@ -404,14 +404,20 @@
         {{-- Totals --}}
         <div class="totals-section">
             <table class="totals-table">
+                @php
+                    $originalSubtotal = $sale->items->sum(function($item) {
+                        return $item->unit_price * $item->quantity;
+                    });
+                    $totalDiscountRs = $originalSubtotal - $sale->total_amount;
+                @endphp
                 <tr>
                     <td>Subtotal</td>
-                    <td class="text-right">Rs.{{ number_format($sale->subtotal ?? $sale->total_amount, 2) }}</td>
+                    <td class="text-right">Rs.{{ number_format($originalSubtotal, 2) }}</td>
                 </tr>
-                @if(($sale->discount_amount ?? 0) > 0)
+                @if($totalDiscountRs > 0)
                 <tr>
                     <td>Discount</td>
-                    <td class="text-right">- Rs.{{ number_format($sale->discount_amount, 2) }}</td>
+                    <td class="text-right">- Rs.{{ number_format($totalDiscountRs, 2) }}</td>
                 </tr>
                 @endif
                 <tr class="total-row">
