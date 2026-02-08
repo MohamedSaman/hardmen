@@ -276,11 +276,12 @@ class SalesApproval extends Component
             // Create payment record
             Payment::create([
                 'sale_id' => $this->selectedSale->id,
+                'customer_id' => $this->selectedSale->customer_id,
                 'amount' => $this->selectedSale->total_amount,
                 'payment_method' => 'cash', // Default for approved sales
                 'is_completed' => false,
                 'payment_date' => now(),
-                'status' => null,
+                'status' => 'pending', // Changed from null to 'pending'
             ]);
 
             DB::commit();
