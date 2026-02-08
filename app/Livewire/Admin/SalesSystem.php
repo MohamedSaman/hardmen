@@ -177,7 +177,7 @@ class SalesSystem extends Component
             'customerPhone' => 'nullable|string|max:10|unique:customers,phone',
             'customerEmail' => 'nullable|email|unique:customers,email',
             'customerAddress' => 'required|string',
-            'customerType' => 'required|in:retail,wholesale',
+            'customerType' => 'required|in:retail,wholesale,distributor',
         ]);
 
         try {
@@ -198,7 +198,7 @@ class SalesSystem extends Component
 
             $this->js("Swal.fire('success', 'Customer created successfully!', 'success')");
         } catch (\Exception $e) {
-            $this->js("Swal.fire('error', 'Failed to create customer: ', 'error')");
+            $this->js("Swal.fire('error', 'Failed to create customer: " . addslashes($e->getMessage()) . "', 'error')");
         }
     }
 
@@ -242,9 +242,11 @@ class SalesSystem extends Component
             } else {
                 // For admin: show all products
                 $this->searchResults = ProductDetail::with(['stock', 'price'])
-                    ->where('name', 'like', '%' . $this->search . '%')
-                    ->orWhere('code', 'like', '%' . $this->search . '%')
-                    ->orWhere('model', 'like', '%' . $this->search . '%')
+                    ->where(function ($query) {
+                        $query->where('name', 'like', '%' . $this->search . '%')
+                            ->orWhere('code', 'like', '%' . $this->search . '%')
+                            ->orWhere('model', 'like', '%' . $this->search . '%');
+                    })
                     ->take(10)
                     ->get()
                     ->map(function ($product) {
@@ -445,7 +447,6 @@ class SalesSystem extends Component
 
             $this->js("Swal.fire('error', 'Please select a customer.', 'error')");
             return;
-            $this->setDefaultCustomer();
         }
 
         try {
@@ -545,7 +546,7 @@ class SalesSystem extends Component
             $this->js("Swal.fire('success', 'Sale created successfully! Payment status: Pending', 'success')");
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->js("Swal.fire('error', 'Failed to create sale: ' , 'error')");
+            $this->js("Swal.fire('error', 'Failed to create sale: " . addslashes($e->getMessage()) . "', 'error')");
         }
     }
 

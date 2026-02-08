@@ -57,8 +57,9 @@ class StockAvailabilityService
         })
             ->where('product_id', $productId);
 
-        // Note: We need to handle variant_value from product_name or add a column
-        // For now, we'll extract from product_name if it contains variant info
+        if ($variantValue) {
+            $query->where('variant_value', $variantValue);
+        }
 
         return $query->sum('quantity');
     }

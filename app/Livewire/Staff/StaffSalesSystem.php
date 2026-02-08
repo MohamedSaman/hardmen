@@ -205,7 +205,7 @@ class StaffSalesSystem extends Component
             'customerPhone' => 'required|string|max:20',
             'customerAddress' => 'required|string|max:500',
             'customerEmail' => 'nullable|email|max:255',
-            'customerType' => 'required|in:retail,wholesale',
+            'customerType' => 'required|in:retail,wholesale,distributor',
         ]);
 
         try {

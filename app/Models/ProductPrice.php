@@ -77,6 +77,6 @@ class ProductPrice extends Model
     }
     public function detail()
     {
-        return $this->hasOne(ProductDetail::class, 'code');
+        return $this->belongsTo(ProductDetail::class, 'product_id');
     }
 }

@@ -108,8 +108,9 @@ class DuePayments extends Component
                 'sale_id' => $sale->id,
                 'amount' => $receivedAmount,
                 'payment_method' => $this->duePaymentMethod,
-                'payment_reference' => $attachmentPath,
-                'due_payment_attachment' => $this->paymentNote,
+                'payment_reference' => strtoupper($this->duePaymentMethod) . '-' . now()->format('YmdHis'),
+                'due_payment_attachment' => $attachmentPath,
+                'notes' => $this->paymentNote,
                 'is_completed' => true,
                 'status' => 'paid',
                 'payment_date' => now(),
@@ -148,6 +149,16 @@ class DuePayments extends Component
             }
 
             $sale->save();
+
+            // Update customer's due tracking
+            if ($sale->customer_id) {
+                $customer = \App\Models\Customer::find($sale->customer_id);
+                if ($customer) {
+                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $receivedAmount);
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    $customer->save();
+                }
+            }
 
             DB::commit();
 

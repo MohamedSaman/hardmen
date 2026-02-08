@@ -139,6 +139,8 @@ class ReturnProduct extends Component
                         'already_returned' => $alreadyReturned,
                         'max_qty' => $remainingQty,
                         'return_qty' => 0,
+                        'variant_id' => $item->variant_id ?? null,
+                        'variant_value' => $item->variant_value ?? null,
                     ];
                 }
             }
@@ -378,17 +380,37 @@ class ReturnProduct extends Component
         }
 
         DB::transaction(function () use ($itemsToReturn) {
+            $totalReturnAmount = 0;
+
             foreach ($itemsToReturn as $item) {
+                $returnAmount = $item['return_qty'] * $item['net_unit_price'];
+                $totalReturnAmount += $returnAmount;
+
                 ReturnsProduct::create([
                     'sale_id' => $this->selectedInvoice->id,
                     'product_id' => $item['product_id'],
                     'return_quantity' => $item['return_qty'],
                     'selling_price' => $item['net_unit_price'],
-                    'total_amount' => $item['return_qty'] * $item['net_unit_price'],
+                    'total_amount' => $returnAmount,
                     'notes' => 'Customer return processed via system',
                 ]);
 
-                $this->updateProductStock($item['product_id'], $item['return_qty']);
+                $this->updateProductStock(
+                    $item['product_id'],
+                    $item['return_qty'],
+                    $item['variant_id'] ?? null,
+                    $item['variant_value'] ?? null
+                );
+            }
+
+            // Fix #4: Restore customer balance after return
+            if ($this->selectedCustomer && $totalReturnAmount > 0) {
+                $customer = Customer::find($this->selectedCustomer->id);
+                if ($customer) {
+                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $totalReturnAmount);
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    $customer->save();
+                }
             }
         });
 
@@ -399,13 +421,42 @@ class ReturnProduct extends Component
     }
 
     /** 📈 Update Product Stock */
-    private function updateProductStock($productId, $quantity)
+    private function updateProductStock($productId, $quantity, $variantId = null, $variantValue = null)
     {
-        $stock = ProductStock::where('product_id', $productId)->first();
+        $stock = null;
+
+        if ($variantId || $variantValue) {
+            // Find the specific variant stock record
+            $stockQuery = ProductStock::where('product_id', $productId);
+            if ($variantId) {
+                $stockQuery->where('variant_id', $variantId);
+            }
+            if ($variantValue) {
+                $stockQuery->where('variant_value', $variantValue);
+            }
+            $stock = $stockQuery->first();
+        } else {
+            // Non-variant product: find stock with no variant
+            $stock = ProductStock::where('product_id', $productId)
+                ->where(function ($q) {
+                    $q->whereNull('variant_value')
+                        ->orWhere('variant_value', '')
+                        ->orWhere('variant_value', 'null');
+                })
+                ->whereNull('variant_id')
+                ->first();
+
+            // Fallback: just by product_id if single-stock product
+            if (!$stock) {
+                $stock = ProductStock::where('product_id', $productId)->first();
+            }
+        }
 
         if ($stock) {
             $stock->available_stock += $quantity;
-            $stock->total_stock += $quantity;
+            if ($stock->sold_count >= $quantity) {
+                $stock->sold_count -= $quantity;
+            }
             $stock->save();
         } else {
             ProductStock::create([
@@ -415,6 +466,8 @@ class ReturnProduct extends Component
                 'total_stock' => $quantity,
                 'sold_count' => 0,
                 'restocked_quantity' => 0,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
             ]);
         }
     }

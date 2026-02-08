@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\ReturnsProduct;
 use Carbon\Carbon;
 
 class POSSession extends Model
@@ -149,7 +150,9 @@ class POSSession extends Model
         $this->bank_transfer = $payments->where('payment_method', 'bank_transfer')->sum('amount');
 
         // Get refunds (returns) for this session
-        $this->refunds = 0; // You can add returns logic here if needed
+        $this->refunds = ReturnsProduct::whereIn('sale_id', $sales->pluck('id'))
+            ->whereDate('created_at', $this->session_date)
+            ->sum('total_amount');
 
         $this->save();
     }

@@ -184,6 +184,21 @@ class PosSales extends Component
                     'payment_type' => $this->editPaymentStatus === 'paid' ? 'full' : 'partial',
                 ]);
 
+                // Create Payment record if balance was paid
+                if ($this->editPayBalanceAmount > 0) {
+                    \App\Models\Payment::create([
+                        'sale_id' => $sale->id,
+                        'customer_id' => $this->editCustomerId,
+                        'amount' => $this->editPayBalanceAmount,
+                        'payment_method' => 'cash',
+                        'payment_reference' => 'POS-EDIT-' . now()->format('YmdHis'),
+                        'is_completed' => true,
+                        'status' => 'paid',
+                        'payment_date' => now(),
+                        'notes' => 'Balance paid via POS sales edit',
+                    ]);
+                }
+
                 $this->showEditModal = false;
                 $this->resetEditForm();
                 $this->dispatch('hideModal', 'editModal');
@@ -229,7 +244,34 @@ class PosSales extends Component
 
                 // Restore stock
                 foreach ($saleItems as $item) {
-                    $productStock = ProductStock::where('product_id', $item->product_id)->first();
+                    $productStock = null;
+
+                    if ($item->variant_id || $item->variant_value) {
+                        // Variant product: find specific variant stock
+                        $stockQuery = ProductStock::where('product_id', $item->product_id);
+                        if ($item->variant_id) {
+                            $stockQuery->where('variant_id', $item->variant_id);
+                        }
+                        if ($item->variant_value) {
+                            $stockQuery->where('variant_value', $item->variant_value);
+                        }
+                        $productStock = $stockQuery->first();
+                    } else {
+                        // Non-variant: find stock with no variant
+                        $productStock = ProductStock::where('product_id', $item->product_id)
+                            ->where(function ($q) {
+                                $q->whereNull('variant_value')
+                                    ->orWhere('variant_value', '')
+                                    ->orWhere('variant_value', 'null');
+                            })
+                            ->whereNull('variant_id')
+                            ->first();
+
+                        if (!$productStock) {
+                            $productStock = ProductStock::where('product_id', $item->product_id)->first();
+                        }
+                    }
+
                     if ($productStock) {
                         $productStock->available_stock += $item->quantity;
                         if ($productStock->sold_count >= $item->quantity) {
@@ -441,11 +483,28 @@ class PosSales extends Component
             $sale = Sale::find($saleId);
 
             if ($sale) {
+                $previousDue = $sale->due_amount;
+
                 $sale->update([
                     'payment_status' => 'paid',
                     'due_amount' => 0,
                     'payment_type' => 'full'
                 ]);
+
+                // Create Payment record for the amount that was due
+                if ($previousDue > 0) {
+                    \App\Models\Payment::create([
+                        'sale_id' => $sale->id,
+                        'customer_id' => $sale->customer_id,
+                        'amount' => $previousDue,
+                        'payment_method' => 'cash',
+                        'payment_reference' => 'POS-PAID-' . now()->format('YmdHis'),
+                        'is_completed' => true,
+                        'status' => 'paid',
+                        'payment_date' => now(),
+                        'notes' => 'Marked as paid via POS sales management',
+                    ]);
+                }
 
                 $this->dispatch('showToast', ['type' => 'success', 'message' => 'Sale marked as paid successfully!']);
             }
