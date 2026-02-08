@@ -1345,19 +1345,45 @@ class StoreBilling extends Component
         if ($price < 0) $price = 0;
 
         $this->cart[$index]['price'] = $price;
+        
+        // If discount is percentage-based, recalculate the discount amount based on new price
+        if (($this->cart[$index]['discount_type'] ?? 'fixed') === 'percentage' && ($this->cart[$index]['discount_percentage'] ?? 0) > 0) {
+            $percentage = $this->cart[$index]['discount_percentage'];
+            $this->cart[$index]['discount'] = round(($price * $percentage) / 100, 2);
+        }
+        
         $this->cart[$index]['total'] = ($price - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
     }
 
-    // Update Discount
+    // Update Discount - Auto-detects "10" as Rs.10 or "10%" as 10%
     public function updateDiscount($index, $discount)
     {
-        if ($discount < 0) $discount = 0;
-        if ($discount > $this->cart[$index]['price']) {
-            $discount = $this->cart[$index]['price'];
+        if (!isset($this->cart[$index])) return;
+        
+        $discountValue = trim($discount);
+        
+        // Check if percentage (contains %)
+        if (str_contains($discountValue, '%')) {
+              // Percentage discount
+              $percentage = (float) str_replace('%', '', $discountValue);
+              $percentage = max(0, min(100, $percentage));
+              $discountAmount = ($this->cart[$index]['price'] * $percentage) / 100;
+            
+              // Store discount type and percentage
+              $this->cart[$index]['discount_type'] = 'percentage';
+              $this->cart[$index]['discount_percentage'] = $percentage;
+        } else {
+              // Fixed discount
+              $discountAmount = max(0, (float)$discountValue);
+              $discountAmount = min($discountAmount, $this->cart[$index]['price']);
+            
+              // Store discount type
+              $this->cart[$index]['discount_type'] = 'fixed';
+              $this->cart[$index]['discount_percentage'] = 0;
         }
-
-        $this->cart[$index]['discount'] = $discount;
-        $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $discount) * $this->cart[$index]['quantity'];
+        
+        $this->cart[$index]['discount'] = round($discountAmount, 2);
+        $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
     }
 
     // Remove from Cart
@@ -1413,75 +1439,10 @@ class StoreBilling extends Component
         }
     }
 
-    // ------------------ Item & Sale Discount Modals ------------------
-    public $showItemDiscountModal = false;
-    public $itemDiscountType = 'fixed'; // 'fixed' or 'percentage'
-    public $itemDiscountValue = 0;
-    public $itemDiscountIndex = null;
-
+    // ------------------ Sale Discount Modal ------------------
     public $showSaleDiscountModal = false;
     public $saleDiscountType = 'fixed';
     public $saleDiscountValue = 0;
-
-    public function openItemDiscountModal($index)
-    {
-        if (!isset($this->cart[$index])) {
-            return;
-        }
-
-        $this->itemDiscountIndex = $index;
-        $this->itemDiscountType = 'fixed';
-        $this->itemDiscountValue = 0; // Always reset to 0 when opening modal
-        $this->showItemDiscountModal = true;
-    }
-
-    public function applyItemDiscount()
-    {
-        if ($this->itemDiscountIndex === null || !isset($this->cart[$this->itemDiscountIndex])) {
-            $this->showItemDiscountModal = false;
-            return;
-        }
-
-        $index = $this->itemDiscountIndex;
-        $price = $this->cart[$index]['price'];
-
-        // Validate based on discount type
-        if ($this->itemDiscountType === 'percentage') {
-            $this->validate([
-                'itemDiscountValue' => 'required|numeric|min:0|max:100'
-            ], [
-                'itemDiscountValue.max' => 'Percentage discount cannot exceed 100%'
-            ]);
-        } else {
-            $this->validate([
-                'itemDiscountValue' => 'required|numeric|min:0'
-            ]);
-
-            // For fixed amount, ensure it doesn't exceed item price
-            if ($this->itemDiscountValue > $price) {
-                session()->flash('error', 'Discount amount cannot exceed item price (Rs. ' . number_format($price, 2) . ')');
-                return;
-            }
-        }
-
-        if ($this->itemDiscountType === 'percentage') {
-            $discountAmount = ($price * $this->itemDiscountValue) / 100;
-        } else {
-            $discountAmount = $this->itemDiscountValue;
-        }
-
-        // Ensure discount doesn't exceed price (safety check)
-        $discountAmount = min($discountAmount, $price);
-
-        $this->cart[$index]['discount'] = round($discountAmount, 2);
-        $this->cart[$index]['discount_type'] = $this->itemDiscountType;  // Store type: 'percentage' or 'fixed'
-        $this->cart[$index]['discount_percentage'] = $this->itemDiscountType === 'percentage' ? $this->itemDiscountValue : 0;
-        $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
-
-        $this->showItemDiscountModal = false;
-        $this->itemDiscountIndex = null;
-        $this->showToast('success', 'Discount applied successfully!');
-    }
 
     public function openSaleDiscountModal()
     {

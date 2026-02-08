@@ -141,7 +141,7 @@
                                 <th class="px-3 py-2">Item Details</th>
                                 <th class="px-2 py-2 w-32">Qty</th>
                                 <th class="px-2 py-2 w-44">Price</th>
-                                <th class="px-2 py-2 w-24">Disc</th>
+                                <th class="px-2 py-2 w-24">Disc (Rs/%)</th>
                                 <th class="px-3 py-2 text-right">Subtotal</th>
                                 <th class="px-2 py-2 w-12 text-right">&nbsp;</th>
                             </tr>
@@ -181,21 +181,32 @@
                                     </div>
                                 </td>
                                 <td class="px-2 py-2 text-center">
-                                    <button class="w-full px-2 py-1 text-[10px] font-bold bg-slate-100/50 border border-slate-200 rounded hover:bg-white hover:border-[#e67e22]/30 transition-all flex items-center justify-between group/disc"
-                                        wire:click="openItemDiscountModal({{ $index }})">
-                                        <span class="{{ $item['discount'] > 0 ? 'text-green-600' : 'text-slate-400' }}">
-                                            @if($item['discount'] > 0)
-                                                @if(($item['discount_type'] ?? 'fixed') === 'percentage')
-                                                    {{ ($item['discount_percentage'] ?? 0) }}%
-                                                @else
-                                                    -Rs.{{ number_format($item['discount'] * $item['quantity'], 0) }}
-                                                @endif
+                                    @php
+                                        $discountType = $item['discount_type'] ?? 'fixed';
+                                        $discountPercent = $item['discount_percentage'] ?? 0;
+                                        $discountPerUnit = $item['discount'] ?? 0;
+                                        $displayDiscount = '';
+                                        if ($discountType === 'percentage' && $discountPercent > 0) {
+                                            $displayDiscount = rtrim(rtrim(number_format($discountPercent, 2, '.', ''), '0'), '.') . '%';
+                                        } elseif ($discountPerUnit > 0) {
+                                            $displayDiscount = rtrim(rtrim(number_format($discountPerUnit, 2, '.', ''), '0'), '.');
+                                        }
+                                    @endphp
+                                    <input type="text" 
+                                        placeholder="0 or 0%" 
+                                        value="{{ $displayDiscount }}"
+                                        wire:change="updateDiscount({{ $index }}, $event.target.value)" 
+                                        wire:key="disc-{{ $cartKey }}"
+                                        class="w-full px-2 py-1 text-[10px] font-bold text-center bg-slate-50 border border-slate-200 rounded hover:border-[#e67e22]/30 focus:border-[#e67e22] focus:outline-none transition-all {{ $discountPerUnit > 0 ? 'text-green-600 bg-green-50/50' : 'text-slate-400' }}" />
+                                    @if($discountPerUnit > 0)
+                                        <div class="text-[9px] text-green-600 mt-0.5 font-mono">
+                                            @if($discountType === 'percentage' && $discountPercent > 0)
+                                                {{ rtrim(rtrim(number_format($discountPercent, 2, '.', ''), '0'), '.') }}% = -Rs.{{ number_format($discountPerUnit * $item['quantity'], 0) }}
                                             @else
-                                                0%
+                                                -Rs.{{ number_format($discountPerUnit * $item['quantity'], 0) }}
                                             @endif
-                                        </span>
-                                        <span class="material-symbols-outlined text-[10px] text-slate-300 group-hover/disc:text-[#e67e22]">edit</span>
-                                    </button>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2 text-right">
                                     <p class="text-xs font-black text-slate-800 tracking-tight">Rs. {{ number_format($item['total'], 0) }}</p>
@@ -225,14 +236,41 @@
                 <div class="p-4 bg-slate-50 border-t border-slate-200 bg-gradient-to-b from-slate-50/50 to-white">
                     <div class="grid grid-cols-2 gap-4 items-end mb-4">
                         <div class="space-y-1.5">
+                            @php
+                                $originalSubtotal = collect($cart)->sum(function ($item) {
+                                    return ($item['price'] ?? 0) * ($item['quantity'] ?? 0);
+                                });
+                                $unitDiscountRs = collect($cart)->sum(function ($item) {
+                                    return ($item['discount'] ?? 0) * ($item['quantity'] ?? 0);
+                                });
+                                $globalDiscountAmount = $additionalDiscountAmount ?? 0;
+                                $totalDiscountRs = max(0, $unitDiscountRs + $globalDiscountAmount);
+                                $totalDiscountPercent = $originalSubtotal > 0 ? (($totalDiscountRs / $originalSubtotal) * 100) : 0;
+                            @endphp
                             <div class="flex justify-between text-xs">
-                                <span class="text-slate-400 font-semibold">Subtotal</span>
-                                <span class="font-bold text-slate-700">Rs. {{ number_format($subtotal, 2) }}</span>
+                                <span class="text-slate-400 font-semibold">Subtotal (Before Discount)</span>
+                                <span class="font-bold text-slate-700">Rs. {{ number_format($originalSubtotal, 2) }}</span>
                             </div>
                             <div class="flex justify-between text-xs">
+                                <span class="text-slate-400 font-semibold">Unit Discount</span>
+                                <span class="font-bold text-red-500">- Rs. {{ number_format($unitDiscountRs, 2) }}</span>
+                            </div>
+
+                            @if($globalDiscountAmount > 0)
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-400 font-semibold">Global Discount</span>
+                                <span class="font-bold text-amber-600">
+                                    - Rs. {{ number_format($globalDiscountAmount, 2) }}
+                                    @if(($additionalDiscountType ?? 'fixed') === 'percentage' && ($additionalDiscount ?? 0) > 0)
+                                        <span class="text-slate-400 font-semibold">({{ number_format($additionalDiscount, 2) }}%)</span>
+                                    @endif
+                                </span>
+                            </div>
+                                                        <div class="flex justify-between text-xs">
                                 <span class="text-slate-400 font-semibold">Total Discount</span>
-                                <span class="font-bold text-red-500">{{ number_format($this->totalDiscountPercentage, 2) }}%</span>
+                                <span class="font-bold text-red-500">- Rs. {{ number_format($totalDiscountRs, 2) }} @if($totalDiscountPercent > 0)<span class="text-slate-400 font-semibold">({{ number_format($totalDiscountPercent, 2) }}%)</span>@endif</span>
                             </div>
+                            @endif
                             <div class="flex justify-between text-xs">
                                 <span class="text-slate-400 font-semibold">Tax (0%)</span>
                                 <span class="font-bold text-slate-700">Rs. 0.00</span>
@@ -443,7 +481,7 @@
     </aside>
 
     {{-- MODALS WRAPPER --}}
-    @if($showPaymentModal || $showItemDiscountModal || $showSaleDiscountModal || $showCustomerModal || $showSaleModal || $showCloseRegisterModal)
+    @if($showPaymentModal || $showSaleDiscountModal || $showCustomerModal || $showSaleModal || $showCloseRegisterModal)
     <div class="fixed inset-0 z-[3000] flex items-center justify-center p-4">
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
         
@@ -527,50 +565,44 @@
         </div>
         @endif
 
-        {{-- DISCOUNT MODAL (Generic) --}}
-        @if($showItemDiscountModal || $showSaleDiscountModal)
+        {{-- SALE DISCOUNT MODAL --}}
+        @if($showSaleDiscountModal)
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative transform transition-all">
             <div class="p-6 text-center border-b border-slate-100">
-                <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Apply {{ $showItemDiscountModal ? 'Item' : 'Global' }} Discount</h3>
+                <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Apply Sale Discount</h3>
             </div>
             <div class="p-6 space-y-4">
                 <div class="flex gap-2 p-1 bg-slate-100 rounded-xl">
-                    <button class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all {{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'fixed' ? 'bg-white text-[#e67e22] shadow-sm' : 'text-slate-400' }}"
-                        wire:click="$set('{{ $showItemDiscountModal ? 'itemDiscountType' : 'saleDiscountType' }}', 'fixed')">Fixed Amount</button>
-                    <button class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all {{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'percentage' ? 'bg-white text-[#e67e22] shadow-sm' : 'text-slate-400' }}"
-                        wire:click="$set('{{ $showItemDiscountModal ? 'itemDiscountType' : 'saleDiscountType' }}', 'percentage')">Percentage (%)</button>
+                    <button class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all {{ $saleDiscountType == 'fixed' ? 'bg-white text-[#e67e22] shadow-sm' : 'text-slate-400' }}"
+                        wire:click="$set('saleDiscountType', 'fixed')">Fixed Amount</button>
+                    <button class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all {{ $saleDiscountType == 'percentage' ? 'bg-white text-[#e67e22] shadow-sm' : 'text-slate-400' }}"
+                        wire:click="$set('saleDiscountType', 'percentage')">Percentage (%)</button>
                 </div>
                 <div class="space-y-2">
                     <div class="relative">
-                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'percentage' ? '%' : 'Rs.' }}</span>
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{{ $saleDiscountType == 'percentage' ? '%' : 'Rs.' }}</span>
                         <input type="number" 
                             step="0.01"
                             min="0"
-                            max="{{ ($showItemDiscountModal ? $itemDiscountType : $saleDiscountType) == 'percentage' ? '100' : '' }}"
+                            max="{{ $saleDiscountType == 'percentage' ? '100' : '' }}"
                             class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xl font-black text-slate-700 outline-none focus:border-[#e67e22]" 
-                            wire:model.live="{{ $showItemDiscountModal ? 'itemDiscountValue' : 'saleDiscountValue' }}"
+                            wire:model.live="saleDiscountValue"
                             placeholder="0">
                     </div>
                     {{-- Validation Helper Text --}}
                     <div class="text-[9px] font-bold text-slate-500 px-1">
-                        @if($showItemDiscountModal && $itemDiscountType == 'percentage')
+                        @if($saleDiscountType == 'percentage')
                             Max: <span class="text-[#e67e22]">100%</span>
-                        @elseif($showItemDiscountModal && $itemDiscountType == 'fixed')
-                            @if(isset($cart[$itemDiscountIndex]))
-                                Max: <span class="text-[#e67e22]">Rs. {{ number_format($cart[$itemDiscountIndex]['price'], 2) }}</span> (Item Price)
-                            @endif
-                        @elseif($showSaleDiscountModal && $saleDiscountType == 'percentage')
-                            Max: <span class="text-[#e67e22]">100%</span>
-                        @elseif($showSaleDiscountModal && $saleDiscountType == 'fixed')
+                        @else
                             Max: <span class="text-[#e67e22]">Rs. {{ number_format($subtotalAfterItemDiscounts, 2) }}</span> (Sale Total)
                         @endif
                     </div>
                 </div>
             </div>
             <div class="p-4 bg-slate-50 flex gap-2">
-                <button class="flex-1 py-3 text-[10px] font-black uppercase text-slate-400" wire:click="$set('{{ $showItemDiscountModal ? 'showItemDiscountModal' : 'showSaleDiscountModal' }}', false)">Cancel</button>
+                <button class="flex-1 py-3 text-[10px] font-black uppercase text-slate-400" wire:click="$set('showSaleDiscountModal', false)">Cancel</button>
                 <button class="flex-1 py-3 bg-[#e67e22] text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-orange-500/10"
-                    wire:click="{{ $showItemDiscountModal ? 'applyItemDiscount' : 'applySaleDiscount' }}">Apply Discount</button>
+                    wire:click="applySaleDiscount">Apply Discount</button>
             </div>
         </div>
         @endif
@@ -837,15 +869,12 @@
                                 <td class="text-end">{{ $item->quantity }}</td>
                                 <td class="text-end">
                                     @php
-                                        $discountPercent = 0;
-                                        if($item->discount_type === 'percentage' && $item->discount_percentage) {
-                                            $discountPercent = $item->discount_percentage;
-                                        } else if($item->discount > 0 && $item->unit_price > 0) {
-                                            $discountPercent = ($item->discount / $item->unit_price) * 100;
-                                        }
+                                        $discountAmount = $item->discount_per_unit ?? 0;
                                     @endphp
-                                    @if($discountPercent > 0)
-                                        {{ number_format($discountPercent, 2) }}%
+                                    @if($item->discount_type === 'percentage' && $item->discount_percentage > 0)
+                                        {{ number_format($item->discount_percentage, 0) }}% (Rs.{{ number_format($discountAmount * $item->quantity, 2) }})
+                                    @elseif($discountAmount > 0)
+                                        Rs.{{ number_format($discountAmount * $item->quantity, 2) }}
                                     @else
                                         -
                                     @endif
@@ -874,22 +903,21 @@
                         <div style="flex:1;">
                             <div >
                                 <h4 style="margin:0 0 8px 0; border-bottom:1px solid #000; padding-bottom:8px;">ORDER SUMMARY</h4>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Subtotal:</span><span>Rs.{{ number_format($createdSale->subtotal, 2) }}</span></div>
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                                    <span>Total Discount:</span>
-                                    <span>
-                                        @php
-                                        // Calculate total discount percentage
-                                        $itemDiscountTotal = $createdSale->items->sum(function($item) {
-                                            return ($item->discount_per_unit ?? 0) * $item->quantity;
-                                        });
-                                        $additionalDiscountAmount = is_numeric($createdSale->discount_amount) ? max(0, $createdSale->discount_amount - $itemDiscountTotal) : 0;
-                                        $totalDiscountAmount = $itemDiscountTotal + $additionalDiscountAmount;
-                                        $totalDiscountPercent = $createdSale->subtotal > 0 ? (($totalDiscountAmount / $createdSale->subtotal) * 100) : 0;
-                                        @endphp
-                                        {{ number_format($totalDiscountPercent, 2) }}%
-                                    </span>
+                                @php
+                                    // Calculate original subtotal (before any discounts)
+                                    $originalSubtotal = $createdSale->items->sum(function($item) {
+                                        return $item->unit_price * $item->quantity;
+                                    });
+                                    // Total discount = original subtotal - grand total
+                                    $totalDiscountRs = $originalSubtotal - $createdSale->total_amount;
+                                @endphp
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Subtotal:</span><span>Rs.{{ number_format($originalSubtotal, 2) }}</span></div>
+                                @if($totalDiscountRs > 0)
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#e65c00;">
+                                    <span>Discount:</span>
+                                    <span>- Rs.{{ number_format($totalDiscountRs, 2) }}</span>
                                 </div>
+                                @endif
                                 <hr>
                                 <div style="display:flex; justify-content:space-between;"><strong>Grand Total:</strong><strong>Rs.{{ number_format($createdSale->total_amount, 2) }}</strong></div>
                             </div>
