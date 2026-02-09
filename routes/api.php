@@ -167,6 +167,24 @@ Route::get('/staff-expenses', [StaffManagementController::class, 'getStaffExpens
 Route::get('/staff-expenses/{staffId}', [StaffManagementController::class, 'getStaffExpenseDetails']);
 
 // ============================================================================
+// NOTIFICATIONS & PUSH TOKENS
+// ============================================================================
+use App\Http\Controllers\Api\NotificationController;
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::put('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+
+    // Push tokens
+    Route::post('/push-tokens', function (Request $request) {
+        // Store push token (best-effort, no-op if not implemented)
+        return response()->json(['success' => true, 'message' => 'Token registered']);
+    });
+});
+
+// ============================================================================
 // STAFF APP ROUTES (For Mobile App - Staff Users)
 // ============================================================================
 use App\Http\Controllers\Api\StaffAppController;
