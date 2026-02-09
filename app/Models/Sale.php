@@ -67,6 +67,7 @@ class Sale extends Model
         $date = now()->format('Ymd');
         $lastSale = self::where('sale_id', 'like', "{$prefix}{$date}%")
             ->orderBy('sale_id', 'desc')
+            ->lockForUpdate()
             ->first();
 
         $nextNumber = 1;
@@ -84,7 +85,9 @@ class Sale extends Model
     public static function generateInvoiceNumber()
     {
         // Get the last invoice number from the database
-        $lastSale = self::orderBy('id', 'desc')->first();
+        $lastSale = self::orderBy('id', 'desc')
+            ->lockForUpdate()
+            ->first();
 
         $nextNumber = 678; // Starting number
 

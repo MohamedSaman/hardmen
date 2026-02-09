@@ -87,6 +87,12 @@ class SalesmanBilling extends Component
         try {
             $sale = Sale::with(['items', 'customer'])->findOrFail($saleId);
 
+            // Only allow editing own sales
+            if ($sale->user_id !== Auth::id()) {
+                session()->flash('error', 'You can only edit your own sales');
+                return;
+            }
+
             // Only allow editing pending or draft sales
             if (!in_array($sale->status, ['pending', 'draft'])) {
                 session()->flash('error', 'Only pending sales can be edited');
@@ -406,6 +412,8 @@ class SalesmanBilling extends Component
                 'opening_balance' => $openingBalance,
                 'overpaid_amount' => $this->customerOverpaidAmount ?? 0,
                 'total_due' => $totalDue,
+                'created_by' => Auth::id(),
+                'user_id' => Auth::id(),
             ]);
 
             $this->customerId = $customer->id;
@@ -590,7 +598,7 @@ class SalesmanBilling extends Component
                 $sale->update([
                     'customer_id' => $this->customerId,
                     'subtotal' => $this->subtotal,
-                    'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
+                    'discount_amount' => $this->additionalDiscountAmount,
                     'total_amount' => $this->grandTotal,
                     'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'notes' => $this->notes,
@@ -634,7 +642,7 @@ class SalesmanBilling extends Component
                     'user_id' => Auth::id(),
                     'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'subtotal' => $this->subtotal,
-                    'discount_amount' => $this->totalDiscount + $this->additionalDiscountAmount,
+                    'discount_amount' => $this->additionalDiscountAmount,
                     'total_amount' => $this->grandTotal,
                     'status' => 'pending',
                     'payment_status' => 'pending',
@@ -711,7 +719,7 @@ class SalesmanBilling extends Component
 
     public function getGrandTotalProperty()
     {
-        return max(0, $this->subtotal - $this->totalDiscount - $this->additionalDiscountAmount);
+        return max(0, $this->subtotal - $this->additionalDiscountAmount);
     }
 
     public function render()

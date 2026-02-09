@@ -95,7 +95,11 @@
                             return max(0, $sale->due_amount - $returnAmount);
                         });
                         $totalDue = ($customer->opening_balance ?? 0) + $salesDue;
+                        // Subtract pending (unapproved) payment allocations
+                        $pendingAmount = $pendingAllocationsPerCustomer[$customer->id] ?? 0;
+                        $effectiveDue = max(0, $totalDue - $pendingAmount);
                         @endphp
+                        @if($effectiveDue > 0.01)
                         <tr>
                             <td class="ps-4">
                                 <div class="fw-bold text-dark">{{ $customer->name }}</div>
@@ -114,7 +118,10 @@
                                 @endif
                             </td>
                             <td>
-                                <span class="fw-bold text-danger">Rs. {{ number_format($totalDue, 2) }}</span>
+                                <span class="fw-bold text-danger">Rs. {{ number_format($effectiveDue, 2) }}</span>
+                                @if($pendingAmount > 0)
+                                <small class="d-block text-warning"><i class="bi bi-hourglass-split"></i> Rs. {{ number_format($pendingAmount, 2) }} pending</small>
+                                @endif
                             </td>
                             <td class="text-end pe-4">
                                 <button wire:click="selectCustomer({{ $customer->id }})" class="btn btn-sm btn-primary">
@@ -122,6 +129,7 @@
                                 </button>
                             </td>
                         </tr>
+                        @endif
                         @empty
                         <tr>
                             <td colspan="5" class="text-center py-5 text-muted">

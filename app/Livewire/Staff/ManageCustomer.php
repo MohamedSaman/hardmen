@@ -67,7 +67,7 @@ class ManageCustomer extends Component
             'editingData.phone' => 'required|string|max:20',
             'editingData.email' => 'nullable|email',
             'editingData.address' => 'nullable|string',
-            'editingData.type' => 'required|in:retail,wholesale'
+            'editingData.type' => 'required|in:retail,wholesale,distributor'
         ]);
 
         $customer = Customer::where('id', $this->editingId)

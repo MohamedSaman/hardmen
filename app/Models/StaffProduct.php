@@ -51,6 +51,6 @@ class StaffProduct extends Model
      */
     public function getTotalPriceAttribute()
     {
-        return $this->quantity * $this->price;
+        return $this->quantity * $this->unit_price;
     }
 }

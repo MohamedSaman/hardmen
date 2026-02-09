@@ -166,7 +166,7 @@ class StaffQuotationSystem extends Component
             'customerPhone' => 'nullable|string|max:20|unique:customers,phone',
             'customerEmail' => 'nullable|email|unique:customers,email',
             'customerAddress' => 'required|string',
-            'customerType' => 'required|in:retail,wholesale,business',
+            'customerType' => 'required|in:retail,wholesale,distributor',
         ]);
 
         try {

@@ -182,50 +182,50 @@ class StoreBilling extends Component
                 }
             }
         }
-        // Check for yesterday's open session - auto-close it
-        $yesterdaySession = POSSession::where('user_id', Auth::id())
-            ->whereDate('session_date', now()->subDay()->toDateString())
+        // Check for any past open sessions - auto-close them
+        $pastOpenSessions = POSSession::where('user_id', Auth::id())
+            ->whereDate('session_date', '<', now()->toDateString())
             ->where('status', 'open')
-            ->first();
+            ->get();
 
-        if ($yesterdaySession) {
-            // Auto-close yesterday's session
+        foreach ($pastOpenSessions as $pastSession) {
+            // Auto-close past session
             try {
                 DB::beginTransaction();
 
-                // Calculate yesterday's summary
-                $yesterday = now()->subDay()->toDateString();
+                // Calculate that session's summary
+                $sessionDate = $pastSession->session_date->toDateString();
 
-                // Get yesterday's POS sales
-                $yesterdaySales = Sale::whereDate('created_at', $yesterday)
+                // Get POS sales for that date
+                $dateSales = Sale::whereDate('created_at', $sessionDate)
                     ->where('sale_type', 'pos')
                     ->pluck('id');
 
-                $cashPayments = Payment::whereIn('sale_id', $yesterdaySales)
+                $cashPayments = Payment::whereIn('sale_id', $dateSales)
                     ->where('payment_method', 'cash')
                     ->sum('amount');
 
-                $totalSales = Sale::whereDate('created_at', $yesterday)
+                $totalSales = Sale::whereDate('created_at', $sessionDate)
                     ->where('sale_type', 'pos')
                     ->sum('total_amount');
 
                 $expenses = DB::table('expenses')
-                    ->whereDate('date', $yesterday)
+                    ->whereDate('date', $sessionDate)
                     ->sum('amount');
 
                 $refunds = DB::table('returns_products')
-                    ->whereDate('created_at', $yesterday)
+                    ->whereDate('created_at', $sessionDate)
                     ->sum('total_amount');
 
                 $deposits = DB::table('deposits')
-                    ->whereDate('date', $yesterday)
+                    ->whereDate('date', $sessionDate)
                     ->sum('amount');
 
                 // Calculate expected closing cash
-                $expectedClosingCash = $yesterdaySession->opening_cash + $cashPayments - $expenses - $refunds - $deposits;
+                $expectedClosingCash = $pastSession->opening_cash + $cashPayments - $expenses - $refunds - $deposits;
 
                 // Close the session
-                $yesterdaySession->update([
+                $pastSession->update([
                     'closing_cash' => $expectedClosingCash,
                     'total_sales' => $totalSales,
                     'cash_sales' => $cashPayments,
@@ -234,15 +234,15 @@ class StoreBilling extends Component
                     'cash_deposit_bank' => $deposits,
                     'status' => 'closed',
                     'closed_at' => now(),
-                    'notes' => 'Auto-closed at midnight',
+                    'notes' => 'Auto-closed (past open session)',
                 ]);
 
                 DB::commit();
 
-                Log::info("Auto-closed yesterday's POS session for user: " . Auth::id());
+                Log::info("Auto-closed past POS session (date: {$sessionDate}) for user: " . Auth::id());
             } catch (\Exception $e) {
                 DB::rollBack();
-                Log::error("Failed to auto-close yesterday's session: " . $e->getMessage());
+                Log::error("Failed to auto-close past session (date: {$sessionDate}): " . $e->getMessage());
             }
         }
 
@@ -728,14 +728,14 @@ class StoreBilling extends Component
         if ($this->paymentMethod === 'credit') {
             return $this->grandTotal;
         }
-        return max(0, $this->grandTotal - (int)$this->totalPaidAmount);
+        return max(0, $this->grandTotal - floatval($this->totalPaidAmount));
     }
 
     public function getPaymentStatusProperty()
     {
-        if ($this->paymentMethod === 'credit' || (int)$this->totalPaidAmount <= 0) {
+        if ($this->paymentMethod === 'credit' || floatval($this->totalPaidAmount) <= 0) {
             return 'pending';
-        } elseif ((int)$this->totalPaidAmount >= $this->grandTotal) {
+        } elseif (floatval($this->totalPaidAmount) >= $this->grandTotal) {
             return 'paid';
         } else {
             return 'partial';
@@ -748,7 +748,7 @@ class StoreBilling extends Component
         if ($this->paymentMethod === 'credit') {
             return 'partial';
         }
-        if ((int)$this->totalPaidAmount >= $this->grandTotal) {
+        if (floatval($this->totalPaidAmount) >= $this->grandTotal) {
             return 'full';
         } else {
             return 'partial';
@@ -1717,14 +1717,18 @@ class StoreBilling extends Component
 
                         if ($stockRecord) {
                             $stockRecord->available_stock += $prevItem->quantity;
-                            $stockRecord->total_stock += $prevItem->quantity;
+                            if ($stockRecord->sold_count >= $prevItem->quantity) {
+                                $stockRecord->sold_count -= $prevItem->quantity;
+                            }
                             $stockRecord->save();
                         }
                     } else {
                         $product = ProductDetail::find($baseProductId);
                         if ($product && $product->stock) {
                             $product->stock->available_stock += $prevItem->quantity;
-                            $product->stock->total_stock += $prevItem->quantity;
+                            if ($product->stock->sold_count >= $prevItem->quantity) {
+                                $product->stock->sold_count -= $prevItem->quantity;
+                            }
                             $product->stock->save();
                         }
                     }
@@ -1813,14 +1817,14 @@ class StoreBilling extends Component
 
                     if ($stockRecord) {
                         $stockRecord->available_stock = max(0, $stockRecord->available_stock - $item['quantity']);
-                        $stockRecord->total_stock = max(0, $stockRecord->total_stock - $item['quantity']);
+                        $stockRecord->sold_count = ($stockRecord->sold_count ?? 0) + $item['quantity'];
                         $stockRecord->save();
                     } else {
                         // Fallback to product's general stock if variant stock missing
                         $product = ProductDetail::find($baseProductId);
                         if ($product && $product->stock) {
                             $product->stock->available_stock = max(0, $product->stock->available_stock - $item['quantity']);
-                            $product->stock->total_stock = max(0, $product->stock->total_stock - $item['quantity']);
+                            $product->stock->sold_count = ($product->stock->sold_count ?? 0) + $item['quantity'];
                             $product->stock->save();
                         }
                     }
@@ -1829,14 +1833,14 @@ class StoreBilling extends Component
                     $product = ProductDetail::find($baseProductId);
                     if ($product && $product->stock) {
                         $product->stock->available_stock = max(0, $product->stock->available_stock - $item['quantity']);
-                        $product->stock->total_stock = max(0, $product->stock->total_stock - $item['quantity']);
+                        $product->stock->sold_count = ($product->stock->sold_count ?? 0) + $item['quantity'];
                         $product->stock->save();
                     }
                 }
             }
 
             // Create Payment Record(s)
-            if ($this->paymentMethod !== 'credit' && (int)$this->totalPaidAmount > 0) {
+            if ($this->paymentMethod !== 'credit' && floatval($this->totalPaidAmount) > 0) {
 
                 if ($this->paymentMethod === 'multiple') {
                     // Create a cash payment for the cash portion (if any)
@@ -1844,7 +1848,7 @@ class StoreBilling extends Component
                         $cashPayment = Payment::create([
                             'customer_id' => $customer->id,
                             'sale_id' => $sale->id,
-                            'amount' => (int)$this->cashAmount,
+                            'amount' => round(floatval($this->cashAmount), 2),
                             'payment_method' => 'cash',
                             'payment_date' => now(),
                             'is_completed' => true,
@@ -1856,7 +1860,7 @@ class StoreBilling extends Component
                         ]);
 
                         // Update cash in hands - add cash payment
-                        $this->updateCashInHands((int)$this->cashAmount);
+                        $this->updateCashInHands(round(floatval($this->cashAmount), 2));
                     }
 
                     // Create a separate payment for each cheque and link cheque records
@@ -1864,7 +1868,7 @@ class StoreBilling extends Component
                         $chPayment = Payment::create([
                             'customer_id' => $customer->id,
                             'sale_id' => $sale->id,
-                            'amount' => (int)$cheque['amount'],
+                            'amount' => round(floatval($cheque['amount']), 2),
                             'payment_method' => 'cheque',
                             'payment_date' => now(),
                             'is_completed' => true,
@@ -1891,7 +1895,7 @@ class StoreBilling extends Component
                     $payment = Payment::create([
                         'customer_id' => $customer->id,
                         'sale_id' => $sale->id,
-                        'amount' => (int)$this->totalPaidAmount,
+                        'amount' => round(floatval($this->totalPaidAmount), 2),
                         'payment_method' => $this->paymentMethod,
                         'payment_date' => now(),
                         'is_completed' => true,
@@ -1905,7 +1909,7 @@ class StoreBilling extends Component
                         ]);
 
                         // Update cash in hands - add cash payment
-                        $this->updateCashInHands((int)$this->totalPaidAmount);
+                        $this->updateCashInHands(round(floatval($this->totalPaidAmount), 2));
                     } elseif ($this->paymentMethod === 'cheque') {
                         // Create cheque records
                         foreach ($this->cheques as $cheque) {
@@ -1936,7 +1940,7 @@ class StoreBilling extends Component
             }
 
             // UPDATE CUSTOMER BALANCE FOR CREDIT SALES AND OVERPAYMENTS
-            if ($customer && $customer->type !== 'Walking Customer') {
+            if ($customer && $customer->name !== 'Walking Customer') {
                 $dueAmount = floatval($this->dueAmount);
                 $totalPaid = floatval($this->totalPaidAmount);
                 $grandTotal = floatval($this->grandTotal);
@@ -2701,7 +2705,7 @@ class StoreBilling extends Component
             'dueAmount' => $this->dueAmount,
             'paymentStatus' => $this->paymentStatus,
             'databasePaymentType' => $this->databasePaymentType,
-            'totalPaidAmount' => (int)$this->totalPaidAmount,
+            'totalPaidAmount' => round(floatval($this->totalPaidAmount), 2),
             'products' => $this->products,
             'categories' => $this->categories,
         ]);

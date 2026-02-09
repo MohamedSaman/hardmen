@@ -184,17 +184,35 @@ class DeliveryManPaymentCollection extends Component
     {
         if (!$this->selectedCustomer) return;
 
+        // Get all pending (unapproved) payment allocations for this customer's sales
+        $pendingAllocations = DB::table('payment_allocations')
+            ->join('payments', 'payment_allocations.payment_id', '=', 'payments.id')
+            ->where('payments.customer_id', $this->selectedCustomer->id)
+            ->where('payments.status', 'pending')
+            ->select('payment_allocations.sale_id', DB::raw('SUM(payment_allocations.allocated_amount) as total_pending'))
+            ->groupBy('payment_allocations.sale_id')
+            ->pluck('total_pending', 'sale_id');
+
+        // Get pending allocations for opening balance (sale_id IS NULL)
+        $pendingOpeningBalanceAmount = DB::table('payment_allocations')
+            ->join('payments', 'payment_allocations.payment_id', '=', 'payments.id')
+            ->where('payments.customer_id', $this->selectedCustomer->id)
+            ->where('payments.status', 'pending')
+            ->whereNull('payment_allocations.sale_id')
+            ->sum('payment_allocations.allocated_amount');
+
         $salesList = [];
 
-        // Add opening balance if exists
-        if ($this->selectedCustomer->opening_balance > 0) {
+        // Add opening balance if exists (subtract pending allocations)
+        $effectiveOpeningBalance = max(0, ($this->selectedCustomer->opening_balance ?? 0) - $pendingOpeningBalanceAmount);
+        if ($effectiveOpeningBalance > 0.01) {
             $salesList[] = [
                 'id' => 'opening_balance_' . $this->selectedCustomer->id,
                 'invoice_number' => 'Opening Balance',
                 'sale_id' => 'OB',
                 'sale_date' => 'N/A',
                 'total_amount' => $this->selectedCustomer->opening_balance,
-                'due_amount' => $this->selectedCustomer->opening_balance,
+                'due_amount' => $effectiveOpeningBalance,
                 'return_amount' => 0,
                 'payment_status' => 'pending',
                 'is_opening_balance' => true,
@@ -210,9 +228,10 @@ class DeliveryManPaymentCollection extends Component
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $mappedSales = $sales->map(function ($sale) {
+        $mappedSales = $sales->map(function ($sale) use ($pendingAllocations) {
             $returnAmount = $this->calculateReturnAmount($sale->id);
-            $adjustedDueAmount = max(0, $sale->due_amount - $returnAmount);
+            $pendingAmount = floatval($pendingAllocations[$sale->id] ?? 0);
+            $adjustedDueAmount = max(0, $sale->due_amount - $returnAmount - $pendingAmount);
 
             return [
                 'id' => $sale->id,
@@ -222,6 +241,7 @@ class DeliveryManPaymentCollection extends Component
                 'total_amount' => $sale->total_amount - $returnAmount,
                 'due_amount' => $adjustedDueAmount,
                 'return_amount' => $returnAmount,
+                'pending_payment' => $pendingAmount,
                 'payment_status' => $adjustedDueAmount <= 0.01 ? 'paid' : $sale->payment_status,
                 'is_opening_balance' => false,
             ];
@@ -426,7 +446,21 @@ class DeliveryManPaymentCollection extends Component
             DB::commit();
 
             $this->closeCollectModal();
-            $this->clearSelectedCustomer();
+
+            // Reload customer data so invoices with pending payments are removed/reduced
+            $this->selectedInvoices = [];
+            $this->totalPaymentAmount = 0;
+            $this->totalDueAmount = 0;
+            $this->allocations = [];
+            $this->remainingAmount = 0;
+            $this->loadCustomerSales();
+            $this->initializeAllocations();
+
+            // If no more due invoices, clear the customer selection
+            if (empty($this->customerSales)) {
+                $this->clearSelectedCustomer();
+            }
+
             $this->dispatch('show-toast', type: 'success', message: 'Payment collected! Awaiting admin approval.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -469,9 +503,18 @@ class DeliveryManPaymentCollection extends Component
             ->orderBy('created_at', 'desc')
             ->get();
 
+        // Calculate total pending allocation amounts per customer (for display in customer list)
+        $pendingAllocationsPerCustomer = DB::table('payment_allocations')
+            ->join('payments', 'payment_allocations.payment_id', '=', 'payments.id')
+            ->where('payments.status', 'pending')
+            ->select('payments.customer_id', DB::raw('SUM(payment_allocations.allocated_amount) as total_pending'))
+            ->groupBy('payments.customer_id')
+            ->pluck('total_pending', 'customer_id');
+
         return view('livewire.delivery-man.delivery-man-payment-collection', [
             'customers' => $customers,
             'pendingPayments' => $pendingPayments,
+            'pendingAllocationsPerCustomer' => $pendingAllocationsPerCustomer,
             'selectedCustomer' => $this->selectedCustomer,
             'customerSales' => $this->customerSales,
             'selectedInvoices' => $this->selectedInvoices,

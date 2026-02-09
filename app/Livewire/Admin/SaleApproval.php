@@ -160,7 +160,6 @@ class SaleApproval extends Component
                 }
 
                 $stock->available_stock -= $item->quantity;
-                $stock->total_stock -= $item->quantity;
                 $stock->sold_count = ($stock->sold_count ?? 0) + $item->quantity;
                 $stock->save();
             }
@@ -169,12 +168,25 @@ class SaleApproval extends Component
             $sale->status = 'confirm';
             $sale->approved_by = Auth::id();
             $sale->approved_at = now();
-            $sale->due_amount = $sale->total_amount;
+
+            // Check if payments already exist for this sale
+            $existingPayments = \App\Models\Payment::where('sale_id', $sale->id)->sum('amount');
+            $sale->due_amount = max(0, $sale->total_amount - $existingPayments);
+
+            if ($sale->due_amount <= 0) {
+                $sale->payment_status = 'paid';
+            } elseif ($existingPayments > 0) {
+                $sale->payment_status = 'partial';
+            } else {
+                $sale->payment_status = 'pending';
+            }
+
             $sale->save();
 
             // Update customer due amount
-            if ($sale->customer) {
-                $sale->customer->due_amount = ($sale->customer->due_amount ?? 0) + $sale->total_amount;
+            if ($sale->customer && $sale->due_amount > 0) {
+                $sale->customer->due_amount = ($sale->customer->due_amount ?? 0) + $sale->due_amount;
+                $sale->customer->total_due = ($sale->customer->opening_balance ?? 0) + $sale->customer->due_amount;
                 $sale->customer->save();
             }
 

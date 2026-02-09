@@ -51,11 +51,10 @@ class ProductStock extends Model
     public function updateTotals()
     {
         $this->total_stock = $this->available_stock + $this->damage_stock;
-        $this->available_stock = $this->available_stock;
         $this->save();
     }
     public function detail()
     {
-        return $this->hasOne(ProductDetail::class, 'code');
+        return $this->belongsTo(ProductDetail::class, 'product_id');
     }
 }
