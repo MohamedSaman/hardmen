@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\Sale;
 use App\Models\Payment;
@@ -11,12 +12,20 @@ use App\Models\StaffSale;
 use App\Models\StaffReturn;
 use App\Models\StaffPermission;
 use App\Models\ProductDetail;
+use App\Models\ProductStock;
+use App\Services\FIFOStockService;
 use App\Models\SaleItem;
 use App\Models\Cheque;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Notifications\NewSaleNotification;
+use App\Notifications\PaymentNotification;
+use Illuminate\Support\Facades\Notification;
+use App\Models\UserLocation;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 
 /**
  * Staff App Controller
@@ -163,29 +172,61 @@ class StaffAppController extends ApiController
         $staffId = Auth::id();
         $search = $request->query('search', '');
 
-        $query = StaffProduct::where('staff_id', $staffId)
-            ->with(['product:id,name,code,model,image,brand_id', 'product.brand:id,brand_name']);
+        // Check if stock allocation is enabled
+        $allocationEnabled = Setting::where('key', 'stock_allocation')->value('value') === 'true';
 
-        $products = $query->get()->map(function ($item) {
-            $availableQty = ($item->quantity ?? 0) - ($item->sold_quantity ?? 0);
-            return [
-                'id' => $item->id,
-                'product_id' => $item->product_id,
-                'product_name' => $item->product->name ?? 'N/A',
-                'product_code' => $item->product->code ?? 'N/A',
-                'product_model' => $item->product->model ?? '',
-                'product_image' => $item->product->image ?? '',
-                'brand_name' => $item->product->brand->brand_name ?? '',
-                'quantity' => $item->quantity,
-                'sold_quantity' => $item->sold_quantity,
-                'available_quantity' => max(0, $availableQty),
-                'unit_price' => $item->unit_price,
-                'total_value' => $item->total_value,
-                'sold_value' => $item->sold_value,
-                'available_value' => ($availableQty * $item->unit_price),
-                'status' => $availableQty <= 0 ? 'sold_out' : ($item->sold_quantity > 0 ? 'partial' : 'available'),
-            ];
-        });
+        if (!$allocationEnabled) {
+            // Return ALL products/stock (global view)
+            $query = ProductDetail::with(['brand:id,brand_name', 'stock', 'price']);
+
+            $products = $query->get()->map(function ($item) {
+                $availableQty = $item->stock->available_stock ?? 0;
+                $soldQty = $item->stock->sold_count ?? 0;
+                $unitPrice = $item->price->retail_price ?? 0;
+
+                return [
+                    'id' => $item->id, // Use product ID as ID
+                    'product_id' => $item->id,
+                    'product_name' => $item->name,
+                    'product_code' => $item->code,
+                    'product_model' => $item->model ?? '',
+                    'product_image' => $item->image ?? '',
+                    'brand_name' => $item->brand->brand_name ?? '',
+                    'quantity' => $item->stock->total_stock ?? 0,
+                    'sold_quantity' => $soldQty,
+                    'available_quantity' => max(0, $availableQty),
+                    'unit_price' => $unitPrice,
+                    'total_value' => ($item->stock->total_stock ?? 0) * $unitPrice,
+                    'sold_value' => $soldQty * $unitPrice,
+                    'available_value' => $availableQty * $unitPrice,
+                    'status' => $availableQty <= 0 ? 'sold_out' : 'available',
+                ];
+            });
+        } else {
+            $query = StaffProduct::where('staff_id', $staffId)
+                ->with(['product:id,name,code,model,image,brand_id', 'product.brand:id,brand_name']);
+
+            $products = $query->get()->map(function ($item) {
+                $availableQty = ($item->quantity ?? 0) - ($item->sold_quantity ?? 0);
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product->name ?? 'N/A',
+                    'product_code' => $item->product->code ?? 'N/A',
+                    'product_model' => $item->product->model ?? '',
+                    'product_image' => $item->product->image ?? '',
+                    'brand_name' => $item->product->brand->brand_name ?? '',
+                    'quantity' => $item->quantity,
+                    'sold_quantity' => $item->sold_quantity,
+                    'available_quantity' => max(0, $availableQty),
+                    'unit_price' => $item->unit_price,
+                    'total_value' => $item->total_value,
+                    'sold_value' => $item->sold_value,
+                    'available_value' => ($availableQty * $item->unit_price),
+                    'status' => $availableQty <= 0 ? 'sold_out' : ($item->sold_quantity > 0 ? 'partial' : 'available'),
+                ];
+            });
+        }
 
         // Apply search filter
         if (!empty($search)) {
@@ -339,6 +380,86 @@ class StaffAppController extends ApiController
     }
 
     /**
+     * Store staff/device current location (called from staff mobile app)
+     * POST /api/staff-app/location
+     */
+    public function storeLocation(Request $request)
+    {
+        $request->validate([
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'accuracy' => 'nullable|numeric',
+            'recorded_at' => 'nullable|date',
+        ]);
+
+        try {
+            $location = UserLocation::create([
+                'user_id' => Auth::id(),
+                'latitude' => $request->input('latitude'),
+                'longitude' => $request->input('longitude'),
+                'accuracy' => $request->input('accuracy'),
+                'recorded_at' => $request->input('recorded_at') ? $request->input('recorded_at') : now(),
+            ]);
+
+            return $this->success($location);
+        } catch (\Exception $ex) {
+            Log::error('Failed to store location: ' . $ex->getMessage());
+            return $this->error('Failed to store location', 500);
+        }
+    }
+
+    /**
+     * Store an expense submitted by staff user
+     * POST /api/staff-app/expenses
+     */
+    public function storeExpense(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'category_id' => 'nullable|exists:expense_categories,id',
+            'description' => 'nullable|string',
+            'expense_date' => 'nullable|date',
+        ]);
+
+        try {
+            // Resolve category name if category_id provided to avoid NULL constraint
+            $categoryName = $request->input('category');
+            if ($request->filled('category_id')) {
+                $cat = ExpenseCategory::find($request->input('category_id'));
+                if ($cat) {
+                    // ExpenseCategory table uses 'expense_category' column as the label
+                    $categoryName = $cat->expense_category ?? $categoryName;
+                }
+            }
+
+            // Ensure category is not null to satisfy DB constraints (use fallback if unknown)
+            $categoryName = $categoryName ?? '';
+            if (trim($categoryName) === '') {
+                $categoryName = 'uncategorized';
+            }
+
+            Log::info('Storing staff expense', ['user_id' => Auth::id(), 'payload' => $request->all()]);
+
+            $expense = Expense::create([
+                'user_id' => Auth::id(),
+                'category_id' => $request->input('category_id'),
+                'category' => $categoryName,
+                'amount' => $request->input('amount'),
+                'date' => $request->input('expense_date') ?? now()->toDateString(),
+                'description' => $request->input('description') ?? null,
+                // expense_type column is non-nullable in DB; default to 'other' if not provided
+                'expense_type' => $request->input('expense_type') ?? 'other',
+                'status' => $request->input('status') ?? 'submitted',
+            ]);
+
+            return $this->success($expense, 'Expense recorded', 201);
+        } catch (\Exception $e) {
+            Log::error('Failed to store staff expense: ' . $e->getMessage());
+            return $this->error('Failed to store expense', 500);
+        }
+    }
+
+    /**
      * Get products available for sale (allocated to this staff)
      */
     public function getProductsForSale(Request $request)
@@ -350,38 +471,81 @@ class StaffAppController extends ApiController
             return $this->success(['results' => [], 'count' => 0]);
         }
 
-        $products = StaffProduct::where('staff_id', $staffId)
-            ->with(['product:id,name,code,model,image,brand_id', 'product.brand:id,brand_name'])
-            ->get()
-            ->filter(function ($item) use ($search) {
-                $searchLower = strtolower($search);
-                return str_contains(strtolower($item->product->name ?? ''), $searchLower) ||
-                    str_contains(strtolower($item->product->code ?? ''), $searchLower) ||
-                    str_contains(strtolower($item->product->model ?? ''), $searchLower);
-            })
-            ->map(function ($item) {
-                $availableQty = max(0, ($item->quantity ?? 0) - ($item->sold_quantity ?? 0));
+        // Check if stock allocation is enabled
+        $allocationEnabled = Setting::where('key', 'stock_allocation')->value('value') === 'true';
+
+        if (!$allocationEnabled) {
+            // Return ALL products/stock (global view)
+            $query = ProductDetail::with(['brand:id,brand_name', 'stock', 'price']);
+
+            $searchLower = strtolower($search);
+
+            // Filter by search term before fetching all
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('model', 'like', "%{$search}%");
+            });
+
+            $products = $query->take(20)->get()->map(function ($item) {
+                $availableQty = $item->stock->available_stock ?? 0;
+                $unitPrice = $item->price->retail_price ?? 0;
+
                 return [
-                    'id' => $item->product_id,
-                    'name' => $item->product->name ?? 'N/A',
-                    'code' => $item->product->code ?? '',
-                    'model' => $item->product->model ?? '',
-                    'image' => $item->product->image ?? '',
-                    'brand' => $item->product->brand->brand_name ?? '',
-                    'price' => $item->unit_price,
-                    'stock' => $availableQty,
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'code' => $item->code,
+                    'model' => $item->model ?? '',
+                    'image' => $item->image ?? '',
+                    'brand' => $item->brand->brand_name ?? '',
+                    'price' => $unitPrice,
+                    'stock' => max(0, $availableQty),
                 ];
             })
-            ->filter(function ($item) {
-                return $item['stock'] > 0;
-            })
-            ->take(20)
-            ->values();
+                ->filter(function ($item) {
+                    return $item['stock'] > 0;
+                })
+                ->values();
 
-        return $this->success([
-            'results' => $products,
-            'count' => $products->count(),
-        ]);
+            return $this->success([
+                'results' => $products,
+                'count' => $products->count(),
+            ]);
+        } else {
+            // Original Logic: StaffProduct
+            $products = StaffProduct::where('staff_id', $staffId)
+                ->with(['product:id,name,code,model,image,brand_id', 'product.brand:id,brand_name'])
+                ->get()
+                ->filter(function ($item) use ($search) {
+                    $searchLower = strtolower($search);
+                    return str_contains(strtolower($item->product->name ?? ''), $searchLower) ||
+                        str_contains(strtolower($item->product->code ?? ''), $searchLower) ||
+                        str_contains(strtolower($item->product->model ?? ''), $searchLower);
+                })
+                ->map(function ($item) {
+                    $availableQty = max(0, ($item->quantity ?? 0) - ($item->sold_quantity ?? 0));
+                    return [
+                        'id' => $item->product_id,
+                        'name' => $item->product->name ?? 'N/A',
+                        'code' => $item->product->code ?? '',
+                        'model' => $item->product->model ?? '',
+                        'image' => $item->product->image ?? '',
+                        'brand' => $item->product->brand->brand_name ?? '',
+                        'price' => $item->unit_price,
+                        'stock' => $availableQty,
+                    ];
+                })
+                ->filter(function ($item) {
+                    return $item['stock'] > 0;
+                })
+                ->take(20)
+                ->values();
+
+            return $this->success([
+                'results' => $products,
+                'count' => $products->count(),
+            ]);
+        }
     }
 
     /**
@@ -441,24 +605,32 @@ class StaffAppController extends ApiController
                 $paymentStatus = 'partial';
             }
 
+            // Check if stock allocation is enabled
+            $allocationEnabled = Setting::where('key', 'stock_allocation')->value('value') === 'true';
+
             // Check stock availability and update sold quantities
             foreach ($request->items as $item) {
-                $staffProduct = StaffProduct::where('staff_id', $staffId)
-                    ->where('product_id', $item['product_id'])
-                    ->first();
+                if ($allocationEnabled) {
+                    $staffProduct = StaffProduct::where('staff_id', $staffId)
+                        ->where('product_id', $item['product_id'])
+                        ->first();
 
-                if (!$staffProduct) {
-                    throw new \Exception("Product ID {$item['product_id']} is not allocated to you");
+                    if (!$staffProduct) {
+                        throw new \Exception("Product ID {$item['product_id']} is not allocated to you");
+                    }
+
+                    $availableStock = $staffProduct->quantity - $staffProduct->sold_quantity;
+                    if ($item['quantity'] > $availableStock) {
+                        throw new \Exception("Insufficient stock for product ID {$item['product_id']}. Available: {$availableStock}");
+                    }
+
+                    // Update sold quantity
+                    $staffProduct->increment('sold_quantity', $item['quantity']);
+                    $staffProduct->increment('sold_value', ($item['price'] - ($item['discount'] ?? 0)) * $item['quantity']);
+                } else {
+                    // Deduct from Main Stock (FIFOStockService)
+                    FIFOStockService::deductStock($item['product_id'], $item['quantity']);
                 }
-
-                $availableStock = $staffProduct->quantity - $staffProduct->sold_quantity;
-                if ($item['quantity'] > $availableStock) {
-                    throw new \Exception("Insufficient stock for product ID {$item['product_id']}. Available: {$availableStock}");
-                }
-
-                // Update sold quantity
-                $staffProduct->increment('sold_quantity', $item['quantity']);
-                $staffProduct->increment('sold_value', ($item['price'] - ($item['discount'] ?? 0)) * $item['quantity']);
             }
 
             // Create sale
@@ -542,6 +714,23 @@ class StaffAppController extends ApiController
             }
 
             DB::commit();
+
+            // Send Notifications
+            try {
+                $admins = User::where('role', 'admin')->get();
+                $staff = Auth::user();
+                $creatorName = $staff ? $staff->name : 'Staff';
+
+                // New Sale Notification
+                Notification::send($admins, new NewSaleNotification($sale, $creatorName));
+
+                // Payment Notification
+                if ($paidAmount > 0 && isset($payment)) {
+                    Notification::send($admins, new PaymentNotification($payment, 'received'));
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to send staff sale notifications: ' . $e->getMessage());
+            }
 
             $sale->load(['customer', 'items', 'payments']);
 
@@ -685,6 +874,14 @@ class StaffAppController extends ApiController
             }
 
             DB::commit();
+
+            // Send Notification
+            try {
+                $admins = User::where('role', 'admin')->get();
+                Notification::send($admins, new PaymentNotification($payment, 'received'));
+            } catch (\Exception $e) {
+                Log::warning('Failed to send staff payment notification: ' . $e->getMessage());
+            }
 
             return $this->success([
                 'payment' => $payment,
@@ -840,6 +1037,8 @@ class StaffAppController extends ApiController
             DB::beginTransaction();
 
             $idx = 0;
+            $createdPayments = [];
+
             foreach ($request->payments as $paymentItem) {
                 $sale = Sale::where('id', $paymentItem['sale_id'])
                     ->where('customer_id', $request->customer_id)
@@ -847,11 +1046,6 @@ class StaffAppController extends ApiController
 
                 if (!$sale)
                     continue;
-
-                if ($paymentItem['amount'] > $sale->due_amount + 0.01) { // Add small epsilon for float comparison
-                    // Skip or error? Let's error to be safe
-                    // throw new \Exception("Payment amount exceeds due amount for invoice {$sale->invoice_number}");
-                }
 
                 $payment = Payment::create([
                     'customer_id' => $request->customer_id,
@@ -865,6 +1059,8 @@ class StaffAppController extends ApiController
                     'payment_reference' => 'COLL-' . strtoupper($request->payment_method) . '-' . now()->format('YmdHis') . '-' . $idx,
                     'notes' => $request->notes,
                 ]);
+
+                $createdPayments[] = $payment;
 
                 if ($request->payment_method === 'cheque' && !empty($request->cheques)) {
                     foreach ($request->cheques as $cheque) {
@@ -891,6 +1087,16 @@ class StaffAppController extends ApiController
             }
 
             DB::commit();
+
+            // Send Notifications
+            try {
+                $admins = User::where('role', 'admin')->get();
+                foreach ($createdPayments as $p) {
+                    Notification::send($admins, new PaymentNotification($p, 'received'));
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to send staff collection notifications: ' . $e->getMessage());
+            }
 
             return $this->success(null, 'Payments collected successfully and sent for approval', 201);
 

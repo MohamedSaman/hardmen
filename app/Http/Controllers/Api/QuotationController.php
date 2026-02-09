@@ -144,9 +144,9 @@ class QuotationController extends ApiController
             $discount = $request->discount ?? $quotation->discount_amount ?? 0;
             $totalAmount = $subtotal - $discount;
 
-            $quotation->items = $request->items;
-            $quotation->subtotal = $subtotal;
-            $quotation->total_amount = $totalAmount;
+            $quotation->setAttribute('items', $request->items);
+            $quotation->setAttribute('subtotal', $subtotal);
+            $quotation->setAttribute('total_amount', $totalAmount);
         }
 
         $quotation->update([
@@ -202,6 +202,11 @@ class QuotationController extends ApiController
             'created_by' => $quotation->creator ? $quotation->creator->name : null,
             'created_at' => $quotation->created_at,
         ];
+
+        // Ensure callers have an items count even in non-detailed responses
+        $rawItemsForCount = $quotation->items;
+        $itemsArrayForCount = is_string($rawItemsForCount) ? json_decode($rawItemsForCount, true) : $rawItemsForCount;
+        $data['items_count'] = is_array($itemsArrayForCount) ? count($itemsArrayForCount) : 0;
 
         if ($detailed) {
             $rawItems = $quotation->items;

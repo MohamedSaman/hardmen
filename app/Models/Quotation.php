@@ -7,6 +7,28 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * @property int $id
+ * @property string|null $quotation_number
+ * @property int|null $customer_id
+ * @property string|null $customer_name
+ * @property string|null $customer_phone
+ * @property string|null $customer_email
+ * @property string|null $customer_address
+ * @property \Illuminate\Support\Carbon|null $valid_until
+ * @property float $subtotal
+ * @property float $discount_amount
+ * @property float $tax_amount
+ * @property float $total_amount
+ * @property array|null $items
+ * @property string|null $terms_conditions
+ * @property string|null $notes
+ * @property string|null $status
+ * @property int|null $created_by
+ * @property int|null $user_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ */
 class Quotation extends Model
 {
     use HasFactory;
@@ -301,7 +323,7 @@ class Quotation extends Model
     /**
      * Mark quotation as rejected.
      */
-    public function markAsRejected(string $reason = null): bool
+    public function markAsRejected(?string $reason = null): bool
     {
         if (in_array($this->status, ['sent', 'draft'])) {
             $this->update([

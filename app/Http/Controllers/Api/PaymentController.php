@@ -5,9 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Models\Payment;
 use App\Models\PurchasePayment;
 use App\Models\PurchaseOrder;
+use App\Notifications\PaymentNotification;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\PushToken;
+use App\Services\ExpoPushService;
 
 class PaymentController extends ApiController
 {
@@ -177,6 +181,35 @@ class PaymentController extends ApiController
                 $po->save();
 
                 DB::commit();
+                // Notify admins about supplier payment
+                try {
+                    // Notify admins and staff
+                    $recipients = \App\Models\User::whereIn('role', ['admin', 'staff'])->get();
+                        Notification::send($recipients, new PaymentNotification($payment, 'paid'));
+                    // Send expo pushes
+                    try {
+                        $tokens = PushToken::whereIn('user_id', $recipients->pluck('id')->toArray())->pluck('token')->toArray();
+                        if (!empty($tokens)) {
+                            $expo = new ExpoPushService();
+                            $messages = [];
+                            foreach ($tokens as $t) {
+                                $messages[] = [
+                                    'to' => $t,
+                                    'sound' => 'default',
+                                    'title' => 'Supplier Payment',
+                                    'body' => "Supplier payment of Rs. {$payment->amount} recorded",
+                                    'data' => ['type' => 'supplier_payment', 'payment_id' => $payment->id],
+                                ];
+                            }
+                            $expo->send($messages);
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to send expo pushes for supplier payment: ' . $e->getMessage());
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to send supplier payment notification: ' . $e->getMessage());
+                }
+
                 return $this->success($this->transformPurchasePayment($payment), 'Supplier payment recorded successfully', 201);
 
             } else {
@@ -221,6 +254,34 @@ class PaymentController extends ApiController
                     $sale->save();
 
                     DB::commit();
+                    // Notify admins and staff about customer payment
+                    try {
+                        $recipients = \App\Models\User::whereIn('role', ['admin', 'staff'])->get();
+                        Notification::send($recipients, new PaymentNotification($payment, 'received'));
+                        // Send expo pushes for customer payment
+                        try {
+                            $tokens = PushToken::whereIn('user_id', $recipients->pluck('id')->toArray())->pluck('token')->toArray();
+                            if (!empty($tokens)) {
+                                $expo = new ExpoPushService();
+                                $messages = [];
+                                foreach ($tokens as $t) {
+                                    $messages[] = [
+                                        'to' => $t,
+                                        'sound' => 'default',
+                                        'title' => 'Payment Received',
+                                        'body' => "Payment of Rs. {$payment->amount} received for Invoice {$sale->invoice_number}",
+                                        'data' => ['type' => 'payment', 'payment_id' => $payment->id],
+                                    ];
+                                }
+                                $expo->send($messages);
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning('Failed to send expo pushes for customer payment: ' . $e->getMessage());
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to send customer payment notification: ' . $e->getMessage());
+                    }
+
                     return $this->success($this->transformPayment($payment), 'Payment recorded successfully', 201);
                 }
 

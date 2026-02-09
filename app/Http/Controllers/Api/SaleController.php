@@ -16,6 +16,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use App\Notifications\NewSaleNotification;
+use App\Notifications\PaymentNotification;
+use App\Notifications\LowStockNotification;
+use Illuminate\Support\Facades\Notification;
+use App\Models\PushToken;
+use App\Services\ExpoPushService;
 
 class SaleController extends ApiController
 {
@@ -284,6 +290,64 @@ class SaleController extends ApiController
 
             DB::commit();
 
+            // Send Notifications
+            try {
+                // Notify admins and staff so mobile users also receive alerts
+                $recipients = User::whereIn('role', ['admin', 'staff'])->get();
+                $creator = User::find($userId);
+                $creatorName = $creator ? $creator->name : 'System';
+
+                // Ensure creator is included
+                if ($creator && !$recipients->contains('id', $creator->id)) {
+                    $recipients->push($creator);
+                }
+
+                // New Sale Notification
+                Notification::send($recipients, new NewSaleNotification($sale, $creatorName));
+
+                // Send push notifications (Expo) to recipients who have tokens
+                try {
+                    $tokens = PushToken::whereIn('user_id', $recipients->pluck('id')->toArray())->pluck('token')->toArray();
+                    if (!empty($tokens)) {
+                        $expo = new ExpoPushService();
+                        $messages = [];
+                        foreach ($tokens as $t) {
+                            $messages[] = [
+                                'to' => $t,
+                                'sound' => 'default',
+                                'title' => 'New Sale Created',
+                                'body' => "Invoice {$sale->invoice_number} created by {$creatorName}",
+                                'data' => ['type' => 'sale', 'sale_id' => $sale->id],
+                            ];
+                        }
+                        $expo->send($messages);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to send expo pushes for new sale: ' . $e->getMessage());
+                }
+
+                // Payment Notification (if any)
+                if ($paidAmount > 0 && isset($payment)) {
+                    Notification::send($recipients, new PaymentNotification($payment, 'received'));
+                }
+
+                // Low Stock Checks
+                foreach ($items as $item) {
+                    $productId = $item['product_id'] ?? $item['product'];
+                    $stock = ProductStock::where('product_id', $productId)->first();
+                    // Alert if stock is less than 10
+                    if ($stock && $stock->available_stock < 10) {
+                        $product = ProductDetail::find($productId);
+                        if ($product) {
+                            $product->stock = $stock->available_stock;
+                            Notification::send($recipients, new LowStockNotification($product));
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to send notifications: ' . $e->getMessage());
+            }
+
             $sale->load(['customer', 'items.product', 'payments', 'user']);
             return $this->success($this->transformSale($sale, true), 'Sale created successfully', 201);
         } catch (\Exception $e) {
@@ -356,6 +420,35 @@ class SaleController extends ApiController
             }
 
             DB::commit();
+
+            // Send Notification
+            try {
+                $admins = User::where('role', 'admin')->get();
+                Notification::send($admins, new PaymentNotification($payment, 'received'));
+
+                // Send expo pushes for payment
+                try {
+                    $tokens = PushToken::whereIn('user_id', $admins->pluck('id')->toArray())->pluck('token')->toArray();
+                    if (!empty($tokens)) {
+                        $expo = new ExpoPushService();
+                        $messages = [];
+                        foreach ($tokens as $t) {
+                            $messages[] = [
+                                'to' => $t,
+                                'sound' => 'default',
+                                'title' => 'Payment Received',
+                                'body' => "Payment of Rs. {$amount} recorded for Invoice {$sale->invoice_number}",
+                                'data' => ['type' => 'payment', 'payment_id' => $payment->id ?? null],
+                            ];
+                        }
+                        $expo->send($messages);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to send expo pushes for payment: ' . $e->getMessage());
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to send payment notification: ' . $e->getMessage());
+            }
 
             $sale->load(['customer', 'items.product', 'payments', 'user']);
             return $this->success([

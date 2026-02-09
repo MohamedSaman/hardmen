@@ -77,6 +77,24 @@ class User extends Authenticatable
         return $this->hasOne(UserDetail::class, 'user_id', 'id');
     }
 
+    // Relationship: User has many recorded locations
+    public function locations()
+    {
+        return $this->hasMany(UserLocation::class, 'user_id', 'id');
+    }
+
+    // Latest location (one-to-one latest)
+    public function latestLocation()
+    {
+        return $this->hasOne(UserLocation::class, 'user_id', 'id')->latestOfMany();
+    }
+
+    // Relationship: User has many staff permissions
+    public function staffPermissions()
+    {
+        return $this->hasMany(StaffPermission::class, 'user_id', 'id');
+    }
+
     // Relationship: User (staff) has many staff products
     public function staffProducts()
     {

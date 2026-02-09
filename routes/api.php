@@ -17,10 +17,12 @@ use App\Http\Controllers\Api\QuotationController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\ChequeController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\StaffManagementController;
 use App\Http\Controllers\Api\BusinessSettingController;
+use App\Http\Controllers\Api\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,6 +51,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::put('/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/user/password', [AuthController::class, 'changePassword']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::put('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+    // Push token registration (Expo/FCM)
+    Route::post('/push-tokens', [\App\Http\Controllers\Api\PushTokenController::class, 'store']);
 });
 
 // Authenticated user route
@@ -114,6 +124,9 @@ Route::get('/product-stocks', function () {
 
 // Payments
 Route::apiResource('payments', PaymentController::class);
+
+// Cheques (customer cheques)
+Route::get('/cheques', [ChequeController::class, 'index']);
 
 // Expenses
 Route::apiResource('expenses', ExpenseController::class);
@@ -205,5 +218,13 @@ Route::middleware('auth:sanctum')->prefix('staff-app')->group(function () {
     Route::get('/due-customers', [StaffAppController::class, 'getDueCustomers']);
     Route::get('/due-customers/{id}/bills', [StaffAppController::class, 'getCustomerDueBills']);
     Route::post('/collect-payment', [StaffAppController::class, 'collectPayment']);
+    
+    // Staff app: post current GPS location
+    Route::post('/location', [StaffAppController::class, 'storeLocation']);
+    // Staff app: submit expense entry (staff users)
+    Route::post('/expenses', [StaffAppController::class, 'storeExpense']);
 });
+
+// Admin: live reps locations (latest per staff)
+Route::get('/admin/reps/live', [StaffManagementController::class, 'getLiveLocations']);
 

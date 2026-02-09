@@ -12,6 +12,7 @@ use App\Models\StaffProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\UserLocation;
 
 class StaffManagementController extends ApiController
 {
@@ -201,6 +202,39 @@ class StaffManagementController extends ApiController
             'results' => $stockDetails,
             'count' => count($stockDetails),
         ]);
+    }
+
+    /**
+     * Get latest live locations for staff reps
+     * GET /api/admin/reps/live
+     */
+    public function getLiveLocations(Request $request)
+    {
+        $staffMembers = User::where('role', 'staff')
+            ->with('latestLocation')
+            ->orderBy('name')
+            ->get();
+
+        $results = $staffMembers->map(function ($s) {
+            $loc = $s->latestLocation;
+            return [
+                'id' => $s->id,
+                'name' => $s->name,
+                'email' => $s->email,
+                'contact' => $s->contact,
+                'location' => $loc ? [
+                    'latitude' => $loc->latitude,
+                    'longitude' => $loc->longitude,
+                    'accuracy' => $loc->accuracy,
+                    'recorded_at' => $loc->recorded_at,
+                    'updated_at' => $loc->updated_at,
+                ] : null,
+            ];
+        })->filter(function ($item) {
+            return $item['location'] !== null;
+        })->values();
+
+        return $this->success(['results' => $results, 'count' => $results->count()]);
     }
 
     /**
@@ -564,7 +598,7 @@ class StaffManagementController extends ApiController
             ->where('expenses.user_id', $staffId)
             ->select(
                 'expenses.*',
-                'expense_categories.name as category_name'
+                'expense_categories.expense_category as category_name'
             );
 
         if ($startDate) {
