@@ -211,7 +211,7 @@ class StaffProductReentry extends Component
 
         if ($latestStock) {
             $latestStock->available_stock += $quantity;
-            $latestStock->save();
+            $latestStock->updateTotals();
         } else {
             // Create a new stock entry if none exists
             ProductStock::create([
@@ -234,7 +234,7 @@ class StaffProductReentry extends Component
 
         if ($latestStock) {
             $latestStock->damage_stock += $quantity;
-            $latestStock->save();
+            $latestStock->updateTotals(); // Recalculate total_stock = available_stock + damage_stock
         } else {
             // Create a new stock entry if none exists
             ProductStock::create([

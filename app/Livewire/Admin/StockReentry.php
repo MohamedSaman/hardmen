@@ -71,33 +71,32 @@ class StockReentry extends Component
 
             $stock->damage_stock += $this->damagedQuantity;
             $stock->available_stock += $this->restockQuantity;
-            $stock->save();
+            $stock->updateTotals(); // Recalculate total_stock = available_stock + damage_stock
 
             $this->dispatch('notify', 'Stock updated successfully.');
             $this->reset('selectedProduct', 'damagedQuantity', 'restockQuantity');
         });
     }
 
-public function render()
-{
-    $products = StaffProduct::with(['ProductDetail' => function ($query) {
+    public function render()
+    {
+        $products = StaffProduct::with(['ProductDetail' => function ($query) {
             $query->select('id', 'name', 'brand', 'code', 'image'); // Ensure 'image' is selected
         }])
-        ->where('staff_id', $this->staffId)
-        ->when($this->searchTerm, function ($query) {
-            $query->whereHas('ProductDetail', function ($q) {
-                $q->where(function ($subQ) {
-                    $subQ->where('name', 'like', '%' . $this->searchTerm . '%')
-                        ->orWhere('brand', 'like', '%' . $this->searchTerm . '%')
-                        ->orWhere('code', 'like', '%' . $this->searchTerm . '%');
+            ->where('staff_id', $this->staffId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('ProductDetail', function ($q) {
+                    $q->where(function ($subQ) {
+                        $subQ->where('name', 'like', '%' . $this->searchTerm . '%')
+                            ->orWhere('brand', 'like', '%' . $this->searchTerm . '%')
+                            ->orWhere('code', 'like', '%' . $this->searchTerm . '%');
+                    });
                 });
-            });
-        })
-        ->get();
+            })
+            ->get();
 
-    return view('livewire.admin.stock-reentry', [
-        'products' => $products,
-    ])->layout($this->layout);
+        return view('livewire.admin.stock-reentry', [
+            'products' => $products,
+        ])->layout($this->layout);
+    }
 }
-}
-

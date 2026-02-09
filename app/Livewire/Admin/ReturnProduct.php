@@ -457,7 +457,7 @@ class ReturnProduct extends Component
             if ($stock->sold_count >= $quantity) {
                 $stock->sold_count -= $quantity;
             }
-            $stock->save();
+            $stock->updateTotals();
         } else {
             ProductStock::create([
                 'product_id' => $productId,

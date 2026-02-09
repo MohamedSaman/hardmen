@@ -234,8 +234,7 @@ class SalesList extends Component
 
         if ($stock) {
             $stock->available_stock += $quantity;
-            $stock->total_stock += $quantity;
-            $stock->save();
+            $stock->updateTotals();
         } else {
             ProductStock::create([
                 'product_id' => $productId,

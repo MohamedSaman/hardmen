@@ -44,6 +44,7 @@ use App\Http\Controllers\StaffSaleExportController;
 use App\Livewire\Admin\GRN;
 use App\Livewire\Admin\StaffAttendance;
 use App\Livewire\Admin\StaffSallary;
+use App\Livewire\Admin\StaffSalary;
 use App\Livewire\Admin\LoanManage;
 use App\Livewire\Admin\Quotation;
 use App\Livewire\Admin\SalesApproval;
@@ -193,6 +194,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         Route::get('/due-payments', AdminDuePayments::class)->name('due-payments');
         Route::get('/staff-attendance', StaffAttendance::class)->name('staff-attendance');
         Route::get('/staff-salary', StaffSallary::class)->name('staff-salary');
+        Route::get('/staff-salary-management', StaffSalary::class)->name('staff-salary-management');
         Route::get('/loan-management', LoanManage::class)->name('loan-management');
         Route::get('/sales-system', SalesSystem::class)->name('sales-system');
         Route::get('/staff-product-allocation', StaffProductAllocation::class)->name('staff-product-allocation');

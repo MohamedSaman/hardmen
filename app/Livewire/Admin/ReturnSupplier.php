@@ -432,14 +432,13 @@ class ReturnSupplier extends Component
         if ($stock) {
             // For supplier returns, we reduce the stock
             $stock->available_stock = max(0, $stock->available_stock - $quantity);
-            $stock->total_stock = max(0, $stock->total_stock - $quantity);
 
             // Track damage stock if reason is damage
             if ($reason === 'damaged') {
                 $stock->damage_stock += $quantity;
             }
 
-            $stock->save();
+            $stock->updateTotals(); // Recalculate total_stock = available_stock + damage_stock
         }
     }
 

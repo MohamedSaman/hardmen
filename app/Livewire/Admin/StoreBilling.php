@@ -16,6 +16,7 @@ use App\Models\Payment;
 use App\Models\Cheque;
 use App\Models\POSSession;
 use App\Models\ProductStock;
+use App\Models\ProductBatch;
 use App\Services\FIFOStockService;
 
 use Illuminate\Support\Facades\Auth;
@@ -458,8 +459,66 @@ class StoreBilling extends Component
             }
         }
 
+        // Check for multiple batches with different prices and split items if needed
+        $finalItems = [];
+        foreach ($items as $item) {
+            $productId = $item['product_id'];
+            $variantId = $item['variant_id'] ?? null;
+            $variantValue = $item['variant_value'] ?? null;
+
+            // Get batch details for this product/variant
+            $batches = FIFOStockService::getBatchDetails($productId, $variantId, $variantValue);
+
+            // Determine which price field to use based on priceType
+            $priceField = match ($this->priceType) {
+                'retail' => 'retail_price',
+                'wholesale' => 'wholesale_price',
+                'distribute' => 'distributor_price',
+                default => 'wholesale_price',
+            };
+
+            // Group batches by price
+            $batchesByPrice = [];
+            foreach ($batches as $batch) {
+                $price = $batch[$priceField] ?? 0;
+                if (!isset($batchesByPrice[$price])) {
+                    $batchesByPrice[$price] = [
+                        'quantity' => 0,
+                        'batch_numbers' => [],
+                    ];
+                }
+                $batchesByPrice[$price]['quantity'] += $batch['remaining_quantity'];
+                $batchesByPrice[$price]['batch_numbers'][] = $batch['batch_number'];
+            }
+
+            // If multiple different prices exist, split into separate items
+            if (count($batchesByPrice) > 1) {
+                foreach ($batchesByPrice as $price => $info) {
+                    $finalItems[] = [
+                        'id' => $item['id'] . '_price_' . $price,
+                        'product_id' => $productId,
+                        'variant_id' => $variantId,
+                        'variant_value' => $variantValue,
+                        'name' => $item['name'],
+                        'code' => $item['code'],
+                        'model' => $item['model'] ?? null,
+                        'price' => $price,
+                        'retail_price' => $item['retail_price'] ?? 0,
+                        'wholesale_price' => $item['wholesale_price'] ?? 0,
+                        'distributor_price' => $item['distributor_price'] ?? 0,
+                        'stock' => $info['quantity'],
+                        'image' => $item['image'] ?? '',
+                        'batch_numbers' => $info['batch_numbers'],
+                    ];
+                }
+            } else {
+                // Single price, add as-is
+                $finalItems[] = $item;
+            }
+        }
+
         // Limit to 20 items to keep UI performant
-        $this->products = array_values(array_slice($items, 0, 20));
+        $this->products = array_values(array_slice($finalItems, 0, 20));
     }
 
     /**
@@ -1182,17 +1241,60 @@ class StoreBilling extends Component
                         }
                     }
                 } else {
-                    $results[] = [
-                        'id' => $p->id,
-                        'product_id' => $p->id,
-                        'variant_id' => $p->variant_id ?? null,
-                        'variant_value' => null,
-                        'name' => $p->name,
-                        'code' => $p->code,
-                        'image' => $p->image ?? '',
-                        'price' => $this->getPriceValue($p->price),
-                        'stock' => $p->stock->available_stock ?? 0,
-                    ];
+                    // Check for multiple batches with different prices
+                    $batches = FIFOStockService::getBatchDetails($p->id, null, null);
+
+                    // Determine which price field to use based on priceType
+                    $priceField = match ($this->priceType) {
+                        'retail' => 'retail_price',
+                        'wholesale' => 'wholesale_price',
+                        'distribute' => 'distributor_price',
+                        default => 'wholesale_price',
+                    };
+
+                    // Group batches by price
+                    $batchesByPrice = [];
+                    foreach ($batches as $batch) {
+                        $price = $batch[$priceField] ?? 0;
+                        if (!isset($batchesByPrice[$price])) {
+                            $batchesByPrice[$price] = [
+                                'quantity' => 0,
+                                'batch_numbers' => [],
+                            ];
+                        }
+                        $batchesByPrice[$price]['quantity'] += $batch['remaining_quantity'];
+                        $batchesByPrice[$price]['batch_numbers'][] = $batch['batch_number'];
+                    }
+
+                    // If multiple different prices exist, split into separate items
+                    if (count($batchesByPrice) > 1) {
+                        foreach ($batchesByPrice as $price => $info) {
+                            $results[] = [
+                                'id' => $p->id . '_price_' . $price,
+                                'product_id' => $p->id,
+                                'variant_id' => $p->variant_id ?? null,
+                                'variant_value' => null,
+                                'name' => $p->name,
+                                'code' => $p->code,
+                                'image' => $p->image ?? '',
+                                'price' => $price,
+                                'stock' => $info['quantity'],
+                                'batch_numbers' => $info['batch_numbers'],
+                            ];
+                        }
+                    } else {
+                        $results[] = [
+                            'id' => $p->id,
+                            'product_id' => $p->id,
+                            'variant_id' => $p->variant_id ?? null,
+                            'variant_value' => null,
+                            'name' => $p->name,
+                            'code' => $p->code,
+                            'image' => $p->image ?? '',
+                            'price' => $this->getPriceValue($p->price),
+                            'stock' => $p->stock->available_stock ?? 0,
+                        ];
+                    }
                 }
             }
 
@@ -1246,7 +1348,21 @@ class StoreBilling extends Component
             return;
         }
 
-        $existing = collect($this->cart)->firstWhere('id', $product['id']);
+        // Determine base product id (handles variant entries where 'product_id' is provided)
+        $baseProductId = $product['product_id'] ?? $product['id'];
+        $variantId = $product['variant_id'] ?? null;
+        $variantValue = $product['variant_value'] ?? null;
+
+        // Get batch numbers if product was split by batch
+        $batchNumbers = $product['batch_numbers'] ?? null;
+
+        // Create unique cart ID that includes batch info if present
+        $cartId = $product['id'];
+        if ($batchNumbers && !empty($batchNumbers)) {
+            $cartId .= '_batches_' . implode('_', $batchNumbers);
+        }
+
+        $existing = collect($this->cart)->firstWhere('id', $cartId);
 
         if ($existing) {
             // Check if adding more exceeds stock
@@ -1255,8 +1371,8 @@ class StoreBilling extends Component
                 return;
             }
 
-            $this->cart = collect($this->cart)->map(function ($item) use ($product) {
-                if ($item['id'] == $product['id']) {
+            $this->cart = collect($this->cart)->map(function ($item) use ($cartId) {
+                if ($item['id'] == $cartId) {
                     $item['quantity'] += 1;
                     $item['total'] = ($item['price'] - $item['discount']) * $item['quantity'];
                     // Ensure key exists
@@ -1267,17 +1383,14 @@ class StoreBilling extends Component
                 return $item;
             })->toArray();
         } else {
-            // Determine base product id (handles variant entries where 'product_id' is provided)
-            $baseProductId = $product['product_id'] ?? $product['id'];
-
             $discountPrice = ProductDetail::find($baseProductId)->price->discount_price ?? 0;
 
             $newItem = [
                 'key' => uniqid('cart_'),  // Add unique key to maintain state
-                'id' => $product['id'], // unique id (if variant: productId::variantValue)
+                'id' => $cartId, // unique id (if variant: productId::variantValue, if batches: add batch info)
                 'product_id' => $baseProductId,
-                'variant_id' => $product['variant_id'] ?? null,
-                'variant_value' => $product['variant_value'] ?? null,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
                 'name' => $product['name'],
                 'code' => $product['code'] ?? null,
                 'model' => $product['model'] ?? null,
@@ -1288,7 +1401,8 @@ class StoreBilling extends Component
                 'discount_percentage' => 0,  // Store percentage value if applicable
                 'total' => $product['price'] - $discountPrice,
                 'stock' => $product['stock'],
-                'image' => $product['image'] ?? null
+                'image' => $product['image'] ?? null,
+                'batch_numbers' => $batchNumbers, // Store batch info for later reference
             ];
 
             // Prepend new item to the beginning of the cart so latest appears at top
@@ -1345,13 +1459,13 @@ class StoreBilling extends Component
         if ($price < 0) $price = 0;
 
         $this->cart[$index]['price'] = $price;
-        
+
         // If discount is percentage-based, recalculate the discount amount based on new price
         if (($this->cart[$index]['discount_type'] ?? 'fixed') === 'percentage' && ($this->cart[$index]['discount_percentage'] ?? 0) > 0) {
             $percentage = $this->cart[$index]['discount_percentage'];
             $this->cart[$index]['discount'] = round(($price * $percentage) / 100, 2);
         }
-        
+
         $this->cart[$index]['total'] = ($price - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
     }
 
@@ -1359,29 +1473,29 @@ class StoreBilling extends Component
     public function updateDiscount($index, $discount)
     {
         if (!isset($this->cart[$index])) return;
-        
+
         $discountValue = trim($discount);
-        
+
         // Check if percentage (contains %)
         if (str_contains($discountValue, '%')) {
-              // Percentage discount
-              $percentage = (float) str_replace('%', '', $discountValue);
-              $percentage = max(0, min(100, $percentage));
-              $discountAmount = ($this->cart[$index]['price'] * $percentage) / 100;
-            
-              // Store discount type and percentage
-              $this->cart[$index]['discount_type'] = 'percentage';
-              $this->cart[$index]['discount_percentage'] = $percentage;
+            // Percentage discount
+            $percentage = (float) str_replace('%', '', $discountValue);
+            $percentage = max(0, min(100, $percentage));
+            $discountAmount = ($this->cart[$index]['price'] * $percentage) / 100;
+
+            // Store discount type and percentage
+            $this->cart[$index]['discount_type'] = 'percentage';
+            $this->cart[$index]['discount_percentage'] = $percentage;
         } else {
-              // Fixed discount
-              $discountAmount = max(0, (float)$discountValue);
-              $discountAmount = min($discountAmount, $this->cart[$index]['price']);
-            
-              // Store discount type
-              $this->cart[$index]['discount_type'] = 'fixed';
-              $this->cart[$index]['discount_percentage'] = 0;
+            // Fixed discount
+            $discountAmount = max(0, (float)$discountValue);
+            $discountAmount = min($discountAmount, $this->cart[$index]['price']);
+
+            // Store discount type
+            $this->cart[$index]['discount_type'] = 'fixed';
+            $this->cart[$index]['discount_percentage'] = 0;
         }
-        
+
         $this->cart[$index]['discount'] = round($discountAmount, 2);
         $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
     }
@@ -1698,13 +1812,36 @@ class StoreBilling extends Component
                     return;
                 }
 
-                // Restore previous stock quantities
+                // Restore previous stock quantities (both ProductStock and ProductBatch)
                 $previousItems = SaleItem::where('sale_id', $sale->id)->get();
                 foreach ($previousItems as $prevItem) {
                     $baseProductId = $prevItem->product_id;
                     $variantValue = $prevItem->variant_value ?? null;
                     $variantId = $prevItem->variant_id ?? null;
+                    $quantity = $prevItem->quantity;
 
+                    // Restore batch stock (add to most recent active batch first)
+                    $batchQuery = ProductBatch::where('product_id', $baseProductId)
+                        ->where('status', 'active');
+
+                    if ($variantId) {
+                        $batchQuery->where('variant_id', $variantId);
+                    }
+                    if ($variantValue) {
+                        $batchQuery->where('variant_value', $variantValue);
+                    }
+
+                    $batch = $batchQuery->orderBy('received_date', 'desc')
+                        ->orderBy('id', 'desc')
+                        ->first();
+
+                    if ($batch) {
+                        $batch->remaining_quantity += $quantity;
+                        $batch->quantity += $quantity;
+                        $batch->save();
+                    }
+
+                    // Restore ProductStock
                     if ($variantValue || $variantId) {
                         $stockRecord = ProductStock::where('product_id', $baseProductId)
                             ->when($variantId, function ($q) use ($variantId) {
@@ -1717,19 +1854,13 @@ class StoreBilling extends Component
 
                         if ($stockRecord) {
                             $stockRecord->available_stock += $prevItem->quantity;
-                            if ($stockRecord->sold_count >= $prevItem->quantity) {
-                                $stockRecord->sold_count -= $prevItem->quantity;
-                            }
-                            $stockRecord->save();
+                            $stockRecord->updateTotals();
                         }
                     } else {
                         $product = ProductDetail::find($baseProductId);
                         if ($product && $product->stock) {
                             $product->stock->available_stock += $prevItem->quantity;
-                            if ($product->stock->sold_count >= $prevItem->quantity) {
-                                $product->stock->sold_count -= $prevItem->quantity;
-                            }
-                            $product->stock->save();
+                            $product->stock->updateTotals();
                         }
                     }
                 }
@@ -1779,10 +1910,13 @@ class StoreBilling extends Component
                 ]);
             }
 
-            // Create sale items and update stock
+            // Create sale items and deduct stock using FIFO method
             foreach ($this->cart as $item) {
                 // Resolve base product id (handle variant entries where 'product_id' exists)
                 $baseProductId = $item['product_id'] ?? $item['id'];
+                $variantId = $item['variant_id'] ?? null;
+                $variantValue = $item['variant_value'] ?? null;
+                $quantity = $item['quantity'];
 
                 SaleItem::create([
                     'sale_id' => $sale->id,
@@ -1790,52 +1924,36 @@ class StoreBilling extends Component
                     'product_code' => $item['code'] ?? '',
                     'product_name' => $item['name'],
                     'product_model' => $item['model'] ?? null,
-                    'quantity' => $item['quantity'],
+                    'quantity' => $quantity,
                     'unit_price' => $item['price'],
                     'discount_per_unit' => $item['discount'],
-                    'total_discount' => $item['discount'] * $item['quantity'],
+                    'total_discount' => $item['discount'] * $quantity,
                     'discount_type' => $item['discount_type'] ?? 'fixed',
                     'discount_percentage' => $item['discount_percentage'] ?? 0,
                     'total' => $item['total'],
-                    'variant_value' => $item['variant_value'] ?? null,
-                    'variant_id' => $item['variant_id'] ?? null,
+                    'variant_value' => $variantValue,
+                    'variant_id' => $variantId,
                 ]);
 
-                // Update product stock: if variant specified, update ProductStock for specific variant
-                if (!empty($item['variant_value']) || !empty($item['variant_id'])) {
-                    $variantValue = $item['variant_value'] ?? null;
-                    $variantId = $item['variant_id'] ?? null;
-
-                    $stockRecord = ProductStock::where('product_id', $baseProductId)
-                        ->when($variantId, function ($q) use ($variantId) {
-                            return $q->where('variant_id', $variantId);
-                        })
-                        ->when($variantValue, function ($q) use ($variantValue) {
-                            return $q->where('variant_value', $variantValue);
-                        })
-                        ->first();
-
-                    if ($stockRecord) {
-                        $stockRecord->available_stock = max(0, $stockRecord->available_stock - $item['quantity']);
-                        $stockRecord->sold_count = ($stockRecord->sold_count ?? 0) + $item['quantity'];
-                        $stockRecord->save();
-                    } else {
-                        // Fallback to product's general stock if variant stock missing
-                        $product = ProductDetail::find($baseProductId);
-                        if ($product && $product->stock) {
-                            $product->stock->available_stock = max(0, $product->stock->available_stock - $item['quantity']);
-                            $product->stock->sold_count = ($product->stock->sold_count ?? 0) + $item['quantity'];
-                            $product->stock->save();
-                        }
-                    }
-                } else {
-                    // No variant — update main stock row
-                    $product = ProductDetail::find($baseProductId);
-                    if ($product && $product->stock) {
-                        $product->stock->available_stock = max(0, $product->stock->available_stock - $item['quantity']);
-                        $product->stock->sold_count = ($product->stock->sold_count ?? 0) + $item['quantity'];
-                        $product->stock->save();
-                    }
+                // Deduct stock using FIFO method (updates both ProductBatch and ProductStock)
+                try {
+                    FIFOStockService::deductStock(
+                        $baseProductId,
+                        $quantity,
+                        $variantId,
+                        $variantValue
+                    );
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    Log::error('Stock deduction failed', [
+                        'product_id' => $baseProductId,
+                        'quantity' => $quantity,
+                        'variant_id' => $variantId,
+                        'variant_value' => $variantValue,
+                        'error' => $e->getMessage()
+                    ]);
+                    $this->showToast('error', 'Stock deduction failed: ' . $e->getMessage());
+                    return;
                 }
             }
 

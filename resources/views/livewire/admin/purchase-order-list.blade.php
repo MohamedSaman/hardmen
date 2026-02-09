@@ -913,7 +913,7 @@
                             <td colspan="5" class="text-end"><strong>Grand Total:</strong></td>
                             <td class="text-end">
                                 <strong class="text-primary" style="font-size: 1rem;">
-                                    Rs. {{ number_format(collect($editOrderItems)->sum(function($item) { return ($item['quantity'] ?? 0) * ($item['unit_price'] ?? 0); }), 2) }}
+                                    Rs. {{ number_format(collect($editOrderItems)->sum(function($item) { return floatval($item['quantity'] ?? 0) * floatval($item['unit_price'] ?? 0); }), 2) }}
                                 </strong>
                             </td>
                             <td></td>

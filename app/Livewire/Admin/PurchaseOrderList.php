@@ -205,12 +205,14 @@ class PurchaseOrderList extends Component
         }
         $price = floatval($price);
 
-        $displayName = $product->name . ' - ' . ($product->variant->variant_name ?? 'Variant') . ': ' . $variantValue;
+        $variantId = $product->variant_id;
+        $variantName = $product->variant->variant_name ?? 'Variant';
+        $displayName = $product->name . ' - ' . $variantName . ': ' . $variantValue;
 
         if ($existingIndex !== null) {
             $this->orderItems[$existingIndex]['quantity'] += 1;
             $this->orderItems[$existingIndex]['total_price'] =
-                $this->orderItems[$existingIndex]['quantity'] * $this->orderItems[$existingIndex]['supplier_price'];
+                floatval($this->orderItems[$existingIndex]['quantity']) * floatval($this->orderItems[$existingIndex]['supplier_price']);
 
             $item = $this->orderItems[$existingIndex];
             unset($this->orderItems[$existingIndex]);
@@ -219,6 +221,7 @@ class PurchaseOrderList extends Component
         } else {
             array_unshift($this->orderItems, [
                 'product_id' => $product->id,
+                'variant_id' => $variantId,
                 'variant_value' => (string)$variantValue,
                 'code' => $product->code,
                 'name' => $displayName,
@@ -273,12 +276,14 @@ class PurchaseOrderList extends Component
         }
         $price = floatval($price);
 
-        $displayName = $product->name . ' - ' . ($product->variant->variant_name ?? 'Variant') . ': ' . $variantValue;
+        $variantId = $product->variant_id;
+        $variantName = $product->variant->variant_name ?? 'Variant';
+        $displayName = $product->name . ' - ' . $variantName . ': ' . $variantValue;
 
         if ($existingIndex !== null) {
             $this->editOrderItems[$existingIndex]['quantity'] += 1;
             $this->editOrderItems[$existingIndex]['total_price'] =
-                $this->editOrderItems[$existingIndex]['quantity'] * $this->editOrderItems[$existingIndex]['unit_price'];
+                floatval($this->editOrderItems[$existingIndex]['quantity']) * floatval($this->editOrderItems[$existingIndex]['unit_price']);
 
             $item = $this->editOrderItems[$existingIndex];
             unset($this->editOrderItems[$existingIndex]);
@@ -287,6 +292,7 @@ class PurchaseOrderList extends Component
         } else {
             array_unshift($this->editOrderItems, [
                 'product_id' => $product->id,
+                'variant_id' => $variantId,
                 'variant_value' => (string)$variantValue,
                 'code' => $product->code,
                 'name' => $displayName,
@@ -382,7 +388,7 @@ class PurchaseOrderList extends Component
 
     public function calculateTotalPrice()
     {
-        $this->totalPrice = $this->quantity * $this->selectedProductPrice;
+        $this->totalPrice = floatval($this->quantity ?? 0) * floatval($this->selectedProductPrice ?? 0);
         Log::info("Total calculated: " . $this->quantity . " * " . $this->selectedProductPrice . " = " . $this->totalPrice);
     }
 
@@ -397,7 +403,7 @@ class PurchaseOrderList extends Component
         if (isset($this->orderItems[$index]) && $quantity >= 1) {
             $this->orderItems[$index]['quantity'] = $quantity;
             $this->orderItems[$index]['total_price'] =
-                $quantity * $this->orderItems[$index]['supplier_price'];
+                floatval($quantity) * floatval($this->orderItems[$index]['supplier_price']);
             $this->calculateGrandTotal();
         }
     }
@@ -408,7 +414,7 @@ class PurchaseOrderList extends Component
         if (isset($this->orderItems[$index]) && $price >= 0) {
             $this->orderItems[$index]['supplier_price'] = $price;
             $this->orderItems[$index]['total_price'] =
-                $this->orderItems[$index]['quantity'] * $price;
+                floatval($this->orderItems[$index]['quantity']) * floatval($price);
             $this->calculateGrandTotal();
         }
     }
@@ -501,6 +507,8 @@ class PurchaseOrderList extends Component
                 PurchaseOrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'variant_value' => $item['variant_value'] ?? null,
                     'quantity' => floatval($item['quantity']),
                     'unit_price' => $supplierPrice,
                     'discount' => 0,
@@ -731,6 +739,8 @@ class PurchaseOrderList extends Component
                     $new = PurchaseOrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $item['product_id'],
+                        'variant_id' => $item['variant_id'] ?? null,
+                        'variant_value' => $item['variant_value'] ?? null,
                         'quantity' => $qty,
                         'unit_price' => $unitPrice,
                         'discount' => $discount,
@@ -937,42 +947,105 @@ class PurchaseOrderList extends Component
         }
     }
 
-    protected function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null, $wholesalePrice = 0, $retailPrice = 0, $distributorPrice = 0)
+    protected function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null, $wholesalePrice = 0, $retailPrice = 0, $distributorPrice = 0, $variantId = null, $variantValue = null)
     {
         $product = ProductDetail::with('price')->find($productId);
         if (!$product) return;
 
         $productPrice = $product->price;
 
-        // If prices not provided, get from product
+        // If prices not provided, get from product (considering variant-specific prices if applicable)
         if ($supplierPrice == 0 && $productPrice) {
-            $supplierPrice = $productPrice->supplier_price;
+            if ($variantId) {
+                $variantPriceQuery = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPriceQuery->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPriceQuery->first();
+                $supplierPrice = $variantPrice ? $variantPrice->supplier_price : $productPrice->supplier_price;
+            } else {
+                $supplierPrice = $productPrice->supplier_price;
+            }
         }
         // Set selling_price to 0 always
         $sellingPrice = 0;
 
         if ($wholesalePrice == 0 && $productPrice) {
-            $wholesalePrice = $productPrice->wholesale_price;
+            if ($variantId) {
+                $variantPriceQuery = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPriceQuery->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPriceQuery->first();
+                $wholesalePrice = $variantPrice ? $variantPrice->wholesale_price : $productPrice->wholesale_price;
+            } else {
+                $wholesalePrice = $productPrice->wholesale_price;
+            }
         }
         if ($retailPrice == 0 && $productPrice) {
-            $retailPrice = $productPrice->retail_price;
+            if ($variantId) {
+                $variantPriceQuery = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPriceQuery->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPriceQuery->first();
+                $retailPrice = $variantPrice ? $variantPrice->retail_price : $productPrice->retail_price;
+            } else {
+                $retailPrice = $productPrice->retail_price;
+            }
         }
         if ($distributorPrice == 0 && $productPrice) {
-            $distributorPrice = $productPrice->distributor_price ?? 0;
+            if ($variantId) {
+                $variantPriceQuery = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPriceQuery->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPriceQuery->first();
+                $distributorPrice = $variantPrice ? $variantPrice->distributor_price : ($productPrice->distributor_price ?? 0);
+            } else {
+                $distributorPrice = $productPrice->distributor_price ?? 0;
+            }
         }
 
-        // Check if product already has stock
-        $stock = $product->stock;
+        // Check if product already has stock (with variant consideration)
+        $stockQuery = ProductStock::where('product_id', $productId);
+        if ($variantId) {
+            $stockQuery->where('variant_id', $variantId);
+            if ($variantValue) {
+                $stockQuery->where('variant_value', $variantValue);
+            }
+        } else {
+            $stockQuery->where(function ($q) {
+                $q->whereNull('variant_id')->orWhere('variant_id', 0);
+            });
+        }
+        $stock = $stockQuery->first();
         $hasExistingStock = $stock && $stock->available_stock > 0;
 
-        // Check for an existing active batch with the exact same prices
-        $matchingBatch = ProductBatch::where('product_id', $productId)
+        // Check for an existing active batch with the exact same prices and variant
+        $matchingBatchQuery = ProductBatch::where('product_id', $productId)
             ->where('status', 'active')
             ->where('supplier_price', $supplierPrice)
             ->where('wholesale_price', $wholesalePrice)
             ->where('retail_price', $retailPrice)
-            ->where('distributor_price', $distributorPrice)
-            ->orderBy('received_date', 'desc')
+            ->where('distributor_price', $distributorPrice);
+
+        if ($variantId) {
+            $matchingBatchQuery->where('variant_id', $variantId);
+            if ($variantValue) {
+                $matchingBatchQuery->where('variant_value', $variantValue);
+            }
+        } else {
+            $matchingBatchQuery->where(function ($q) {
+                $q->whereNull('variant_id')->orWhere('variant_id', 0);
+            });
+        }
+
+        $matchingBatch = $matchingBatchQuery->orderBy('received_date', 'desc')
             ->orderBy('id', 'desc')
             ->first();
 
@@ -982,7 +1055,7 @@ class PurchaseOrderList extends Component
             $matchingBatch->remaining_quantity += $quantity;
             $matchingBatch->save();
             $batch = $matchingBatch;
-            Log::info("Added {$quantity} units to existing batch {$matchingBatch->batch_number} for product {$productId}");
+            Log::info("Added {$quantity} units to existing batch {$matchingBatch->batch_number} for product {$productId}" . ($variantValue ? " variant: {$variantValue}" : ""));
         } else {
             // No matching batch - create a new one
             $batchNumber = ProductBatch::generateBatchNumber($productId);
@@ -990,6 +1063,8 @@ class PurchaseOrderList extends Component
                 'product_id' => $productId,
                 'batch_number' => $batchNumber,
                 'purchase_order_id' => $purchaseOrderId,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
                 'supplier_price' => $supplierPrice,
                 'selling_price' => $sellingPrice,
                 'wholesale_price' => $wholesalePrice,
@@ -1001,18 +1076,19 @@ class PurchaseOrderList extends Component
                 'status' => 'active',
             ]);
 
-            Log::info("Created new batch {$batchNumber} for product {$productId} ({$quantity} units)");
+            Log::info("Created new batch {$batchNumber} for product {$productId} ({$quantity} units)" . ($variantValue ? " variant: {$variantValue}" : ""));
         }
 
-        // Update product stock totals
+        // Update product stock totals (with variant consideration)
         if ($stock) {
             $stock->available_stock += $quantity;
-            $stock->total_stock += $quantity;
-            $stock->save();
+            $stock->updateTotals();
         } else {
-            // Create new stock record
+            // Create new stock record with variant information
             ProductStock::create([
                 'product_id' => $productId,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
                 'available_stock' => $quantity,
                 'damage_stock' => 0,
                 'total_stock' => $quantity,
@@ -1021,18 +1097,33 @@ class PurchaseOrderList extends Component
             ]);
         }
 
-        // Update main product prices if no existing stock
-        if (!$hasExistingStock) {
-            if ($productPrice) {
-                $productPrice->supplier_price = $supplierPrice;
-                $productPrice->selling_price = 0;
-                $productPrice->wholesale_price = $wholesalePrice;
-                $productPrice->retail_price = $retailPrice;
-                $productPrice->distributor_price = $distributorPrice ?? ($productPrice->distributor_price ?? 0);
-                $productPrice->save();
+        // Update main product prices ONLY if no existing stock (FIFO logic)
+        // When old stock reaches 0, the new batch prices become the main prices
+        if ($variantId) {
+            // Update variant-specific price
+            $variantPriceQuery = ProductPrice::where('product_id', $productId)
+                ->where('variant_id', $variantId);
+            if ($variantValue) {
+                $variantPriceQuery->where('variant_value', $variantValue);
+            }
+            $variantPrice = $variantPriceQuery->first();
+
+            if ($variantPrice) {
+                // ONLY update if no existing stock (FIFO principle)
+                if (!$hasExistingStock) {
+                    $variantPrice->supplier_price = $supplierPrice;
+                    $variantPrice->selling_price = 0;
+                    $variantPrice->wholesale_price = $wholesalePrice;
+                    $variantPrice->retail_price = $retailPrice;
+                    $variantPrice->distributor_price = $distributorPrice ?? ($variantPrice->distributor_price ?? 0);
+                    $variantPrice->save();
+                }
             } else {
+                // Create variant price if it doesn't exist
                 ProductPrice::create([
                     'product_id' => $productId,
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
                     'supplier_price' => $supplierPrice,
                     'selling_price' => 0,
                     'wholesale_price' => $wholesalePrice,
@@ -1040,6 +1131,28 @@ class PurchaseOrderList extends Component
                     'distributor_price' => $distributorPrice ?? 0,
                     'discount_price' => 0,
                 ]);
+            }
+        } else {
+            // Update base product price
+            if (!$hasExistingStock) {
+                if ($productPrice) {
+                    $productPrice->supplier_price = $supplierPrice;
+                    $productPrice->selling_price = 0;
+                    $productPrice->wholesale_price = $wholesalePrice;
+                    $productPrice->retail_price = $retailPrice;
+                    $productPrice->distributor_price = $distributorPrice ?? ($productPrice->distributor_price ?? 0);
+                    $productPrice->save();
+                } else {
+                    ProductPrice::create([
+                        'product_id' => $productId,
+                        'supplier_price' => $supplierPrice,
+                        'selling_price' => 0,
+                        'wholesale_price' => $wholesalePrice,
+                        'retail_price' => $retailPrice,
+                        'distributor_price' => $distributorPrice ?? 0,
+                        'discount_price' => 0,
+                    ]);
+                }
             }
         }
     }
@@ -1186,7 +1299,9 @@ class PurchaseOrderList extends Component
                         $orderItem->save();
 
                         if ($status === 'received' && $receivedQty > 0) {
-                            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, floatval($item['distributor_price'] ?? 0));
+                            $variantId = $item['variant_id'] ?? null;
+                            $variantValue = $item['variant_value'] ?? null;
+                            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, floatval($item['distributor_price'] ?? 0), $variantId, $variantValue);
                         }
                     }
                 } else {
@@ -1198,6 +1313,8 @@ class PurchaseOrderList extends Component
                     $newOrderItem = PurchaseOrderItem::create([
                         'order_id' => $this->selectedPO->id,
                         'product_id' => $productId,
+                        'variant_id' => $item['variant_id'] ?? null,
+                        'variant_value' => $item['variant_value'] ?? null,
                         'quantity' => $item['ordered_qty'] ?? $receivedQty, // Store ordered quantity
                         'received_quantity' => $receivedQty, // Store received quantity
                         'unit_price' => $item['unit_price'] ?? 0,
@@ -1207,7 +1324,9 @@ class PurchaseOrderList extends Component
                     ]);
 
                     if ($receivedQty > 0) {
-                        $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, floatval($item['distributor_price'] ?? 0));
+                        $variantId = $item['variant_id'] ?? null;
+                        $variantValue = $item['variant_value'] ?? null;
+                        $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, floatval($item['distributor_price'] ?? 0), $variantId, $variantValue);
                     }
                 }
             }
@@ -1409,6 +1528,8 @@ class PurchaseOrderList extends Component
     {
         $this->grnItems[] = [
             'product_id' => null,
+            'variant_id' => null,
+            'variant_value' => null,
             'code' => '',
             'name' => '',
             'ordered_qty' => 0,
@@ -1437,11 +1558,35 @@ class PurchaseOrderList extends Component
         // Initialize GRN items from purchase order items
         $this->grnItems = [];
         foreach ($this->selectedPO->items as $item) {
-            // Get current product prices
+            // Get current product prices - check for variant-specific prices first
             $product = ProductDetail::with('price')->find($item->product_id);
-            $currentWholesalePrice = $product && $product->price ? $product->price->wholesale_price : 0;
-            $currentRetailPrice = $product && $product->price ? $product->price->retail_price : 0;
-            $currentDistributorPrice = $product && $product->price ? ($product->price->distributor_price ?? 0) : 0;
+
+            $currentWholesalePrice = 0;
+            $currentRetailPrice = 0;
+            $currentDistributorPrice = 0;
+
+            if ($item->variant_id) {
+                // Try to get variant-specific price
+                $variantPrice = ProductPrice::where('product_id', $item->product_id)
+                    ->where('variant_id', $item->variant_id);
+                if ($item->variant_value) {
+                    $variantPrice->where('variant_value', $item->variant_value);
+                }
+                $variantPrice = $variantPrice->first();
+
+                if ($variantPrice) {
+                    $currentWholesalePrice = $variantPrice->wholesale_price ?? 0;
+                    $currentRetailPrice = $variantPrice->retail_price ?? 0;
+                    $currentDistributorPrice = $variantPrice->distributor_price ?? 0;
+                }
+            }
+
+            // Fall back to product's main price if no variant price found
+            if (!$currentWholesalePrice && $product && $product->price) {
+                $currentWholesalePrice = $product->price->wholesale_price ?? 0;
+                $currentRetailPrice = $product->price->retail_price ?? 0;
+                $currentDistributorPrice = $product->price->distributor_price ?? 0;
+            }
 
             // Set default discount_type to 'percent'
             $discountType = $item->discount_type ?? 'percent';
@@ -1449,6 +1594,8 @@ class PurchaseOrderList extends Component
             $this->grnItems[] = [
                 'id' => $item->id,
                 'product_id' => $item->product_id,
+                'variant_id' => $item->variant_id ?? null,
+                'variant_value' => $item->variant_value ?? null,
                 'code' => $item->product->code ?? 'N/A',
                 'name' => $this->formatProductName($item->product ?? null, $item->unit_price ?? null),
                 'ordered_qty' => $item->quantity,
@@ -1481,12 +1628,38 @@ class PurchaseOrderList extends Component
         foreach ($this->selectedPO->items as $item) {
             // Only include items that are pending or not received
             if (in_array(strtolower($item->status ?? 'pending'), ['pending', 'notreceived', ''])) {
-                // Get current product prices
+                // Get current product prices - check for variant-specific prices first
                 $product = ProductDetail::with('price')->find($item->product_id);
-                $currentSellingPrice = $product && $product->price ? $product->price->selling_price : 0;
-                $currentWholesalePrice = $product && $product->price ? $product->price->wholesale_price : 0;
-                $currentRetailPrice = $product && $product->price ? $product->price->retail_price : 0;
-                $currentDistributorPrice = $product && $product->price ? ($product->price->distributor_price ?? 0) : 0;
+
+                $currentSellingPrice = 0;
+                $currentWholesalePrice = 0;
+                $currentRetailPrice = 0;
+                $currentDistributorPrice = 0;
+
+                if ($item->variant_id) {
+                    // Try to get variant-specific price
+                    $variantPrice = ProductPrice::where('product_id', $item->product_id)
+                        ->where('variant_id', $item->variant_id);
+                    if ($item->variant_value) {
+                        $variantPrice->where('variant_value', $item->variant_value);
+                    }
+                    $variantPrice = $variantPrice->first();
+
+                    if ($variantPrice) {
+                        $currentSellingPrice = $variantPrice->selling_price ?? 0;
+                        $currentWholesalePrice = $variantPrice->wholesale_price ?? 0;
+                        $currentRetailPrice = $variantPrice->retail_price ?? 0;
+                        $currentDistributorPrice = $variantPrice->distributor_price ?? 0;
+                    }
+                }
+
+                // Fall back to product's main price if no variant price found
+                if (!$currentWholesalePrice && $product && $product->price) {
+                    $currentSellingPrice = $product->price->selling_price ?? 0;
+                    $currentWholesalePrice = $product->price->wholesale_price ?? 0;
+                    $currentRetailPrice = $product->price->retail_price ?? 0;
+                    $currentDistributorPrice = $product->price->distributor_price ?? 0;
+                }
 
                 // Set default discount_type to 'percent'
                 $discountType = $item->discount_type ?? 'percent';
@@ -1494,6 +1667,8 @@ class PurchaseOrderList extends Component
                 $this->grnItems[] = [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
+                    'variant_id' => $item->variant_id ?? null,
+                    'variant_value' => $item->variant_value ?? null,
                     'code' => $item->product->code ?? 'N/A',
                     'name' => $this->formatProductName($item->product ?? null, $item->unit_price ?? null),
                     'ordered_qty' => $item->quantity,

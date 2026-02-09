@@ -96,72 +96,34 @@ class SaleApproval extends Component
                 return;
             }
 
-            // Update stock for each item
+            // Update stock for each item using FIFO method
             foreach ($sale->items as $item) {
-                $stock = null;
-
-                // Check if item has variant
-                if ($item->variant_id || $item->variant_value) {
-                    // Handle variant stock - try multiple approaches
-                    $stockQuery = ProductStock::where('product_id', $item->product_id);
-
-                    if ($item->variant_id) {
-                        $stockQuery->where('variant_id', $item->variant_id);
-                    }
-                    if ($item->variant_value) {
-                        $stockQuery->where('variant_value', $item->variant_value);
-                    }
-
-                    $stock = $stockQuery->first();
-                } else {
-                    // Handle single product stock - check for null or empty variant_value
-                    $stock = ProductStock::where('product_id', $item->product_id)
-                        ->where(function ($q) {
-                            $q->whereNull('variant_value')
-                                ->orWhere('variant_value', '')
-                                ->orWhere('variant_value', 'null');
-                        })
-                        ->whereNull('variant_id')
-                        ->first();
-
-                    // If still not found, try just by product_id (single stock product)
-                    if (!$stock) {
-                        $stock = ProductStock::where('product_id', $item->product_id)->first();
-                    }
-                }
-
                 // Skip stock validation for old sales (before Feb 7, 2026) - they're historical data
                 $isOldSale = $sale->created_at < now()->subDay();
 
-                if (!$stock) {
+                try {
+                    // Use FIFO stock service to deduct from batches and update product stock
+                    FIFOStockService::deductStock(
+                        $item->product_id,
+                        $item->quantity,
+                        $item->variant_id,
+                        $item->variant_value
+                    );
+                } catch (\Exception $e) {
                     if (!$isOldSale) {
                         DB::rollBack();
                         $this->isProcessing = false;
-                        Log::error("Stock not found for product: {$item->product_name} (ID: {$item->product_id})");
-                        $this->dispatch('show-toast', type: 'error', message: "Stock record not found for {$item->product_name}.");
+                        Log::error("Stock deduction failed for product: {$item->product_name} (ID: {$item->product_id})", [
+                            'error' => $e->getMessage(),
+                            'sale_id' => $sale->id
+                        ]);
+                        $this->dispatch('show-toast', type: 'error', message: $e->getMessage());
                         $this->closeApproveModal();
                         return;
                     }
                     // For old sales, log warning but continue
-                    Log::warning("Old sale {$sale->id}: Stock not found for product {$item->product_name}, skipping stock deduction");
-                    continue;
+                    Log::warning("Old sale {$sale->id}: Stock deduction failed for {$item->product_name}, but allowing approval: " . $e->getMessage());
                 }
-
-                if ($stock->available_stock < $item->quantity) {
-                    if (!$isOldSale) {
-                        DB::rollBack();
-                        $this->isProcessing = false;
-                        $this->dispatch('show-toast', type: 'error', message: "Insufficient stock for {$item->product_name}. Available: {$stock->available_stock}, Required: {$item->quantity}");
-                        $this->closeApproveModal();
-                        return;
-                    }
-                    // For old sales, allow approval even with insufficient stock
-                    Log::warning("Old sale {$sale->id}: Insufficient stock for {$item->product_name}, but allowing approval");
-                }
-
-                $stock->available_stock -= $item->quantity;
-                $stock->sold_count = ($stock->sold_count ?? 0) + $item->quantity;
-                $stock->save();
             }
 
             // Update sale status and set due amount

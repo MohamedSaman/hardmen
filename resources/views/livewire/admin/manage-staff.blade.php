@@ -273,16 +273,14 @@
                 </div>
                 <div class="modal-body">
                     <form wire:submit.prevent="saveStaff">
+                        <!-- Hidden fields with default values -->
+                        <input type="hidden" wire:model="work_type" value="monthly">
+                        <input type="hidden" wire:model="status" value="active">
+                        
                         <div class="row g-3">
-                            <div class="col-12">
-                                <h6 class="fw-bold text-primary mb-3">
-                                    <i class="bi bi-person-lines-fill me-1"></i> Personal Information
-                                </h6>
-                            </div>
-                            
                             <div class="col-12 col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label fw-semibold">Staff Name</label>
+                                    <label class="form-label fw-semibold">Staff Name <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control @error('name') is-invalid @enderror" 
                                            wire:model="name" placeholder="Enter staff name" required>
                                     @error('name') <span class="text-danger small">{{ $message }}</span> @enderror
@@ -290,7 +288,7 @@
                             </div>
                             <div class="col-12 col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label fw-semibold">Contact Number</label>
+                                    <label class="form-label fw-semibold">Contact Number <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control @error('contactNumber') is-invalid @enderror" 
                                            wire:model="contactNumber" placeholder="Enter contact number" required>
                                     @error('contactNumber') <span class="text-danger small">{{ $message }}</span> @enderror
@@ -298,34 +296,10 @@
                             </div>
                             <div class="col-12 col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label fw-semibold">Email</label>
+                                    <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
                                     <input type="email" class="form-control @error('email') is-invalid @enderror" 
                                            wire:model="email" placeholder="Enter email" required>
                                     @error('email') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Date of Birth</label>
-                                    <input type="date" class="form-control @error('dob') is-invalid @enderror" 
-                                           wire:model="dob">
-                                    @error('dob') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Age</label>
-                                    <input type="number" class="form-control @error('age') is-invalid @enderror" 
-                                           wire:model="age" min="0" placeholder="Enter age">
-                                    @error('age') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">NIC Number</label>
-                                    <input type="text" class="form-control @error('nic_num') is-invalid @enderror" 
-                                           wire:model="nic_num" placeholder="Enter NIC number">
-                                    @error('nic_num') <span class="text-danger small">{{ $message }}</span> @enderror
                                 </div>
                             </div>
                             <div class="col-12 col-md-6">
@@ -342,29 +316,6 @@
                             </div>
                             <div class="col-12 col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label fw-semibold">User Image (URL)</label>
-                                    <input type="text" class="form-control @error('user_image') is-invalid @enderror" 
-                                           wire:model="user_image" placeholder="Image URL or path">
-                                    @error('user_image') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-
-                            <div class="col-12">
-                                <h6 class="fw-bold text-primary mb-3 mt-4">
-                                    <i class="bi bi-building me-1"></i> Work Information
-                                </h6>
-                            </div>
-
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Work Role</label>
-                                    <input type="text" class="form-control @error('work_role') is-invalid @enderror" 
-                                           wire:model="work_role" placeholder="Enter work role">
-                                    @error('work_role') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
                                     <label class="form-label fw-semibold">Staff Type <span class="text-danger">*</span></label>
                                     <select class="form-select @error('staff_type') is-invalid @enderror" wire:model="staff_type" required>
                                         <option value="">Select Staff Type</option>
@@ -373,50 +324,6 @@
                                         <option value="shop_staff">Shop Staff</option>
                                     </select>
                                     @error('staff_type') <span class="text-danger small">{{ $message }}</span> @enderror
-                                    <small class="text-muted">Determines staff access and features</small>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Work Type</label>
-                                    <select class="form-select @error('work_type') is-invalid @enderror" wire:model="work_type" required>
-                                        <option value="">Select Work Type</option>
-                                        <option value="daily">Daily</option>
-                                        <option value="monthly">Monthly</option>
-                                    </select>
-                                    @error('work_type') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Department</label>
-                                    <input type="text" class="form-control @error('department') is-invalid @enderror" 
-                                           wire:model="department" placeholder="Enter department">
-                                    @error('department') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Join Date</label>
-                                    <input type="date" class="form-control @error('join_date') is-invalid @enderror" 
-                                           wire:model="join_date">
-                                    @error('join_date') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Fingerprint ID</label>
-                                    <input type="text" class="form-control @error('fingerprint_id') is-invalid @enderror" 
-                                           wire:model="fingerprint_id" placeholder="Enter fingerprint ID">
-                                    @error('fingerprint_id') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Allowance (comma separated)</label>
-                                    <input type="text" class="form-control @error('allowance') is-invalid @enderror" 
-                                           wire:model="allowance" placeholder="e.g. fix,food">
-                                    @error('allowance') <span class="text-danger small">{{ $message }}</span> @enderror
                                 </div>
                             </div>
                             <div class="col-12 col-md-6">
@@ -427,13 +334,6 @@
                                     @error('basic_salary') <span class="text-danger small">{{ $message }}</span> @enderror
                                 </div>
                             </div>
-
-                            <div class="col-12">
-                                <h6 class="fw-bold text-primary mb-3 mt-4">
-                                    <i class="bi bi-geo-alt me-1"></i> Address & Status
-                                </h6>
-                            </div>
-
                             <div class="col-12">
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Address</label>
@@ -444,40 +344,9 @@
                             </div>
                             <div class="col-12 col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label fw-semibold">Status</label>
-                                    <select class="form-select @error('status') is-invalid @enderror" wire:model="status" required>
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
-                                    @error('status') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-
-                            <div class="col-12">
-                                <h6 class="fw-bold text-primary mb-3 mt-4">
-                                    <i class="bi bi-chat-left-text me-1"></i> Description
-                                </h6>
-                            </div>
-
-                            <div class="col-12">
-                                <div class="mb-3">
-                                    <textarea class="form-control @error('description') is-invalid @enderror" 
-                                              wire:model="description" placeholder="Enter description" rows="3"></textarea>
-                                    @error('description') <span class="text-danger small">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-
-                            <div class="col-12">
-                                <h6 class="fw-bold text-primary mb-3 mt-4">
-                                    <i class="bi bi-key me-1"></i> Login Information
-                                </h6>
-                            </div>
-
-                            <div class="col-12 col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Password</label>
+                                    <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
                                     <div class="input-group">
-                                        <input type="password" class="form-control @error('password') is-invalid @enderror" 
+                                        <input type="password" id="createPassword" class="form-control @error('password') is-invalid @enderror" 
                                                wire:model="password" placeholder="Enter password" required>
                                         <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('createPassword')">
                                             <i class="bi bi-eye" id="createPasswordToggleIcon"></i>
@@ -487,10 +356,10 @@
                                 </div>
                             </div>
                             <div class="col-12 col-md-6">
-                                <div class="mb-4">
-                                    <label class="form-label fw-semibold">Confirm Password</label>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
                                     <div class="input-group">
-                                        <input type="password" class="form-control @error('confirmPassword') is-invalid @enderror" 
+                                        <input type="password" id="createConfirmPassword" class="form-control @error('confirmPassword') is-invalid @enderror" 
                                                wire:model="confirmPassword" placeholder="Confirm password" required>
                                         <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('createConfirmPassword')">
                                             <i class="bi bi-eye" id="createConfirmPasswordToggleIcon"></i>
@@ -500,7 +369,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="d-grid">
+                        <div class="d-grid mt-3">
                             <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">
                                 <i class="bi bi-check2-circle me-1"></i>
                                 <span wire:loading.remove>Save Staff</span>

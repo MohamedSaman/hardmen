@@ -6,7 +6,10 @@ use App\Models\Customer;
 use App\Models\ProductDetail;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\ProductStock;
+use App\Models\ProductBatch;
 use App\Services\StockAvailabilityService;
+use App\Services\FIFOStockService;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -261,8 +264,6 @@ class SalesmanBilling extends Component
                             $variantStock = $variantStocks->where('variant_value', $variantValue)->first();
 
                             if ($variantPrice && $variantStock) {
-                                $price = $variantPrice->distributor_price ?? 0;
-
                                 // Get pending quantity for this specific variant
                                 $pendingQuantity = SaleItem::whereHas('sale', function ($q) {
                                     $q->where('status', 'pending');
@@ -274,21 +275,62 @@ class SalesmanBilling extends Component
                                 $availableStock = max(0, ($variantStock->available_stock ?? 0) - $pendingQuantity);
 
                                 if ($availableStock > 0) {
-                                    $this->searchResults[] = [
-                                        'id' => $product->id,
-                                        'variant_id' => $product->variant_id,
-                                        'variant_value' => $variantValue,
-                                        'name' => $product->name,
-                                        'code' => $product->code,
-                                        'display_name' => $product->name . ' (' . $product->variant->variant_name . ': ' . $variantValue . ')',
-                                        'price' => $price,
-                                        'distributor_price' => $price,
-                                        'stock' => $variantStock->total_stock ?? 0,
-                                        'available' => $availableStock,
-                                        'pending' => $pendingQuantity,
-                                        'image' => $product->image ?? '',
-                                        'is_variant' => true,
-                                    ];
+                                    // Check for multiple batches with different distributor prices for this variant
+                                    $batches = FIFOStockService::getBatchDetails($product->id, $product->variant_id, $variantValue);
+
+                                    // Group batches by distributor price
+                                    $batchesByPrice = [];
+                                    foreach ($batches as $batch) {
+                                        $price = $batch['distributor_price'] ?? 0;
+                                        if (!isset($batchesByPrice[$price])) {
+                                            $batchesByPrice[$price] = [
+                                                'quantity' => 0,
+                                                'batch_numbers' => [],
+                                            ];
+                                        }
+                                        $batchesByPrice[$price]['quantity'] += $batch['remaining_quantity'];
+                                        $batchesByPrice[$price]['batch_numbers'][] = $batch['batch_number'];
+                                    }
+
+                                    // If multiple different prices exist, split into separate items
+                                    if (count($batchesByPrice) > 1) {
+                                        foreach ($batchesByPrice as $price => $info) {
+                                            $this->searchResults[] = [
+                                                'id' => $product->id . '_' . $variantValue . '_price_' . $price,
+                                                'variant_id' => $product->variant_id,
+                                                'variant_value' => $variantValue,
+                                                'name' => $product->name,
+                                                'code' => $product->code,
+                                                'display_name' => $product->name . ' (' . $product->variant->variant_name . ': ' . $variantValue . ')',
+                                                'price' => $price,
+                                                'distributor_price' => $price,
+                                                'stock' => $info['quantity'],
+                                                'available' => min($info['quantity'], $availableStock),
+                                                'pending' => $pendingQuantity,
+                                                'image' => $product->image ?? '',
+                                                'is_variant' => true,
+                                                'batch_numbers' => $info['batch_numbers'],
+                                            ];
+                                        }
+                                    } else {
+                                        // Single price, add as-is
+                                        $price = $variantPrice->distributor_price ?? 0;
+                                        $this->searchResults[] = [
+                                            'id' => $product->id,
+                                            'variant_id' => $product->variant_id,
+                                            'variant_value' => $variantValue,
+                                            'name' => $product->name,
+                                            'code' => $product->code,
+                                            'display_name' => $product->name . ' (' . $product->variant->variant_name . ': ' . $variantValue . ')',
+                                            'price' => $price,
+                                            'distributor_price' => $price,
+                                            'stock' => $variantStock->total_stock ?? 0,
+                                            'available' => $availableStock,
+                                            'pending' => $pendingQuantity,
+                                            'image' => $product->image ?? '',
+                                            'is_variant' => true,
+                                        ];
+                                    }
                                 }
                             }
                         }
@@ -310,7 +352,6 @@ class SalesmanBilling extends Component
 
                     // Only proceed if product has price and stock
                     if ($productPrice && $productStock) {
-                        $price = $productPrice->distributor_price ?? 0;
                         $totalStock = $productStock->total_stock ?? 0;
                         $availableStockRaw = $productStock->available_stock ?? 0;
 
@@ -325,21 +366,62 @@ class SalesmanBilling extends Component
 
                         // Add to results if there's available stock
                         if ($availableStock > 0) {
-                            $this->searchResults[] = [
-                                'id' => $product->id,
-                                'variant_id' => null,
-                                'variant_value' => null,
-                                'name' => $product->name,
-                                'code' => $product->code,
-                                'display_name' => $product->name,
-                                'price' => $price,
-                                'distributor_price' => $price,
-                                'stock' => $totalStock,
-                                'available' => $availableStock,
-                                'pending' => $pendingQuantity,
-                                'image' => $product->image ?? '',
-                                'is_variant' => false,
-                            ];
+                            // Check for multiple batches with different distributor prices
+                            $batches = FIFOStockService::getBatchDetails($product->id, null, null);
+
+                            // Group batches by distributor price
+                            $batchesByPrice = [];
+                            foreach ($batches as $batch) {
+                                $price = $batch['distributor_price'] ?? 0;
+                                if (!isset($batchesByPrice[$price])) {
+                                    $batchesByPrice[$price] = [
+                                        'quantity' => 0,
+                                        'batch_numbers' => [],
+                                    ];
+                                }
+                                $batchesByPrice[$price]['quantity'] += $batch['remaining_quantity'];
+                                $batchesByPrice[$price]['batch_numbers'][] = $batch['batch_number'];
+                            }
+
+                            // If multiple different prices exist, split into separate items
+                            if (count($batchesByPrice) > 1) {
+                                foreach ($batchesByPrice as $price => $info) {
+                                    $this->searchResults[] = [
+                                        'id' => $product->id . '_price_' . $price,
+                                        'variant_id' => null,
+                                        'variant_value' => null,
+                                        'name' => $product->name,
+                                        'code' => $product->code,
+                                        'display_name' => $product->name,
+                                        'price' => $price,
+                                        'distributor_price' => $price,
+                                        'stock' => $info['quantity'],
+                                        'available' => min($info['quantity'], $availableStock),
+                                        'pending' => $pendingQuantity,
+                                        'image' => $product->image ?? '',
+                                        'is_variant' => false,
+                                        'batch_numbers' => $info['batch_numbers'],
+                                    ];
+                                }
+                            } else {
+                                // Single price, add as-is
+                                $price = $productPrice->distributor_price ?? 0;
+                                $this->searchResults[] = [
+                                    'id' => $product->id,
+                                    'variant_id' => null,
+                                    'variant_value' => null,
+                                    'name' => $product->name,
+                                    'code' => $product->code,
+                                    'display_name' => $product->name,
+                                    'price' => $price,
+                                    'distributor_price' => $price,
+                                    'stock' => $totalStock,
+                                    'available' => $availableStock,
+                                    'pending' => $pendingQuantity,
+                                    'image' => $product->image ?? '',
+                                    'is_variant' => false,
+                                ];
+                            }
                         }
                     }
                 }
@@ -435,45 +517,102 @@ class SalesmanBilling extends Component
             return;
         }
 
-        // Create a unique identifier for cart items (product_id + variant info)
-        $cartKey = $product['id'] . ($product['is_variant'] ? '_' . $product['variant_value'] : '');
+        $productId = $product['id'];
+        $variantId = $product['variant_id'] ?? null;
+        $variantValue = $product['variant_value'] ?? null;
 
-        // Check if item already exists in cart
-        $existingIndex = null;
-        foreach ($this->cart as $index => $item) {
-            if ($item['cart_key'] === $cartKey) {
-                $existingIndex = $index;
-                break;
+        // Get batch price breakdown for distributor price
+        $priceBreakdown = FIFOStockService::getBatchPriceBreakdown(
+            $productId,
+            1, // Check for 1 unit to see if we need to split
+            'distributor_price',
+            $variantId,
+            $variantValue
+        );
+
+        // If multiple batches with different prices exist, we'll handle quantity increase carefully
+        // For now, just add 1 unit from the first available batch
+        if (!empty($priceBreakdown)) {
+            $firstBatch = $priceBreakdown[0];
+            $priceToUse = $firstBatch['price'];
+            $batchNumber = $firstBatch['batch_number'];
+
+            // Create cart key with batch number for multi-batch products
+            $cartKey = $product['id'] .
+                ($product['is_variant'] ? '_' . $product['variant_value'] : '') .
+                '_batch_' . $batchNumber;
+
+            // Check if this specific batch item already exists in cart
+            $existingIndex = null;
+            foreach ($this->cart as $index => $item) {
+                if ($item['cart_key'] === $cartKey) {
+                    $existingIndex = $index;
+                    break;
+                }
             }
-        }
 
-        if ($existingIndex !== null) {
-            // Update existing item quantity
-            if (($this->cart[$existingIndex]['quantity'] + 1) > $product['available']) {
-                session()->flash('error', 'Not enough available stock!');
-                return;
+            if ($existingIndex !== null) {
+                // Update existing item quantity
+                if (($this->cart[$existingIndex]['quantity'] + 1) > $product['available']) {
+                    session()->flash('error', 'Not enough available stock!');
+                    return;
+                }
+
+                $this->cart[$existingIndex]['quantity'] += 1;
+                $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
+            } else {
+                // Add new item to TOP of cart array (newest first)
+                array_unshift($this->cart, [
+                    'cart_key' => $cartKey,
+                    'id' => $product['id'],
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
+                    'name' => $product['display_name'], // Use display name which includes variant info
+                    'code' => $product['code'] ?? '',
+                    'price' => $priceToUse,
+                    'distributor_price' => $priceToUse,
+                    'quantity' => 1,
+                    'discount' => 0,
+                    'total' => $priceToUse,
+                    'available' => $product['available'],
+                    'image' => $product['image'] ?? '',
+                    'is_variant' => $product['is_variant'] ?? false,
+                    'batch_number' => $batchNumber,
+                ]);
             }
-
-            $this->cart[$existingIndex]['quantity'] += 1;
-            $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
         } else {
-            // Add new item to TOP of cart array (newest first)
-            array_unshift($this->cart, [
-                'cart_key' => $cartKey, // Unique identifier for cart items
-                'id' => $product['id'],
-                'variant_id' => $product['variant_id'] ?? null,
-                'variant_value' => $product['variant_value'] ?? null,
-                'name' => $product['display_name'], // Use display name which includes variant info
-                'code' => $product['code'] ?? '',
-                'price' => $product['price'],
-                'distributor_price' => $product['distributor_price'] ?? 0,
-                'quantity' => 1,
-                'discount' => 0,
-                'total' => $product['price'],
-                'available' => $product['available'],
-                'image' => $product['image'] ?? '',
-                'is_variant' => $product['is_variant'] ?? false,
-            ]);
+            // Fallback: No batch info available, use product price
+            $cartKey = $product['id'] . ($product['is_variant'] ? '_' . $product['variant_value'] : '');
+
+            $existingIndex = null;
+            foreach ($this->cart as $index => $item) {
+                if ($item['cart_key'] === $cartKey) {
+                    $existingIndex = $index;
+                    break;
+                }
+            }
+
+            if ($existingIndex !== null) {
+                $this->cart[$existingIndex]['quantity'] += 1;
+                $this->cart[$existingIndex]['total'] = ($this->cart[$existingIndex]['price'] - $this->cart[$existingIndex]['discount']) * $this->cart[$existingIndex]['quantity'];
+            } else {
+                array_unshift($this->cart, [
+                    'cart_key' => $cartKey,
+                    'id' => $product['id'],
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
+                    'name' => $product['display_name'],
+                    'code' => $product['code'] ?? '',
+                    'price' => $product['price'],
+                    'distributor_price' => $product['distributor_price'] ?? 0,
+                    'quantity' => 1,
+                    'discount' => 0,
+                    'total' => $product['price'],
+                    'available' => $product['available'],
+                    'image' => $product['image'] ?? '',
+                    'is_variant' => $product['is_variant'] ?? false,
+                ]);
+            }
         }
 
         $this->search = '';
@@ -502,13 +641,77 @@ class SalesmanBilling extends Component
             return;
         }
 
-        if ($quantity > $this->cart[$index]['available']) {
-            session()->flash('error', 'Exceeds available stock!');
-            return;
-        }
+        $item = $this->cart[$index];
+        $productId = $item['id'];
+        $variantId = $item['variant_id'] ?? null;
+        $variantValue = $item['variant_value'] ?? null;
 
-        $this->cart[$index]['quantity'] = $quantity;
-        $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $quantity;
+        // Get batch price breakdown for the requested quantity
+        $priceBreakdown = FIFOStockService::getBatchPriceBreakdown(
+            $productId,
+            $quantity,
+            'distributor_price',
+            $variantId,
+            $variantValue
+        );
+
+        // If multiple batches with different prices are needed, split into separate cart entries
+        if (count($priceBreakdown) > 1) {
+            // Remove the current item first
+            $this->removeFromCart($cartKey);
+
+            // Add separate entries for each batch
+            foreach ($priceBreakdown as $batchInfo) {
+                $batchCartKey = $productId .
+                    ($variantValue ? '_' . $variantValue : '') .
+                    '_batch_' . $batchInfo['batch_number'];
+
+                // Check if this batch already exists in cart
+                $existingBatchIndex = null;
+                foreach ($this->cart as $i => $cartItem) {
+                    if ($cartItem['cart_key'] === $batchCartKey) {
+                        $existingBatchIndex = $i;
+                        break;
+                    }
+                }
+
+                if ($existingBatchIndex !== null) {
+                    // Update existing batch entry
+                    $this->cart[$existingBatchIndex]['quantity'] += $batchInfo['quantity'];
+                    $this->cart[$existingBatchIndex]['total'] = ($this->cart[$existingBatchIndex]['price'] - $this->cart[$existingBatchIndex]['discount']) * $this->cart[$existingBatchIndex]['quantity'];
+                } else {
+                    // Add new batch entry
+                    array_unshift($this->cart, [
+                        'cart_key' => $batchCartKey,
+                        'id' => $productId,
+                        'variant_id' => $variantId,
+                        'variant_value' => $variantValue,
+                        'name' => $item['name'] . ' (Batch: ' . $batchInfo['batch_number'] . ')',
+                        'code' => $item['code'],
+                        'price' => $batchInfo['price'],
+                        'distributor_price' => $batchInfo['price'],
+                        'quantity' => $batchInfo['quantity'],
+                        'discount' => 0,
+                        'total' => $batchInfo['price'] * $batchInfo['quantity'],
+                        'available' => $item['available'],
+                        'image' => $item['image'],
+                        'is_variant' => $item['is_variant'],
+                        'batch_number' => $batchInfo['batch_number'],
+                    ]);
+                }
+            }
+
+            session()->flash('info', 'Product split by batch prices');
+        } else {
+            // Single batch, update normally
+            if ($quantity > $this->cart[$index]['available']) {
+                session()->flash('error', 'Exceeds available stock!');
+                return;
+            }
+
+            $this->cart[$index]['quantity'] = $quantity;
+            $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $quantity;
+        }
     }
 
     public function updatePrice($cartKey, $price)
@@ -595,6 +798,71 @@ class SalesmanBilling extends Component
                 // Update existing sale
                 $sale = Sale::findOrFail($this->editingSaleId);
 
+                // Only restore stock if sale was previously approved (status = 'confirm')
+                // Pending sales never had stock deducted, so no need to restore
+                if ($sale->status === 'confirm') {
+                    // Restore previous stock quantities (both ProductStock and ProductBatch)
+                    $previousItems = SaleItem::where('sale_id', $sale->id)->get();
+                    foreach ($previousItems as $prevItem) {
+                        $baseProductId = $prevItem->product_id;
+                        $variantValue = $prevItem->variant_value ?? null;
+                        $variantId = $prevItem->variant_id ?? null;
+                        $quantity = $prevItem->quantity;
+
+                        try {
+                            // Use FIFO service to restore stock (reverse deduction)
+                            // Note: We restore by adding back to the most recent batch
+                            $batchQuery = ProductBatch::where('product_id', $baseProductId)
+                                ->where('status', 'active');
+
+                            if ($variantId) {
+                                $batchQuery->where('variant_id', $variantId);
+                            }
+                            if ($variantValue) {
+                                $batchQuery->where('variant_value', $variantValue);
+                            }
+
+                            $batch = $batchQuery->orderBy('received_date', 'desc')
+                                ->orderBy('id', 'desc')
+                                ->first();
+
+                            if ($batch) {
+                                $batch->remaining_quantity += $quantity;
+                                $batch->quantity += $quantity;
+                                $batch->save();
+                            }
+
+                            // Restore ProductStock
+                            if ($variantValue || $variantId) {
+                                $stockRecord = ProductStock::where('product_id', $baseProductId)
+                                    ->when($variantId, function ($q) use ($variantId) {
+                                        return $q->where('variant_id', $variantId);
+                                    })
+                                    ->when($variantValue, function ($q) use ($variantValue) {
+                                        return $q->where('variant_value', $variantValue);
+                                    })
+                                    ->first();
+
+                                if ($stockRecord) {
+                                    $stockRecord->available_stock += $quantity;
+                                    $stockRecord->updateTotals();
+                                }
+                            } else {
+                                $product = ProductDetail::find($baseProductId);
+                                if ($product && $product->stock) {
+                                    $product->stock->available_stock += $quantity;
+                                    $product->stock->updateTotals();
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning('Stock restoration failed for product: ' . $baseProductId, [
+                                'error' => $e->getMessage(),
+                                'quantity' => $quantity,
+                            ]);
+                        }
+                    }
+                }
+
                 $sale->update([
                     'customer_id' => $this->customerId,
                     'subtotal' => $this->subtotal,
@@ -607,21 +875,42 @@ class SalesmanBilling extends Component
                 // Delete existing items
                 SaleItem::where('sale_id', $sale->id)->delete();
 
-                // Create new Sale Items
+                // Create new Sale Items and deduct stock only if sale was already confirmed
                 foreach ($this->cart as $item) {
+                    $baseProductId = $item['id'];
+                    $variantId = $item['variant_id'] ?? null;
+                    $variantValue = $item['variant_value'] ?? null;
+                    $quantity = $item['quantity'];
+
                     SaleItem::create([
                         'sale_id' => $sale->id,
-                        'product_id' => $item['id'],
+                        'product_id' => $baseProductId,
                         'product_code' => $item['code'],
                         'product_name' => $item['name'],
-                        'quantity' => $item['quantity'],
+                        'quantity' => $quantity,
                         'unit_price' => $item['price'],
                         'discount_per_unit' => $item['discount'],
-                        'total_discount' => $item['discount'] * $item['quantity'],
+                        'total_discount' => $item['discount'] * $quantity,
                         'total' => $item['total'],
-                        'variant_id' => $item['variant_id'] ?? null,
-                        'variant_value' => $item['variant_value'] ?? null,
+                        'variant_id' => $variantId,
+                        'variant_value' => $variantValue,
                     ]);
+
+                    // Deduct stock using FIFO method only if sale is confirmed
+                    // Pending sales will have stock deducted when admin approves
+                    if ($sale->status === 'confirm') {
+                        try {
+                            FIFOStockService::deductStock($baseProductId, $quantity, $variantId, $variantValue);
+                        } catch (\Exception $e) {
+                            Log::error('Stock deduction failed for product: ' . $baseProductId, [
+                                'error' => $e->getMessage(),
+                                'quantity' => $quantity,
+                                'variant_id' => $variantId,
+                                'variant_value' => $variantValue,
+                            ]);
+                            throw new \Exception('Failed to deduct stock: ' . $e->getMessage());
+                        }
+                    }
                 }
 
                 DB::commit();
@@ -649,21 +938,29 @@ class SalesmanBilling extends Component
                     'notes' => $this->notes,
                 ]);
 
-                // Create Sale Items
+                // Create Sale Items (stock will be deducted when admin approves)
                 foreach ($this->cart as $item) {
+                    $baseProductId = $item['id'];
+                    $variantId = $item['variant_id'] ?? null;
+                    $variantValue = $item['variant_value'] ?? null;
+                    $quantity = $item['quantity'];
+
                     SaleItem::create([
                         'sale_id' => $sale->id,
-                        'product_id' => $item['id'],
+                        'product_id' => $baseProductId,
                         'product_code' => $item['code'],
                         'product_name' => $item['name'],
-                        'quantity' => $item['quantity'],
+                        'quantity' => $quantity,
                         'unit_price' => $item['price'],
                         'discount_per_unit' => $item['discount'],
-                        'total_discount' => $item['discount'] * $item['quantity'],
+                        'total_discount' => $item['discount'] * $quantity,
                         'total' => $item['total'],
-                        'variant_id' => $item['variant_id'] ?? null,
-                        'variant_value' => $item['variant_value'] ?? null,
+                        'variant_id' => $variantId,
+                        'variant_value' => $variantValue,
                     ]);
+
+                    // Note: Stock deduction is deferred until admin approval
+                    // This prevents double deduction when sale is approved
                 }
 
                 DB::commit();

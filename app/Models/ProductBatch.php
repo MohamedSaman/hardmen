@@ -14,6 +14,8 @@ class ProductBatch extends Model
         'product_id',
         'batch_number',
         'purchase_order_id',
+        'variant_id',
+        'variant_value',
         'supplier_price',
         'selling_price',
         'wholesale_price',
@@ -48,6 +50,14 @@ class ProductBatch extends Model
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
+    }
+
+    /**
+     * Get the variant associated with this batch
+     */
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class, 'variant_id');
     }
 
     /**

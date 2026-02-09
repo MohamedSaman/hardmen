@@ -158,7 +158,7 @@
                                                 class="w-9 h-9 rounded border border-slate-200 object-cover">
                                         </div>
                                         <div class="min-w-0">
-                                            <h4 class="text-xs font-bold truncate max-w-[130px] text-slate-700" title="{{ $item['name'] }}">{{ $item['name'] }}</h4>
+                                            <h4 class="text-xs font-bold text-slate-700 break-words" title="{{ $item['name'] }}">{{ $item['name'] }}</h4>
                                             <p class="text-[10px] text-slate-400 font-mono">{{ $item['code'] }}</p>
                                         </div>
                                     </div>
@@ -402,7 +402,7 @@
                             {{-- Product Details --}}
                             <div class="p-2.5 flex flex-col flex-1 bg-white">
                                 <p class="text-[9px] text-slate-400 font-mono uppercase mb-0.5">{{ $product['code'] }}</p>
-                                <h3 class="text-[11px] font-bold text-slate-800 line-clamp-2 leading-tight h-7 mb-2" title="{{ $product['name'] }}">{{ $product['name'] }}</h3>
+                                <h3 class="text-[11px] font-bold text-slate-800 leading-tight mb-2 break-words" title="{{ $product['name'] }}">{{ $product['name'] }}</h3>
                                 
                                 <div class="mt-auto flex items-end justify-between">
                                     <div class="flex flex-col">
@@ -910,12 +910,14 @@
                                     });
                                     // Total discount = original subtotal - grand total
                                     $totalDiscountRs = $originalSubtotal - $createdSale->total_amount;
+                                    // Calculate discount percentage
+                                    $discountPercentage = $originalSubtotal > 0 ? ($totalDiscountRs / $originalSubtotal) * 100 : 0;
                                 @endphp
                                 <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Subtotal:</span><span>Rs.{{ number_format($originalSubtotal, 2) }}</span></div>
                                 @if($totalDiscountRs > 0)
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#e65c00;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                                     <span>Discount:</span>
-                                    <span>- Rs.{{ number_format($totalDiscountRs, 2) }}</span>
+                                    <span>- Rs. {{ number_format($discountPercentage, 2) }}%</span>
                                 </div>
                                 @endif
                                 <hr>

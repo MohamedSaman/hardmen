@@ -902,12 +902,6 @@
                                     <i class="bi bi-calendar-check"></i> <span>Staff Attendance</span>
                                 </a>
                             </li>
-                            <!-- Disabled: Staff Salary -->
-                            <li class="nav-item">
-                                <a class="nav-link py-2 disabled" href="#">
-                                    <i class="bi bi-currency-dollar"></i> <span>Staff Salary</span>
-                                </a>
-                            </li>
                             <!-- Disabled: Loan Management -->
                             <li class="nav-item">
                                 <a class="nav-link py-2 disabled" href="#">
@@ -1159,6 +1153,11 @@
                             <li class="nav-item">
                                 <a class="nav-link py-2 {{ request()->routeIs('admin.staff-expense-approval') ? 'active' : '' }}" href="{{ route('admin.staff-expense-approval') }}">
                                     <i class="bi bi-receipt"></i> <span>Staff Expenses</span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2 {{ request()->routeIs('admin.staff-salary-management') ? 'active' : '' }}" href="{{ route('admin.staff-salary-management') }}">
+                                    <i class="bi bi-cash-coin"></i> <span>Staff Salary</span>
                                 </a>
                             </li>
                             

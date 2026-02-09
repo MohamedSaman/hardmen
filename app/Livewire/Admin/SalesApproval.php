@@ -174,7 +174,7 @@ class SalesApproval extends Component
                 if ($productStock) {
                     $productStock->available_stock += $originalItem->quantity;
                     $productStock->sold_count -= $originalItem->quantity;
-                    $productStock->save();
+                    $productStock->updateTotals();
                 }
             }
 
@@ -332,7 +332,7 @@ class SalesApproval extends Component
                 if ($productStock) {
                     $productStock->available_stock += $item->quantity;
                     $productStock->sold_count -= $item->quantity;
-                    $productStock->save();
+                    $productStock->updateTotals();
                 }
             }
 

@@ -124,10 +124,10 @@ class ListSupplierReturn extends Component
     {
         DB::transaction(function () use ($returnId) {
             $return = ReturnSupplier::findOrFail($returnId);
-            
+
             // Restore stock before deleting
             $this->restoreProductStock($return);
-            
+
             $return->delete();
         });
 
@@ -141,14 +141,13 @@ class ListSupplierReturn extends Component
         if ($stock) {
             // Restore the stock that was reduced during return
             $stock->available_stock += $return->return_quantity;
-            $stock->total_stock += $return->return_quantity;
-            
+
             // Reduce damage stock if the reason was damaged
             if ($return->return_reason === 'damaged') {
                 $stock->damage_stock = max(0, $stock->damage_stock - $return->return_quantity);
             }
-            
-            $stock->save();
+
+            $stock->updateTotals();
         }
     }
 
@@ -157,7 +156,7 @@ class ListSupplierReturn extends Component
         if ($returnId) {
             // Download single return PDF
             $return = ReturnSupplier::with(['purchaseOrder.supplier', 'product'])->find($returnId);
-            
+
             if (!$return) {
                 $this->dispatch('alert', ['message' => 'Return record not found!', 'type' => 'error']);
                 return;
@@ -190,7 +189,7 @@ class ListSupplierReturn extends Component
     public function exportCSV()
     {
         $returns = $this->getReturnsQuery()->get();
-        
+
         $fileName = "supplier_returns_" . now()->format('Y-m-d') . ".csv";
         $headers = [
             "Content-type" => "text/csv",
@@ -200,9 +199,9 @@ class ListSupplierReturn extends Component
             "Expires" => "0"
         ];
 
-        $callback = function() use ($returns) {
+        $callback = function () use ($returns) {
             $file = fopen('php://output', 'w');
-            
+
             // Add headers
             fputcsv($file, [
                 'Return ID',
@@ -247,7 +246,7 @@ class ListSupplierReturn extends Component
             ->when($this->search, function ($query) {
                 $query->whereHas('product', function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('code', 'like', '%' . $this->search . '%');
+                        ->orWhere('code', 'like', '%' . $this->search . '%');
                 })->orWhereHas('purchaseOrder.supplier', function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%');
                 });
@@ -309,9 +308,9 @@ class ListSupplierReturn extends Component
         $summaryStats = $this->getSummaryStats();
 
         return view('livewire.admin.list-supplier-return', compact(
-            'returns', 
-            'suppliers', 
-            'purchaseOrders', 
+            'returns',
+            'suppliers',
+            'purchaseOrders',
             'summaryStats'
         ))->layout($this->layout);
     }

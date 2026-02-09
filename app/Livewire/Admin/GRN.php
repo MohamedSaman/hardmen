@@ -10,6 +10,7 @@ use App\Models\ProductStock;
 use App\Models\ProductBatch;
 use App\Models\ProductPrice;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -69,8 +70,8 @@ class GRN extends Component
     public function viewGRN($orderId)
     {
         $this->selectedPO = PurchaseOrder::with(['supplier', 'items' => function ($query) {
-            $query->where('status', 'received');
-        }, 'items.product'])->find($orderId);
+            $query->with(['product', 'variant'])->where('status', 'received');
+        }])->find($orderId);
 
         if (!$this->selectedPO) {
             $this->dispatch('alert', ['message' => 'Order not found!', 'type' => 'error']);
@@ -81,10 +82,18 @@ class GRN extends Component
         $this->searchResults = ['unplanned' => []];
 
         foreach ($this->selectedPO->items as $item) {
+            $productName = $item->product->name;
+            if ($item->variant_id && $item->variant_value) {
+                $variantName = $item->variant ? $item->variant->variant_name : 'Variant';
+                $productName .= ' - ' . $variantName . ': ' . $item->variant_value;
+            }
+
             $this->grnItems[] = [
                 'id' => $item->id,
                 'product_id' => $item->product_id,
-                'name' => $item->product->name,
+                'variant_id' => $item->variant_id,
+                'variant_value' => $item->variant_value,
+                'name' => $productName,
                 'ordered_qty' => $item->quantity,
                 'received_qty' => $item->received_quantity ?? $item->quantity,
                 'unit_price' => $item->unit_price,
@@ -100,7 +109,7 @@ class GRN extends Component
 
     public function openGRN($orderId)
     {
-        $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product'])->find($orderId);
+        $this->selectedPO = PurchaseOrder::with(['supplier', 'items.product', 'items.variant'])->find($orderId);
 
         if (!$this->selectedPO) {
             $this->dispatch('alert', ['message' => 'Order not found!', 'type' => 'error']);
@@ -115,10 +124,18 @@ class GRN extends Component
             $product = ProductDetail::with('price')->find($item->product_id);
             $currentSellingPrice = $product && $product->price ? $product->price->selling_price : 0;
 
+            $productName = $item->product->name;
+            if ($item->variant_id && $item->variant_value) {
+                $variantName = $item->variant ? $item->variant->variant_name : 'Variant';
+                $productName .= ' - ' . $variantName . ': ' . $item->variant_value;
+            }
+
             $this->grnItems[] = [
                 'id' => $item->id,
                 'product_id' => $item->product_id,
-                'name' => $item->product->name,
+                'variant_id' => $item->variant_id,
+                'variant_value' => $item->variant_value,
+                'name' => $productName,
                 'ordered_qty' => $item->quantity,
                 'received_qty' => $item->quantity,
                 'unit_price' => $item->unit_price,
@@ -298,7 +315,7 @@ class GRN extends Component
             $retailPrice = floatval($item['retail_price'] ?? 0);
             $distributorPrice = floatval($item['distributor_price'] ?? 0);
 
-            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO ? $this->selectedPO->id : null, $wholesalePrice, $retailPrice, $distributorPrice);
+            $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO ? $this->selectedPO->id : null, $wholesalePrice, $retailPrice, $distributorPrice, null, null);
         }
     }
 
@@ -366,23 +383,27 @@ class GRN extends Component
                 // Update existing order item
                 $orderItem = PurchaseOrderItem::find($item['id']);
                 if ($orderItem) {
-                    // Calculate delta: new received qty minus previously recorded qty
-                    $previousQty = $orderItem->quantity ?? 0;
-                    $orderItem->quantity = $receivedQty;
+                    // Calculate delta: new received qty minus previously recorded received qty
+                    $previousReceivedQty = $orderItem->received_quantity ?? 0;
+
+                    // Update the order item
+                    $orderItem->received_quantity = $receivedQty;
                     $orderItem->unit_price = $item['unit_price'];
                     $orderItem->discount = $item['discount'];
                     $orderItem->discount_type = $item['discount_type'] ?? 'rs';
                     $orderItem->status = $item['status'];
                     $orderItem->save();
 
-                    // Update stock only with the delta (received now)
+                    // Update stock only with the delta (newly received quantity)
                     if (strtolower($item['status'] ?? '') === 'received' && $receivedQty > 0) {
-                        $delta = $receivedQty - $previousQty;
+                        $delta = $receivedQty - $previousReceivedQty;
                         if ($delta > 0) {
                             $wholesalePrice = floatval($item['wholesale_price'] ?? 0);
                             $retailPrice = floatval($item['retail_price'] ?? 0);
                             $distributorPrice = floatval($item['distributor_price'] ?? 0);
-                            $this->updateProductStock($productId, $delta, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, $distributorPrice);
+                            $variantId = $item['variant_id'] ?? null;
+                            $variantValue = $item['variant_value'] ?? null;
+                            $this->updateProductStock($productId, $delta, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, $distributorPrice, $variantId, $variantValue);
                         }
                         $receivedItemsCount++;
                     }
@@ -392,7 +413,10 @@ class GRN extends Component
                 $newOrderItem = PurchaseOrderItem::create([
                     'order_id' => $this->selectedPO->id,
                     'product_id' => $productId,
-                    'quantity' => $receivedQty,
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'variant_value' => $item['variant_value'] ?? null,
+                    'quantity' => $item['ordered_qty'] ?? $receivedQty, // Ordered quantity
+                    'received_quantity' => $receivedQty, // Received quantity
                     'unit_price' => $item['unit_price'] ?? 0,
                     'discount' => $item['discount'] ?? 0,
                     'discount_type' => $item['discount_type'] ?? 'rs',
@@ -404,7 +428,9 @@ class GRN extends Component
                     $wholesalePrice = floatval($item['wholesale_price'] ?? 0);
                     $retailPrice = floatval($item['retail_price'] ?? 0);
                     $distributorPrice = floatval($item['distributor_price'] ?? 0);
-                    $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, $distributorPrice);
+                    $variantId = $item['variant_id'] ?? null;
+                    $variantValue = $item['variant_value'] ?? null;
+                    $this->updateProductStock($productId, $receivedQty, $supplierPrice, $sellingPrice, $this->selectedPO->id, $wholesalePrice, $retailPrice, $distributorPrice, $variantId, $variantValue);
                     $receivedItemsCount++;
                 }
             }
@@ -429,45 +455,118 @@ class GRN extends Component
         $this->selectedPO = null;
         $this->grnItems = [];
         $this->searchResults = ['unplanned' => []];
-        $this->loadPurchaseOrders();
     }
 
-    private function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null, $wholesalePrice = 0, $retailPrice = 0, $distributorPrice = 0)
+    private function updateProductStock($productId, $quantity, $supplierPrice = 0, $sellingPrice = 0, $purchaseOrderId = null, $wholesalePrice = 0, $retailPrice = 0, $distributorPrice = 0, $variantId = null, $variantValue = null)
     {
-        $stock = ProductStock::where('product_id', $productId)->first();
+        // Find stock record with variant consideration
+        $stockQuery = ProductStock::where('product_id', $productId);
+        if ($variantId) {
+            $stockQuery->where('variant_id', $variantId);
+            if ($variantValue) {
+                $stockQuery->where('variant_value', $variantValue);
+            }
+        } else {
+            $stockQuery->where(function ($q) {
+                $q->whereNull('variant_id')->orWhere('variant_id', 0);
+            });
+        }
+        $stock = $stockQuery->first();
 
         // Get product details to check prices
         $product = ProductDetail::with('price')->find($productId);
         $productPrice = $product->price;
 
-        // If prices not provided, get from product
+        // If prices not provided, get from product (considering variant-specific prices if applicable)
         if ($supplierPrice == 0 && $productPrice) {
-            $supplierPrice = $productPrice->supplier_price;
+            if ($variantId) {
+                $variantPrice = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPrice->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPrice->first();
+                $supplierPrice = $variantPrice ? $variantPrice->supplier_price : $productPrice->supplier_price;
+            } else {
+                $supplierPrice = $productPrice->supplier_price;
+            }
         }
         if ($sellingPrice == 0 && $productPrice) {
-            $sellingPrice = $productPrice->selling_price;
+            if ($variantId) {
+                $variantPrice = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPrice->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPrice->first();
+                $sellingPrice = $variantPrice ? $variantPrice->selling_price : $productPrice->selling_price;
+            } else {
+                $sellingPrice = $productPrice->selling_price;
+            }
         }
         if ($wholesalePrice == 0 && $productPrice) {
-            $wholesalePrice = $productPrice->wholesale_price ?? 0;
+            if ($variantId) {
+                $variantPrice = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPrice->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPrice->first();
+                $wholesalePrice = $variantPrice ? $variantPrice->wholesale_price : ($productPrice->wholesale_price ?? 0);
+            } else {
+                $wholesalePrice = $productPrice->wholesale_price ?? 0;
+            }
         }
         if ($retailPrice == 0 && $productPrice) {
-            $retailPrice = $productPrice->retail_price ?? 0;
+            if ($variantId) {
+                $variantPrice = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPrice->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPrice->first();
+                $retailPrice = $variantPrice ? $variantPrice->retail_price : ($productPrice->retail_price ?? 0);
+            } else {
+                $retailPrice = $productPrice->retail_price ?? 0;
+            }
         }
         if ($distributorPrice == 0 && $productPrice) {
-            $distributorPrice = $productPrice->distributor_price ?? 0;
+            if ($variantId) {
+                $variantPrice = ProductPrice::where('product_id', $productId)
+                    ->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $variantPrice->where('variant_value', $variantValue);
+                }
+                $variantPrice = $variantPrice->first();
+                $distributorPrice = $variantPrice ? $variantPrice->distributor_price : ($productPrice->distributor_price ?? 0);
+            } else {
+                $distributorPrice = $productPrice->distributor_price ?? 0;
+            }
         }
 
         // Check if product already has stock
         $hasExistingStock = $stock && $stock->available_stock > 0;
 
-        // If an active batch with the same prices exists, add quantities to that batch; otherwise create a new batch
-        $matchingBatch = ProductBatch::where('product_id', $productId)
+        // If an active batch with the same prices and variant exists, add quantities to that batch; otherwise create a new batch
+        $matchingBatchQuery = ProductBatch::where('product_id', $productId)
             ->where('status', 'active')
             ->where('supplier_price', $supplierPrice)
             ->where('wholesale_price', $wholesalePrice ?? 0)
             ->where('retail_price', $retailPrice ?? 0)
-            ->where('distributor_price', $distributorPrice ?? 0)
-            ->orderBy('received_date', 'desc')
+            ->where('distributor_price', $distributorPrice ?? 0);
+
+        if ($variantId) {
+            $matchingBatchQuery->where('variant_id', $variantId);
+            if ($variantValue) {
+                $matchingBatchQuery->where('variant_value', $variantValue);
+            }
+        } else {
+            $matchingBatchQuery->where(function ($q) {
+                $q->whereNull('variant_id')->orWhere('variant_id', 0);
+            });
+        }
+
+        $matchingBatch = $matchingBatchQuery->orderBy('received_date', 'desc')
             ->orderBy('id', 'desc')
             ->first();
 
@@ -476,13 +575,15 @@ class GRN extends Component
             $matchingBatch->remaining_quantity += $quantity;
             $matchingBatch->save();
             $batch = $matchingBatch;
-            Log::info("Added {$quantity} to existing batch {$matchingBatch->batch_number} for product {$productId}");
+            Log::info("Added {$quantity} to existing batch {$matchingBatch->batch_number} for product {$productId}" . ($variantValue ? " variant: {$variantValue}" : ""));
         } else {
             $batchNumber = ProductBatch::generateBatchNumber($productId);
             $batch = ProductBatch::create([
                 'product_id' => $productId,
                 'batch_number' => $batchNumber,
                 'purchase_order_id' => $purchaseOrderId,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
                 'supplier_price' => $supplierPrice,
                 'selling_price' => $sellingPrice,
                 'wholesale_price' => $wholesalePrice ?? 0,
@@ -494,20 +595,21 @@ class GRN extends Component
                 'status' => 'active',
             ]);
 
-            Log::info("Created new batch {$batchNumber} for product {$productId}");
+            Log::info("Created new batch {$batchNumber} for product {$productId}" . ($variantValue ? " variant: {$variantValue}" : ""));
         }
 
-        // Update product stock totals
+        // Update product stock totals (with variant consideration)
         if ($stock) {
             // Update existing stock
             $stock->available_stock += $quantity;
-            $stock->total_stock += $quantity;
             $stock->restocked_quantity += $quantity;
-            $stock->save();
+            $stock->updateTotals();
         } else {
-            // Create new stock record
+            // Create new stock record with variant information
             $stock = ProductStock::create([
                 'product_id' => $productId,
+                'variant_id' => $variantId,
+                'variant_value' => $variantValue,
                 'available_stock' => $quantity,
                 'damage_stock' => 0,
                 'total_stock' => $quantity,
@@ -516,20 +618,33 @@ class GRN extends Component
             ]);
         }
 
-        // Update main product prices if no existing stock (FIFO logic)
+        // Update main product prices ONLY if no existing stock (FIFO logic)
         // When old stock reaches 0, the new batch prices become the main prices
-        if (!$hasExistingStock) {
-            if ($productPrice) {
-                $productPrice->supplier_price = $supplierPrice;
-                $productPrice->selling_price = $sellingPrice;
-                $productPrice->wholesale_price = $wholesalePrice ?? ($productPrice->wholesale_price ?? 0);
-                $productPrice->retail_price = $retailPrice ?? ($productPrice->retail_price ?? 0);
-                $productPrice->distributor_price = $distributorPrice ?? ($productPrice->distributor_price ?? 0);
-                $productPrice->save();
+        if ($variantId) {
+            // Update variant-specific price
+            $variantPriceQuery = ProductPrice::where('product_id', $productId)
+                ->where('variant_id', $variantId);
+            if ($variantValue) {
+                $variantPriceQuery->where('variant_value', $variantValue);
+            }
+            $variantPrice = $variantPriceQuery->first();
+
+            if ($variantPrice) {
+                // ONLY update if no existing stock (FIFO principle)
+                if (!$hasExistingStock) {
+                    $variantPrice->supplier_price = $supplierPrice;
+                    $variantPrice->selling_price = $sellingPrice;
+                    $variantPrice->wholesale_price = $wholesalePrice ?? ($variantPrice->wholesale_price ?? 0);
+                    $variantPrice->retail_price = $retailPrice ?? ($variantPrice->retail_price ?? 0);
+                    $variantPrice->distributor_price = $distributorPrice ?? ($variantPrice->distributor_price ?? 0);
+                    $variantPrice->save();
+                }
             } else {
-                // Create price record if doesn't exist
+                // Create variant price if it doesn't exist
                 ProductPrice::create([
                     'product_id' => $productId,
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
                     'supplier_price' => $supplierPrice,
                     'selling_price' => $sellingPrice,
                     'wholesale_price' => $wholesalePrice ?? 0,
@@ -537,6 +652,29 @@ class GRN extends Component
                     'distributor_price' => $distributorPrice ?? 0,
                     'discount_price' => 0,
                 ]);
+            }
+        } else {
+            // Update base product price
+            if (!$hasExistingStock) {
+                if ($productPrice) {
+                    $productPrice->supplier_price = $supplierPrice;
+                    $productPrice->selling_price = $sellingPrice;
+                    $productPrice->wholesale_price = $wholesalePrice ?? ($productPrice->wholesale_price ?? 0);
+                    $productPrice->retail_price = $retailPrice ?? ($productPrice->retail_price ?? 0);
+                    $productPrice->distributor_price = $distributorPrice ?? ($productPrice->distributor_price ?? 0);
+                    $productPrice->save();
+                } else {
+                    // Create price record if doesn't exist
+                    ProductPrice::create([
+                        'product_id' => $productId,
+                        'supplier_price' => $supplierPrice,
+                        'selling_price' => $sellingPrice,
+                        'wholesale_price' => $wholesalePrice ?? 0,
+                        'retail_price' => $retailPrice ?? 0,
+                        'distributor_price' => $distributorPrice ?? 0,
+                        'discount_price' => 0,
+                    ]);
+                }
             }
         }
 
@@ -575,7 +713,7 @@ class GRN extends Component
     public function render()
     {
         $query = PurchaseOrder::whereIn('status', ['complete', 'received'])
-            ->with(['supplier', 'items.product']);
+            ->with(['supplier', 'items.product', 'items.variant']);
 
         // Apply search filter if search term exists
         if (!empty($this->search)) {
@@ -592,6 +730,6 @@ class GRN extends Component
 
         return view('livewire.admin.g-r-n', [
             'purchaseOrders' => $purchaseOrders,
-        ])->layout($this->layout);
+        ]);
     }
 }

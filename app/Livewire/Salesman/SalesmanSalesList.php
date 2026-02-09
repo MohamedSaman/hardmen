@@ -316,7 +316,7 @@ class SalesmanSalesList extends Component
                     $stock = ProductStock::where('product_id', $item['product_id'])->first();
                     if ($stock) {
                         $stock->available_stock += $item['return_qty'];
-                        $stock->save();
+                        $stock->updateTotals();
                     }
                 }
             }

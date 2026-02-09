@@ -31,16 +31,16 @@ class ManageStaff extends Component
     public $nic_num;
     public $address;
     public $work_role;
-    public $work_type;
     public $department;
-    public $gender;
-    public $join_date;
-    public $fingerprint_id;
-    public $allowance;
-    public $basic_salary;
-    public $user_image;
-    public $description;
+    public $gender = '';
+    public $join_date = null;
+    public $fingerprint_id = '';
+    public $allowance = null;
+    public $basic_salary = 0;
+    public $user_image = '';
+    public $description = '';
     public $status = 'active';
+    public $work_type = 'monthly';
 
     public $editStaffId;
     public $editName;
@@ -164,26 +164,14 @@ class ManageStaff extends Component
     {
         $this->validate([
             'name' => 'required',
-            'contactNumber' => 'required| max:10',
+            'contactNumber' => 'required|max:10',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8',
             'confirmPassword' => 'required|min:8|same:password',
             'staff_type' => 'required|in:salesman,delivery_man,shop_staff',
-            'dob' => 'nullable|date',
-            'age' => 'nullable|integer|min:0',
-            'nic_num' => 'nullable|string',
-            'address' => 'nullable|string',
-            'work_role' => 'nullable|string',
-            'work_type' => 'required|in:daily,monthly',
-            'department' => 'nullable|string',
             'gender' => 'nullable|in:male,female,other',
-            'join_date' => 'nullable|date',
-            'fingerprint_id' => 'nullable|string',
-            'allowance' => 'nullable|string',
             'basic_salary' => 'nullable|numeric',
-            'user_image' => 'nullable|string',
-            'description' => 'nullable|string',
-            'status' => 'required|in:active,inactive',
+            'address' => 'nullable|string',
         ]);
 
         try {
@@ -205,21 +193,21 @@ class ManageStaff extends Component
 
             \App\Models\UserDetail::create([
                 'user_id' => $user->id,
-                'dob' => $this->dob,
-                'age' => $this->age,
-                'nic_num' => $this->nic_num,
-                'address' => $this->address,
-                'work_role' => $this->work_role,
-                'work_type' => $this->work_type,
-                'department' => $this->department,
-                'gender' => $this->gender,
-                'join_date' => $this->join_date,
-                'fingerprint_id' => $this->fingerprint_id,
+                'dob' => $this->dob ?? null,
+                'age' => $this->age ?? null,
+                'nic_num' => $this->nic_num ?? null,
+                'address' => $this->address ?? null,
+                'work_role' => $this->work_role ?? null,
+                'work_type' => $this->work_type ?? 'monthly',
+                'department' => $this->department ?? null,
+                'gender' => $this->gender ?? null,
+                'join_date' => $this->join_date ?? null,
+                'fingerprint_id' => $this->fingerprint_id ?? null,
                 'allowance' => $allowanceArray,
-                'basic_salary' => $this->basic_salary,
-                'user_image' => $this->user_image,
-                'description' => $this->description,
-                'status' => $this->status,
+                'basic_salary' => $this->basic_salary ?? 0,
+                'user_image' => $this->user_image ?? null,
+                'description' => $this->description ?? null,
+                'status' => $this->status ?? 'active',
             ]);
 
             $this->js("Swal.fire('Success!', 'Staff Created Successfully', 'success')");

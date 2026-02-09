@@ -277,7 +277,7 @@ class PosSales extends Component
                         if ($productStock->sold_count >= $item->quantity) {
                             $productStock->sold_count -= $item->quantity;
                         }
-                        $productStock->save();
+                        $productStock->updateTotals();
                     }
                 }
 
