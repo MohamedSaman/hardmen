@@ -166,6 +166,9 @@ Route::post('/allocate-products', [StaffManagementController::class, 'allocatePr
 Route::get('/staff-expenses', [StaffManagementController::class, 'getStaffExpenses']);
 Route::get('/staff-expenses/{staffId}', [StaffManagementController::class, 'getStaffExpenseDetails']);
 
+// Staff Live Locations (Admin)
+Route::get('/admin/reps/live', [StaffManagementController::class, 'getLiveStaffLocations']);
+
 // ============================================================================
 // NOTIFICATIONS & PUSH TOKENS
 // ============================================================================
@@ -223,5 +226,13 @@ Route::middleware('auth:sanctum')->prefix('staff-app')->group(function () {
     Route::get('/due-customers', [StaffAppController::class, 'getDueCustomers']);
     Route::get('/due-customers/{id}/bills', [StaffAppController::class, 'getCustomerDueBills']);
     Route::post('/collect-payment', [StaffAppController::class, 'collectPayment']);
+
+    // Sale Approval (Admin only)
+    Route::get('/pending-sales', [StaffAppController::class, 'getPendingSales']);
+    Route::post('/approve-sale/{id}', [StaffAppController::class, 'approveSale']);
+    Route::post('/reject-sale/{id}', [StaffAppController::class, 'rejectSale']);
+
+    // Location tracking
+    Route::post('/location', [StaffAppController::class, 'postLocation']);
 });
 

@@ -212,12 +212,14 @@ class SaleController extends ApiController
                 'sale_type' => $request->sale_type ?? 'admin',
             ]);
 
-            // Create sale items and update stock (simple deduction)
+            // Create sale items and update stock (with variant support)
             foreach ($items as $item) {
                 $productId = $item['product_id'] ?? $item['product'];
                 $quantity = $item['quantity'];
                 $unitPrice = $item['unit_price'];
                 $discount = $item['discount_amount'] ?? $item['discount'] ?? 0;
+                $variantId = $item['variant_id'] ?? null;
+                $variantValue = $item['variant_value'] ?? null;
 
                 // Get product details for required fields
                 $product = ProductDetail::find($productId);
@@ -225,26 +227,51 @@ class SaleController extends ApiController
                 $productName = $product ? $product->name : 'Product ' . $productId;
                 $productModel = $product ? ($product->model ?? '') : '';
 
+                // Append variant value to product name for clarity
+                $displayName = $variantValue ? $productName . ' (' . $variantValue . ')' : $productName;
+
                 // Create sale item
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $productId,
                     'product_code' => $productCode,
-                    'product_name' => $productName,
+                    'product_name' => $displayName,
                     'product_model' => $productModel,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'discount_per_unit' => $discount,
                     'total_discount' => $discount * $quantity,
                     'total' => ($quantity * $unitPrice) - ($discount * $quantity),
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
                 ]);
 
-                // Update stock (simple deduction)
-                $stock = ProductStock::where('product_id', $productId)->first();
-                if ($stock) {
-                    $stock->available_stock = max(0, $stock->available_stock - $quantity);
-                    $stock->sold_count = ($stock->sold_count ?? 0) + $quantity;
-                    $stock->save();
+                // Update stock - variant-aware (matches web billing logic)
+                if ($variantValue || $variantId) {
+                    $stockRecord = ProductStock::where('product_id', $productId)
+                        ->when($variantId, fn($q) => $q->where('variant_id', $variantId))
+                        ->when($variantValue, fn($q) => $q->where('variant_value', $variantValue))
+                        ->first();
+                    if ($stockRecord) {
+                        $stockRecord->available_stock = max(0, $stockRecord->available_stock - $quantity);
+                        $stockRecord->sold_count = ($stockRecord->sold_count ?? 0) + $quantity;
+                        $stockRecord->save();
+                    } else {
+                        // Fallback to single stock
+                        $stock = ProductStock::where('product_id', $productId)->first();
+                        if ($stock) {
+                            $stock->available_stock = max(0, $stock->available_stock - $quantity);
+                            $stock->sold_count = ($stock->sold_count ?? 0) + $quantity;
+                            $stock->save();
+                        }
+                    }
+                } else {
+                    $stock = ProductStock::where('product_id', $productId)->first();
+                    if ($stock) {
+                        $stock->available_stock = max(0, $stock->available_stock - $quantity);
+                        $stock->sold_count = ($stock->sold_count ?? 0) + $quantity;
+                        $stock->save();
+                    }
                 }
             }
 
@@ -494,6 +521,8 @@ class SaleController extends ApiController
                     'unit_price' => (float) $item->unit_price,
                     'discount' => (float) ($item->discount_per_unit ?? 0),
                     'total' => (float) $item->total,
+                    'variant_id' => $item->variant_id ?? null,
+                    'variant_value' => $item->variant_value ?? null,
                 ];
             });
 

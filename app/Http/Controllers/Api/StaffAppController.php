@@ -13,6 +13,7 @@ use App\Models\StaffPermission;
 use App\Models\ProductDetail;
 use App\Models\SaleItem;
 use App\Models\Cheque;
+use App\Models\UserLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -339,7 +340,9 @@ class StaffAppController extends ApiController
     }
 
     /**
-     * Get products available for sale (allocated to this staff)
+     * Get products available for sale
+     * If stock_allocation is enabled: returns only staff-allocated products
+     * If stock_allocation is disabled: returns ALL products from catalog
      */
     public function getProductsForSale(Request $request)
     {
@@ -350,43 +353,247 @@ class StaffAppController extends ApiController
             return $this->success(['results' => [], 'count' => 0]);
         }
 
+        // Check stock_allocation setting
+        $stockAllocation = \App\Models\Setting::where('key', 'stock_allocation')->first();
+        $isAllocationEnabled = $stockAllocation ? ($stockAllocation->value === 'true' || $stockAllocation->value === '1') : true;
+
+        if ($isAllocationEnabled) {
+            return $this->getProductsForSaleAllocated($staffId, $search);
+        } else {
+            return $this->getProductsForSaleAll($search);
+        }
+    }
+
+    /**
+     * Get allocated products for sale (stock_allocation = true)
+     */
+    private function getProductsForSaleAllocated($staffId, $search)
+    {
         $products = StaffProduct::where('staff_id', $staffId)
-            ->with(['product:id,name,code,model,image,brand_id', 'product.brand:id,brand_name'])
+            ->with([
+                'product:id,name,code,model,image,brand_id,variant_id',
+                'product.brand:id,brand_name',
+                'product.variant',
+                'product.stocks',
+                'product.prices',
+                'product.price',
+            ])
             ->get()
             ->filter(function ($item) use ($search) {
                 $searchLower = strtolower($search);
                 return str_contains(strtolower($item->product->name ?? ''), $searchLower) ||
                     str_contains(strtolower($item->product->code ?? ''), $searchLower) ||
                     str_contains(strtolower($item->product->model ?? ''), $searchLower);
-            })
-            ->map(function ($item) {
-                $availableQty = max(0, ($item->quantity ?? 0) - ($item->sold_quantity ?? 0));
-                return [
-                    'id' => $item->product_id,
-                    'name' => $item->product->name ?? 'N/A',
-                    'code' => $item->product->code ?? '',
-                    'model' => $item->product->model ?? '',
-                    'image' => $item->product->image ?? '',
-                    'brand' => $item->product->brand->brand_name ?? '',
+            });
+
+        // Expand variants the same way the web billing page does
+        $expandedProducts = collect();
+        foreach ($products as $item) {
+            $availableQty = max(0, ($item->quantity ?? 0) - ($item->sold_quantity ?? 0));
+            if ($availableQty <= 0) continue;
+
+            $product = $item->product;
+            if (!$product) continue;
+
+            // If product has variants, expand each variant as its own entry
+            if ($product->variant_id && $product->stocks && $product->stocks->isNotEmpty()) {
+                $orderedValues = [];
+                if ($product->variant && is_array($product->variant->variant_values) && count($product->variant->variant_values) > 0) {
+                    $orderedValues = $product->variant->variant_values;
+                }
+
+                $stocksByValue = [];
+                foreach ($product->stocks as $stock) {
+                    if (($stock->available_stock ?? 0) <= 0) continue;
+                    $stocksByValue[$stock->variant_value] = $stock;
+                }
+
+                $addVariant = function ($variantValue, $stock) use ($product, $item, &$expandedProducts) {
+                    $priceRecord = $product->prices->firstWhere('variant_value', $variantValue) ?? $product->price;
+                    $expandedProducts->push([
+                        'id' => $product->id,
+                        'composite_id' => $product->id . '::' . $variantValue,
+                        'name' => $product->name . ' (' . $variantValue . ')',
+                        'base_name' => $product->name,
+                        'code' => $product->code ?? '',
+                        'model' => $product->model ?? '',
+                        'image' => $product->image ?? '',
+                        'brand' => $product->brand->brand_name ?? '',
+                        'variant_id' => $stock->variant_id ?? $product->variant_id,
+                        'variant_value' => $variantValue,
+                        'variant_name' => $product->variant->variant_name ?? null,
+                        'has_variants' => true,
+                        'price' => (float) ($priceRecord->wholesale_price ?? $priceRecord->selling_price ?? $item->unit_price ?? 0),
+                        'retail_price' => (float) ($priceRecord->retail_price ?? 0),
+                        'wholesale_price' => (float) ($priceRecord->wholesale_price ?? 0),
+                        'distributor_price' => (float) ($priceRecord->distributor_price ?? 0),
+                        'stock' => min($stock->available_stock ?? 0, max(0, ($item->quantity ?? 0) - ($item->sold_quantity ?? 0))),
+                    ]);
+                };
+
+                if (!empty($orderedValues)) {
+                    foreach ($orderedValues as $val) {
+                        if (!isset($stocksByValue[$val])) continue;
+                        $addVariant($val, $stocksByValue[$val]);
+                    }
+                    foreach ($stocksByValue as $v => $stock) {
+                        if (in_array($v, $orderedValues)) continue;
+                        $addVariant($v, $stock);
+                    }
+                } else {
+                    foreach ($stocksByValue as $v => $stock) {
+                        $addVariant($v, $stock);
+                    }
+                }
+            } else {
+                // Single product (no variants)
+                $expandedProducts->push([
+                    'id' => $product->id,
+                    'composite_id' => (string) $product->id,
+                    'name' => $product->name ?? 'N/A',
+                    'base_name' => $product->name ?? 'N/A',
+                    'code' => $product->code ?? '',
+                    'model' => $product->model ?? '',
+                    'image' => $product->image ?? '',
+                    'brand' => $product->brand->brand_name ?? '',
+                    'variant_id' => null,
+                    'variant_value' => null,
+                    'variant_name' => null,
+                    'has_variants' => false,
                     'price' => $item->unit_price,
+                    'retail_price' => (float) ($product->price->retail_price ?? 0),
+                    'wholesale_price' => (float) ($product->price->wholesale_price ?? 0),
+                    'distributor_price' => (float) ($product->price->distributor_price ?? 0),
                     'stock' => $availableQty,
-                ];
-            })
-            ->filter(function ($item) {
-                return $item['stock'] > 0;
-            })
-            ->take(20)
-            ->values();
+                ]);
+            }
+        }
+
+        $expandedProducts = $expandedProducts->take(30)->values();
 
         return $this->success([
-            'results' => $products,
-            'count' => $products->count(),
+            'results' => $expandedProducts,
+            'count' => $expandedProducts->count(),
+        ]);
+    }
+
+    /**
+     * Get ALL products for sale (stock_allocation = false)
+     * Returns products from the main catalog with actual stock levels
+     */
+    private function getProductsForSaleAll($search)
+    {
+        $searchLower = strtolower($search);
+
+        $products = ProductDetail::with([
+            'brand:id,brand_name',
+            'variant',
+            'stocks',
+            'prices',
+            'price',
+        ])
+        ->where(function ($q) use ($searchLower) {
+            $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
+              ->orWhereRaw('LOWER(code) LIKE ?', ["%{$searchLower}%"])
+              ->orWhereRaw('LOWER(model) LIKE ?', ["%{$searchLower}%"]);
+        })
+        ->where('status', 'active')
+        ->take(50)
+        ->get();
+
+        $expandedProducts = collect();
+
+        foreach ($products as $product) {
+            // If product has variants, expand each variant as its own entry
+            if ($product->variant_id && $product->stocks && $product->stocks->isNotEmpty()) {
+                $orderedValues = [];
+                if ($product->variant && is_array($product->variant->variant_values) && count($product->variant->variant_values) > 0) {
+                    $orderedValues = $product->variant->variant_values;
+                }
+
+                $stocksByValue = [];
+                foreach ($product->stocks as $stock) {
+                    if (($stock->available_stock ?? 0) <= 0) continue;
+                    $stocksByValue[$stock->variant_value] = $stock;
+                }
+
+                $addVariant = function ($variantValue, $stock) use ($product, &$expandedProducts) {
+                    $priceRecord = $product->prices->firstWhere('variant_value', $variantValue) ?? $product->price;
+                    $expandedProducts->push([
+                        'id' => $product->id,
+                        'composite_id' => $product->id . '::' . $variantValue,
+                        'name' => $product->name . ' (' . $variantValue . ')',
+                        'base_name' => $product->name,
+                        'code' => $product->code ?? '',
+                        'model' => $product->model ?? '',
+                        'image' => $product->image ?? '',
+                        'brand' => $product->brand->brand_name ?? '',
+                        'variant_id' => $stock->variant_id ?? $product->variant_id,
+                        'variant_value' => $variantValue,
+                        'variant_name' => $product->variant->variant_name ?? null,
+                        'has_variants' => true,
+                        'price' => (float) ($priceRecord->wholesale_price ?? $priceRecord->selling_price ?? 0),
+                        'retail_price' => (float) ($priceRecord->retail_price ?? 0),
+                        'wholesale_price' => (float) ($priceRecord->wholesale_price ?? 0),
+                        'distributor_price' => (float) ($priceRecord->distributor_price ?? 0),
+                        'stock' => (int) ($stock->available_stock ?? 0),
+                    ]);
+                };
+
+                if (!empty($orderedValues)) {
+                    foreach ($orderedValues as $val) {
+                        if (!isset($stocksByValue[$val])) continue;
+                        $addVariant($val, $stocksByValue[$val]);
+                    }
+                    foreach ($stocksByValue as $v => $stock) {
+                        if (in_array($v, $orderedValues)) continue;
+                        $addVariant($v, $stock);
+                    }
+                } else {
+                    foreach ($stocksByValue as $v => $stock) {
+                        $addVariant($v, $stock);
+                    }
+                }
+            } else {
+                // Single product (no variants)
+                $mainStock = $product->stocks->first();
+                $availableStock = (int) ($mainStock->available_stock ?? 0);
+                if ($availableStock <= 0) continue;
+
+                $expandedProducts->push([
+                    'id' => $product->id,
+                    'composite_id' => (string) $product->id,
+                    'name' => $product->name ?? 'N/A',
+                    'base_name' => $product->name ?? 'N/A',
+                    'code' => $product->code ?? '',
+                    'model' => $product->model ?? '',
+                    'image' => $product->image ?? '',
+                    'brand' => $product->brand->brand_name ?? '',
+                    'variant_id' => null,
+                    'variant_value' => null,
+                    'variant_name' => null,
+                    'has_variants' => false,
+                    'price' => (float) ($product->price->wholesale_price ?? $product->price->selling_price ?? 0),
+                    'retail_price' => (float) ($product->price->retail_price ?? 0),
+                    'wholesale_price' => (float) ($product->price->wholesale_price ?? 0),
+                    'distributor_price' => (float) ($product->price->distributor_price ?? 0),
+                    'stock' => $availableStock,
+                ]);
+            }
+        }
+
+        $expandedProducts = $expandedProducts->take(30)->values();
+
+        return $this->success([
+            'results' => $expandedProducts,
+            'count' => $expandedProducts->count(),
         ]);
     }
 
     /**
      * Create a sale
-     * Staff can create sales from their allocated products
+     * If stock_allocation enabled: auto-confirms and deducts stock
+     * If stock_allocation disabled: creates as pending for admin approval
      */
     public function createSale(Request $request)
     {
@@ -397,6 +604,8 @@ class StaffAppController extends ApiController
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.discount' => 'nullable|numeric|min:0',
+            'items.*.variant_id' => 'nullable|integer',
+            'items.*.variant_value' => 'nullable|string',
             'payment_method' => 'required|in:cash,cheque,bank_transfer,credit',
             'paid_amount' => 'nullable|numeric|min:0',
             'additional_discount' => 'nullable|numeric|min:0',
@@ -412,6 +621,10 @@ class StaffAppController extends ApiController
             DB::beginTransaction();
 
             $customer = Customer::find($request->customer_id);
+
+            // Check stock_allocation setting
+            $stockAllocation = \App\Models\Setting::where('key', 'stock_allocation')->first();
+            $isAllocationEnabled = $stockAllocation ? ($stockAllocation->value === 'true' || $stockAllocation->value === '1') : true;
 
             // Calculate totals
             $subtotal = 0;
@@ -441,24 +654,26 @@ class StaffAppController extends ApiController
                 $paymentStatus = 'partial';
             }
 
-            // Check stock availability and update sold quantities
-            foreach ($request->items as $item) {
-                $staffProduct = StaffProduct::where('staff_id', $staffId)
-                    ->where('product_id', $item['product_id'])
-                    ->first();
+            // Check stock availability and update sold quantities (only when allocation is enabled)
+            if ($isAllocationEnabled) {
+                foreach ($request->items as $item) {
+                    $staffProduct = StaffProduct::where('staff_id', $staffId)
+                        ->where('product_id', $item['product_id'])
+                        ->first();
 
-                if (!$staffProduct) {
-                    throw new \Exception("Product ID {$item['product_id']} is not allocated to you");
+                    if (!$staffProduct) {
+                        throw new \Exception("Product ID {$item['product_id']} is not allocated to you");
+                    }
+
+                    $availableStock = $staffProduct->quantity - $staffProduct->sold_quantity;
+                    if ($item['quantity'] > $availableStock) {
+                        throw new \Exception("Insufficient stock for product ID {$item['product_id']}. Available: {$availableStock}");
+                    }
+
+                    // Update sold quantity
+                    $staffProduct->increment('sold_quantity', $item['quantity']);
+                    $staffProduct->increment('sold_value', ($item['price'] - ($item['discount'] ?? 0)) * $item['quantity']);
                 }
-
-                $availableStock = $staffProduct->quantity - $staffProduct->sold_quantity;
-                if ($item['quantity'] > $availableStock) {
-                    throw new \Exception("Insufficient stock for product ID {$item['product_id']}. Available: {$availableStock}");
-                }
-
-                // Update sold quantity
-                $staffProduct->increment('sold_quantity', $item['quantity']);
-                $staffProduct->increment('sold_value', ($item['price'] - ($item['discount'] ?? 0)) * $item['quantity']);
             }
 
             // Create sale
@@ -475,25 +690,53 @@ class StaffAppController extends ApiController
                 'due_amount' => $dueAmount,
                 'notes' => $request->notes,
                 'user_id' => $staffId,
-                'status' => 'confirm',
+                'status' => $isAllocationEnabled ? 'confirm' : 'pending',
                 'sale_type' => 'staff',
             ]);
 
             // Create sale items
             foreach ($request->items as $item) {
                 $product = ProductDetail::find($item['product_id']);
+                $variantId = $item['variant_id'] ?? null;
+                $variantValue = $item['variant_value'] ?? null;
+                $displayName = $variantValue ? ($product->name ?? '') . ' (' . $variantValue . ')' : ($product->name ?? '');
+
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item['product_id'],
                     'product_code' => $product->code ?? '',
-                    'product_name' => $product->name ?? '',
+                    'product_name' => $displayName,
                     'product_model' => $product->model ?? '',
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['price'],
                     'discount_per_unit' => $item['discount'] ?? 0,
                     'total_discount' => ($item['discount'] ?? 0) * $item['quantity'],
                     'total' => ($item['price'] - ($item['discount'] ?? 0)) * $item['quantity'],
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
                 ]);
+
+                // Also update the main product stock for variant items (only when allocation enabled; pending sales deduct on approval)
+                if ($isAllocationEnabled) {
+                    if ($variantValue || $variantId) {
+                        $stockRecord = \App\Models\ProductStock::where('product_id', $item['product_id'])
+                            ->when($variantId, fn($q) => $q->where('variant_id', $variantId))
+                            ->when($variantValue, fn($q) => $q->where('variant_value', $variantValue))
+                            ->first();
+                        if ($stockRecord) {
+                            $stockRecord->available_stock = max(0, $stockRecord->available_stock - $item['quantity']);
+                            $stockRecord->sold_count = ($stockRecord->sold_count ?? 0) + $item['quantity'];
+                            $stockRecord->save();
+                        }
+                    } else {
+                        $stock = \App\Models\ProductStock::where('product_id', $item['product_id'])->first();
+                        if ($stock) {
+                            $stock->available_stock = max(0, $stock->available_stock - $item['quantity']);
+                            $stock->sold_count = ($stock->sold_count ?? 0) + $item['quantity'];
+                            $stock->save();
+                        }
+                    }
+                }
             }
 
             // Create payment if amount paid
@@ -534,21 +777,28 @@ class StaffAppController extends ApiController
                 }
             }
 
-            // Update staff_sales
-            $staffSale = StaffSale::where('staff_id', $staffId)->first();
-            if ($staffSale) {
-                $staffSale->increment('sold_quantity', collect($request->items)->sum('quantity'));
-                $staffSale->increment('sold_value', $grandTotal);
+            // Update staff_sales (only when allocation enabled)
+            if ($isAllocationEnabled) {
+                $staffSale = StaffSale::where('staff_id', $staffId)->first();
+                if ($staffSale) {
+                    $staffSale->increment('sold_quantity', collect($request->items)->sum('quantity'));
+                    $staffSale->increment('sold_value', $grandTotal);
+                }
             }
 
             DB::commit();
 
             $sale->load(['customer', 'items', 'payments']);
 
+            $message = $isAllocationEnabled
+                ? 'Sale created successfully. Payment is pending admin approval.'
+                : 'Sale submitted for admin approval.';
+
             return $this->success([
                 'sale' => $sale,
-                'message' => 'Sale created successfully. Payment is pending admin approval.',
-            ], 'Sale created', 201);
+                'message' => $message,
+                'is_pending' => !$isAllocationEnabled,
+            ], $isAllocationEnabled ? 'Sale created' : 'Sale pending approval', 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -898,6 +1148,256 @@ class StaffAppController extends ApiController
             DB::rollBack();
             Log::error('Staff collection error: ' . $e->getMessage());
             return $this->error('Failed to collect payment: ' . $e->getMessage(), 500);
+        }
+    }
+
+    // ─── Admin Sale Approval API (for Expo) ───────────────────────────
+
+    /**
+     * Get pending staff sales for admin approval
+     */
+    public function getPendingSales(Request $request)
+    {
+        $user = Auth::user();
+        if ($user->role !== 'admin') {
+            return $this->error('Unauthorized', 403);
+        }
+
+        $status = $request->query('status', 'pending');
+        $search = $request->query('search', '');
+
+        $query = Sale::with(['customer:id,name,phone', 'user:id,name', 'items'])
+            ->where('sale_type', 'staff');
+
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('sale_id', 'like', "%{$search}%")
+                  ->orWhere('invoice_number', 'like', "%{$search}%")
+                  ->orWhereHas('customer', fn($cq) => $cq->where('name', 'like', "%{$search}%"))
+                  ->orWhereHas('user', fn($uq) => $uq->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        $sales = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        $counts = [
+            'pending' => Sale::where('sale_type', 'staff')->where('status', 'pending')->count(),
+            'confirmed' => Sale::where('sale_type', 'staff')->where('status', 'confirm')->count(),
+            'rejected' => Sale::where('sale_type', 'staff')->where('status', 'rejected')->count(),
+        ];
+
+        return $this->success([
+            'sales' => $sales->items(),
+            'counts' => $counts,
+            'pagination' => [
+                'current_page' => $sales->currentPage(),
+                'last_page' => $sales->lastPage(),
+                'total' => $sales->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Approve a pending staff sale
+     * Mirrors the Livewire SaleApproval::approveSale logic
+     */
+    public function approveSale(Request $request, $id)
+    {
+        $user = Auth::user();
+        if ($user->role !== 'admin') {
+            return $this->error('Unauthorized', 403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $sale = Sale::with(['items', 'customer'])->find($id);
+
+            if (!$sale) {
+                return $this->error('Sale not found', 404);
+            }
+
+            if ($sale->status !== 'pending') {
+                return $this->error('Sale is already processed', 422);
+            }
+
+            // Deduct stock for each item (same logic as SaleApproval Livewire)
+            foreach ($sale->items as $item) {
+                $stock = null;
+
+                if ($item->variant_id || $item->variant_value) {
+                    $stockQuery = \App\Models\ProductStock::where('product_id', $item->product_id);
+                    if ($item->variant_id) {
+                        $stockQuery->where('variant_id', $item->variant_id);
+                    }
+                    if ($item->variant_value) {
+                        $stockQuery->where('variant_value', $item->variant_value);
+                    }
+                    $stock = $stockQuery->first();
+                } else {
+                    $stock = \App\Models\ProductStock::where('product_id', $item->product_id)
+                        ->where(function ($q) {
+                            $q->whereNull('variant_value')
+                              ->orWhere('variant_value', '')
+                              ->orWhere('variant_value', 'null');
+                        })
+                        ->whereNull('variant_id')
+                        ->first();
+
+                    if (!$stock) {
+                        $stock = \App\Models\ProductStock::where('product_id', $item->product_id)->first();
+                    }
+                }
+
+                if (!$stock) {
+                    DB::rollBack();
+                    return $this->error("Stock record not found for {$item->product_name}", 422);
+                }
+
+                if ($stock->available_stock < $item->quantity) {
+                    DB::rollBack();
+                    return $this->error("Insufficient stock for {$item->product_name}. Available: {$stock->available_stock}, Required: {$item->quantity}", 422);
+                }
+
+                $stock->available_stock -= $item->quantity;
+                $stock->sold_count = ($stock->sold_count ?? 0) + $item->quantity;
+                $stock->save();
+            }
+
+            // Update sale status
+            $sale->status = 'confirm';
+            $sale->approved_by = $user->id;
+            $sale->approved_at = now();
+
+            // Recalculate due
+            $existingPayments = Payment::where('sale_id', $sale->id)->sum('amount');
+            $sale->due_amount = max(0, $sale->total_amount - $existingPayments);
+
+            if ($sale->due_amount <= 0) {
+                $sale->payment_status = 'paid';
+            } elseif ($existingPayments > 0) {
+                $sale->payment_status = 'partial';
+            } else {
+                $sale->payment_status = 'pending';
+            }
+
+            $sale->save();
+
+            // Update customer due amount
+            if ($sale->customer && $sale->due_amount > 0) {
+                $sale->customer->due_amount = ($sale->customer->due_amount ?? 0) + $sale->due_amount;
+                $sale->customer->total_due = ($sale->customer->opening_balance ?? 0) + $sale->customer->due_amount;
+                $sale->customer->save();
+            }
+
+            DB::commit();
+
+            $sale->load(['customer', 'user', 'items']);
+
+            return $this->success([
+                'sale' => $sale,
+            ], 'Sale approved successfully');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('API Sale approval error: ' . $e->getMessage());
+            return $this->error('Failed to approve sale: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Reject a pending staff sale
+     */
+    public function rejectSale(Request $request, $id)
+    {
+        $user = Auth::user();
+        if ($user->role !== 'admin') {
+            return $this->error('Unauthorized', 403);
+        }
+
+        $request->validate([
+            'reason' => 'required|string|min:3',
+        ]);
+
+        try {
+            $sale = Sale::find($id);
+            if (!$sale) {
+                return $this->error('Sale not found', 404);
+            }
+
+            if ($sale->status !== 'pending') {
+                return $this->error('Sale is already processed', 422);
+            }
+
+            $sale->update([
+                'status' => 'rejected',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'rejection_reason' => $request->reason,
+            ]);
+
+            return $this->success([
+                'sale' => $sale->load(['customer', 'user']),
+            ], 'Sale rejected');
+
+        } catch (\Exception $e) {
+            Log::error('API Sale rejection error: ' . $e->getMessage());
+            return $this->error('Failed to reject sale: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Store staff location tracking
+     * Called by mobile app to update current location
+     */
+    public function postLocation(Request $request)
+    {
+        try {
+            $request->validate([
+                'latitude' => 'required|numeric|between:-90,90',
+                'longitude' => 'required|numeric|between:-180,180',
+                'accuracy' => 'nullable|numeric|min:0',
+                'recorded_at' => 'nullable|string',
+            ]);
+
+            $staffId = Auth::id();
+
+            // Parse recorded_at - accept any date format (ISO 8601, Y-m-d H:i:s, etc.)
+            $recordedAt = now();
+            if ($request->recorded_at) {
+                try {
+                    $recordedAt = \Carbon\Carbon::parse($request->recorded_at);
+                } catch (\Exception $e) {
+                    $recordedAt = now();
+                }
+            }
+
+            // Create a new location record for this staff member
+            $location = UserLocation::create([
+                'user_id' => $staffId,
+                'latitude' => $request->latitude,
+                'longitude' => $request->longitude,
+                'accuracy' => $request->accuracy,
+                'recorded_at' => $recordedAt,
+            ]);
+
+            Log::info('Staff location recorded', ['staff_id' => $staffId, 'lat' => $request->latitude, 'lng' => $request->longitude]);
+
+            return $this->success([
+                'location' => $location,
+            ], 'Location recorded successfully');
+
+        } catch (\Exception $e) {
+            Log::error('API Location recording error: ' . $e->getMessage(), [
+                'staff_id' => Auth::id(),
+                'input' => $request->all(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return $this->error('Failed to record location: ' . $e->getMessage(), 500);
         }
     }
 }

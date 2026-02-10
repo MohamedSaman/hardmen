@@ -9,6 +9,7 @@ use App\Models\Cheque;
 use App\Models\ProductDetail;
 use App\Models\ProductStock;
 use App\Models\StaffProduct;
+use App\Models\UserLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -589,5 +590,51 @@ class StaffManagementController extends ApiController
             'count' => $expenses->count(),
             'total' => $expenses->sum('amount'),
         ]);
+    }
+
+    /**
+     * Get live locations of all staff members (for admin map view)
+     */
+    public function getLiveStaffLocations(Request $request)
+    {
+        try {
+            // Get all staff members with their latest location
+            $staffMembers = User::where('role', 'staff')
+                ->with(['latestLocation'])
+                ->orderBy('name')
+                ->get();
+
+            $results = $staffMembers->map(function ($staff) {
+                $latestLocation = $staff->latestLocation;
+                
+                // Only include staff members with location data
+                if ($latestLocation) {
+                    return [
+                        'id' => $staff->id,
+                        'name' => $staff->name,
+                        'email' => $staff->email,
+                        'contact' => $staff->contact,
+                        'location' => [
+                            'id' => $latestLocation->id,
+                            'latitude' => (float) $latestLocation->latitude,
+                            'longitude' => (float) $latestLocation->longitude,
+                            'accuracy' => $latestLocation->accuracy,
+                            'recorded_at' => $latestLocation->recorded_at,
+                            'updated_at' => $latestLocation->updated_at,
+                        ],
+                    ];
+                }
+                return null;
+            })->filter(); // Remove null entries
+
+            return $this->success([
+                'results' => $results->values(),
+                'count' => $results->count(),
+            ], 'Staff locations retrieved successfully');
+
+        } catch (\Exception $e) {
+            Log::error('API Get Live Staff Locations error: ' . $e->getMessage());
+            return $this->error('Failed to retrieve live staff locations: ' . $e->getMessage(), 500);
+        }
     }
 }

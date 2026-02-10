@@ -13,10 +13,11 @@ class ProductController extends ApiController
 {
     /**
      * Get all products with optional search and filters
+     * Returns variant-expanded products when applicable
      */
     public function index(Request $request)
     {
-        $query = ProductDetail::with(['price', 'stock', 'brand', 'category', 'supplier'])
+        $query = ProductDetail::with(['price', 'stock', 'brand', 'category', 'supplier', 'variant', 'prices', 'stocks'])
             ->select('product_details.*');
 
         // Search
@@ -45,12 +46,83 @@ class ProductController extends ApiController
         }
 
         /** @var \Illuminate\Pagination\LengthAwarePaginator $products */
-        $products = $query->orderBy('created_at', 'desc')->paginate(20);
+        $products = $query->orderBy('created_at', 'desc')->paginate(50);
 
-        // Transform for mobile app
-        $transformedProducts = collect($products->items())->map(function ($product) {
-            return $this->transformProduct($product);
-        });
+        // Transform and expand variants (like web billing page does)
+        $transformedProducts = collect();
+        foreach ($products->items() as $product) {
+            if ($product->variant_id !== null && $product->stocks && $product->stocks->isNotEmpty()) {
+                // Product has variants - expand each variant as own entry
+                $orderedValues = [];
+                if ($product->variant && is_array($product->variant->variant_values) && count($product->variant->variant_values) > 0) {
+                    $orderedValues = $product->variant->variant_values;
+                }
+
+                $stocksByValue = [];
+                foreach ($product->stocks as $stock) {
+                    if (($stock->available_stock ?? 0) <= 0) continue;
+                    $stocksByValue[$stock->variant_value] = $stock;
+                }
+
+                $addVariant = function ($variantValue, $stock) use ($product, &$transformedProducts) {
+                    $priceRecord = $product->prices->firstWhere('variant_value', $variantValue) ?? $product->price;
+                    $transformedProducts->push([
+                        'id' => $product->id,
+                        'composite_id' => $product->id . '::' . $variantValue,
+                        'product_name' => $product->name . ' (' . $variantValue . ')',
+                        'product_base_name' => $product->name,
+                        'product_sku' => $product->code,
+                        'product_code' => $product->code,
+                        'model' => $product->model,
+                        'image' => $product->image,
+                        'product_description' => $product->description,
+                        'barcode' => $product->barcode,
+                        'product_status' => $product->status,
+                        'is_active' => $product->status === 'active',
+                        'brand_id' => $product->brand_id,
+                        'category_id' => $product->category_id,
+                        'supplier_id' => $product->supplier_id,
+                        'brand' => $product->brand ? ['id' => $product->brand->id, 'name' => $product->brand->brand_name] : null,
+                        'category' => $product->category ? ['id' => $product->category->id, 'name' => $product->category->category_name] : null,
+                        'brand_name' => $product->brand ? $product->brand->brand_name : null,
+                        'category_name' => $product->category ? $product->category->category_name : null,
+                        'variant_id' => $stock->variant_id ?? $product->variant_id,
+                        'variant_value' => $variantValue,
+                        'variant_name' => $product->variant->variant_name ?? null,
+                        'has_variants' => true,
+                        'product_price' => $priceRecord ? (float) ($priceRecord->supplier_price ?? 0) : 0,
+                        'product_selling_price' => $priceRecord ? (float) ($priceRecord->selling_price ?? 0) : 0,
+                        'product_wholesale_price' => $priceRecord ? (float) ($priceRecord->wholesale_price ?? 0) : 0,
+                        'retail_price' => $priceRecord ? (float) ($priceRecord->retail_price ?? 0) : 0,
+                        'wholesale_price' => $priceRecord ? (float) ($priceRecord->wholesale_price ?? 0) : 0,
+                        'distributor_price' => $priceRecord ? (float) ($priceRecord->distributor_price ?? 0) : 0,
+                        'available_stock' => (int) ($stock->available_stock ?? 0),
+                        'damaged_stock' => (int) ($stock->damage_stock ?? 0),
+                        'total_stock' => (int) ($stock->total_stock ?? 0),
+                        'created_at' => $product->created_at,
+                        'updated_at' => $product->updated_at,
+                    ]);
+                };
+
+                if (!empty($orderedValues)) {
+                    foreach ($orderedValues as $val) {
+                        if (!isset($stocksByValue[$val])) continue;
+                        $addVariant($val, $stocksByValue[$val]);
+                    }
+                    foreach ($stocksByValue as $v => $stock) {
+                        if (in_array($v, $orderedValues)) continue;
+                        $addVariant($v, $stock);
+                    }
+                } else {
+                    foreach ($stocksByValue as $v => $stock) {
+                        $addVariant($v, $stock);
+                    }
+                }
+            } else {
+                // Single product (no variants)
+                $transformedProducts->push($this->transformProduct($product));
+            }
+        }
 
         return $this->paginated($products->setCollection($transformedProducts));
     }
@@ -257,7 +329,9 @@ class ProductController extends ApiController
     {
         return [
             'id' => $product->id,
+            'composite_id' => (string) $product->id,
             'product_name' => $product->name,
+            'product_base_name' => $product->name,
             'product_sku' => $product->code,
             'product_code' => $product->code,
             'model' => $product->model,
@@ -272,7 +346,7 @@ class ProductController extends ApiController
             'category_id' => $product->category_id,
             'supplier_id' => $product->supplier_id,
 
-            // Nested relations data (optional, but keep for completeness if needed)
+            // Nested relations data
             'brand' => $product->brand ? [
                 'id' => $product->brand->id,
                 'name' => $product->brand->brand_name,
@@ -291,10 +365,19 @@ class ProductController extends ApiController
             'category_name' => $product->category ? $product->category->category_name : null,
             'supplier_name' => $product->supplier ? $product->supplier->name : null,
 
-            // Flattened attributes
+            // Variant fields
+            'variant_id' => $product->variant_id,
+            'variant_value' => null,
+            'variant_name' => $product->variant ? $product->variant->variant_name : null,
+            'has_variants' => $product->variant_id !== null,
+
+            // Flattened price attributes
             'product_price' => $product->price ? (float) $product->price->supplier_price : 0,
             'product_selling_price' => $product->price ? (float) $product->price->selling_price : 0,
             'product_wholesale_price' => $product->price ? (float) $product->price->discount_price : 0,
+            'retail_price' => $product->price ? (float) ($product->price->retail_price ?? 0) : 0,
+            'wholesale_price' => $product->price ? (float) ($product->price->wholesale_price ?? 0) : 0,
+            'distributor_price' => $product->price ? (float) ($product->price->distributor_price ?? 0) : 0,
 
             'available_stock' => $product->stock ? (int) $product->stock->available_stock : 0,
             'damaged_stock' => $product->stock ? (int) $product->stock->damage_stock : 0,

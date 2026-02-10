@@ -240,4 +240,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(Payment::class, 'collected_by', 'id');
     }
+
+    /**
+     * Relationship: User has many location records
+     */
+    public function userLocations()
+    {
+        return $this->hasMany(UserLocation::class, 'user_id', 'id');
+    }
+
+    /**
+     * Get latest location for user
+     */
+    public function latestLocation()
+    {
+        return $this->hasOne(UserLocation::class, 'user_id', 'id')->latestOfMany();
+    }
 }

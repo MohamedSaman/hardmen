@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\User;
+use App\Models\UserLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends ApiController
@@ -18,6 +20,9 @@ class AuthController extends ApiController
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'accuracy' => 'nullable|numeric|min:0',
         ]);
 
         $user = User::where('email', $request->email)->first();
@@ -31,6 +36,22 @@ class AuthController extends ApiController
 
         // Create new token
         $token = $user->createToken('mobile-app')->plainTextToken;
+
+        // Store login location if provided
+        if ($request->filled('latitude') && $request->filled('longitude')) {
+            try {
+                UserLocation::create([
+                    'user_id' => $user->id,
+                    'latitude' => $request->latitude,
+                    'longitude' => $request->longitude,
+                    'accuracy' => $request->accuracy,
+                    'recorded_at' => now(),
+                ]);
+                Log::info('Login location stored', ['user_id' => $user->id, 'lat' => $request->latitude, 'lng' => $request->longitude]);
+            } catch (\Exception $e) {
+                Log::error('Failed to store login location: ' . $e->getMessage());
+            }
+        }
 
         return $this->success([
             'user' => [
