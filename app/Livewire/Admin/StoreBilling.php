@@ -369,6 +369,16 @@ class StoreBilling extends Component
 
                         $priceValue = $this->getPriceValue($priceRecord);
 
+                        // Calculate pending quantity for this variant
+                        $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                            $q->where('status', 'pending');
+                        })
+                            ->where('product_id', $product->id)
+                            ->where('variant_value', $stock->variant_value)
+                            ->sum('quantity');
+
+                        $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
                         $items[] = [
                             'id' => $product->id . '::' . $stock->variant_value, // unique id per variant
                             'product_id' => $product->id,
@@ -380,7 +390,8 @@ class StoreBilling extends Component
                             'price' => $priceValue,
                             'retail_price' => $priceRecord->retail_price ?? 0,
                             'wholesale_price' => $priceRecord->wholesale_price ?? 0,
-                            'stock' => $stock->available_stock ?? 0,
+                            'stock' => $availableStock,
+                            'pending' => $pendingQty,
                             'image' => $product->image ?? '',
                         ];
                     }
@@ -390,6 +401,16 @@ class StoreBilling extends Component
                         if (in_array($v, $orderedValues)) continue;
                         $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
                         $priceValue = $this->getPriceValue($priceRecord);
+
+                        // Calculate pending quantity for this variant
+                        $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                            $q->where('status', 'pending');
+                        })
+                            ->where('product_id', $product->id)
+                            ->where('variant_value', $stock->variant_value)
+                            ->sum('quantity');
+
+                        $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
 
                         $items[] = [
                             'id' => $product->id . '::' . $stock->variant_value,
@@ -403,7 +424,8 @@ class StoreBilling extends Component
                             'retail_price' => $priceRecord->retail_price ?? 0,
                             'wholesale_price' => $priceRecord->wholesale_price ?? 0,
                             'distributor_price' => $priceRecord->distributor_price ?? 0,
-                            'stock' => $stock->available_stock ?? 0,
+                            'stock' => $availableStock,
+                            'pending' => $pendingQty,
                             'image' => $product->image ?? '',
                         ];
                     }
@@ -415,6 +437,16 @@ class StoreBilling extends Component
                         $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
 
                         $priceValue = $this->getPriceValue($priceRecord);
+
+                        // Calculate pending quantity for this variant
+                        $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                            $q->where('status', 'pending');
+                        })
+                            ->where('product_id', $product->id)
+                            ->where('variant_value', $stock->variant_value)
+                            ->sum('quantity');
+
+                        $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
 
                         $items[] = [
                             'id' => $product->id . '::' . $stock->variant_value, // unique id per variant
@@ -428,7 +460,8 @@ class StoreBilling extends Component
                             'retail_price' => $priceRecord->retail_price ?? 0,
                             'wholesale_price' => $priceRecord->wholesale_price ?? 0,
                             'distributor_price' => $priceRecord->distributor_price ?? 0,
-                            'stock' => $stock->available_stock ?? 0,
+                            'stock' => $availableStock,
+                            'pending' => $pendingQty,
                             'image' => $product->image ?? '',
                         ];
                     }
@@ -439,6 +472,15 @@ class StoreBilling extends Component
                 $priceValue = $this->getPriceValue($priceRecord);
 
                 $stockQty = $product->stock->available_stock ?? 0;
+
+                // Calculate pending quantity for non-variant products
+                $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                    $q->where('status', 'pending');
+                })
+                    ->where('product_id', $product->id)
+                    ->sum('quantity');
+
+                $availableStock = max(0, $stockQty - $pendingQty);
 
                 // If a product has variant configuration but no variant stocks, fall back to single view
                 $items[] = [
@@ -453,7 +495,8 @@ class StoreBilling extends Component
                     'retail_price' => $priceRecord->retail_price ?? 0,
                     'wholesale_price' => $priceRecord->wholesale_price ?? 0,
                     'distributor_price' => $priceRecord->distributor_price ?? 0,
-                    'stock' => $stockQty,
+                    'stock' => $availableStock,
+                    'pending' => $pendingQty,
                     'image' => $product->image ?? '',
                 ];
             }
@@ -493,6 +536,16 @@ class StoreBilling extends Component
 
             // If multiple different prices exist, split into separate items
             if (count($batchesByPrice) > 1) {
+                // Calculate pending once for this product (applies to all price variants)
+                $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                    $q->where('status', 'pending');
+                })
+                    ->where('product_id', $productId)
+                    ->when($variantValue, function ($q) use ($variantValue) {
+                        return $q->where('variant_value', $variantValue);
+                    })
+                    ->sum('quantity');
+
                 foreach ($batchesByPrice as $price => $info) {
                     $finalItems[] = [
                         'id' => $item['id'] . '_price_' . $price,
@@ -507,6 +560,7 @@ class StoreBilling extends Component
                         'wholesale_price' => $item['wholesale_price'] ?? 0,
                         'distributor_price' => $item['distributor_price'] ?? 0,
                         'stock' => $info['quantity'],
+                        'pending' => $pendingQty,
                         'image' => $item['image'] ?? '',
                         'batch_numbers' => $info['batch_numbers'],
                     ];
@@ -1189,6 +1243,16 @@ class StoreBilling extends Component
                             $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
                             $priceValue = $this->getPriceValue($priceRecord);
 
+                            // Calculate pending quantity for this variant
+                            $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                                $q->where('status', 'pending');
+                            })
+                                ->where('product_id', $p->id)
+                                ->where('variant_value', $stock->variant_value)
+                                ->sum('quantity');
+
+                            $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
                             $results[] = [
                                 'id' => $p->id . '::' . $stock->variant_value,
                                 'product_id' => $p->id,
@@ -1198,7 +1262,8 @@ class StoreBilling extends Component
                                 'code' => $p->code,
                                 'image' => $p->image ?? '',
                                 'price' => $priceValue,
-                                'stock' => $stock->available_stock ?? 0,
+                                'stock' => $availableStock,
+                                'pending' => $pendingQty,
                             ];
                         }
 
@@ -1208,6 +1273,16 @@ class StoreBilling extends Component
                             $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
                             $priceValue = $this->getPriceValue($priceRecord);
 
+                            // Calculate pending quantity for this variant
+                            $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                                $q->where('status', 'pending');
+                            })
+                                ->where('product_id', $p->id)
+                                ->where('variant_value', $stock->variant_value)
+                                ->sum('quantity');
+
+                            $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
                             $results[] = [
                                 'id' => $p->id . '::' . $stock->variant_value,
                                 'product_id' => $p->id,
@@ -1217,7 +1292,8 @@ class StoreBilling extends Component
                                 'code' => $p->code,
                                 'image' => $p->image ?? '',
                                 'price' => $priceValue,
-                                'stock' => $stock->available_stock ?? 0,
+                                'stock' => $availableStock,
+                                'pending' => $pendingQty,
                             ];
                         }
                     } else {
@@ -1227,6 +1303,16 @@ class StoreBilling extends Component
                             $priceRecord = $p->prices->firstWhere('variant_value', $stock->variant_value) ?? $p->price;
                             $priceValue = $this->getPriceValue($priceRecord);
 
+                            // Calculate pending quantity for this variant
+                            $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                                $q->where('status', 'pending');
+                            })
+                                ->where('product_id', $p->id)
+                                ->where('variant_value', $stock->variant_value)
+                                ->sum('quantity');
+
+                            $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
                             $results[] = [
                                 'id' => $p->id . '::' . $stock->variant_value,
                                 'product_id' => $p->id,
@@ -1236,7 +1322,8 @@ class StoreBilling extends Component
                                 'code' => $p->code,
                                 'image' => $p->image ?? '',
                                 'price' => $priceValue,
-                                'stock' => $stock->available_stock ?? 0,
+                                'stock' => $availableStock,
+                                'pending' => $pendingQty,
                             ];
                         }
                     }
@@ -1266,6 +1353,15 @@ class StoreBilling extends Component
                         $batchesByPrice[$price]['batch_numbers'][] = $batch['batch_number'];
                     }
 
+                    // Calculate pending quantity for non-variant products
+                    $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                        $q->where('status', 'pending');
+                    })
+                        ->where('product_id', $p->id)
+                        ->sum('quantity');
+
+                    $availableStock = max(0, ($p->stock->available_stock ?? 0) - $pendingQty);
+
                     // If multiple different prices exist, split into separate items
                     if (count($batchesByPrice) > 1) {
                         foreach ($batchesByPrice as $price => $info) {
@@ -1278,7 +1374,8 @@ class StoreBilling extends Component
                                 'code' => $p->code,
                                 'image' => $p->image ?? '',
                                 'price' => $price,
-                                'stock' => $info['quantity'],
+                                'stock' => min($info['quantity'], $availableStock),
+                                'pending' => $pendingQty,
                                 'batch_numbers' => $info['batch_numbers'],
                             ];
                         }
@@ -1292,7 +1389,8 @@ class StoreBilling extends Component
                             'code' => $p->code,
                             'image' => $p->image ?? '',
                             'price' => $this->getPriceValue($p->price),
-                            'stock' => $p->stock->available_stock ?? 0,
+                            'stock' => $availableStock,
+                            'pending' => $pendingQty,
                         ];
                     }
                 }
@@ -1320,13 +1418,24 @@ class StoreBilling extends Component
                     ->get();
 
                 $this->relatedProducts = $related->map(function ($p) {
+                    // Calculate pending quantity for related product
+                    $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                        $q->where('status', 'pending');
+                    })
+                        ->where('product_id', $p->id)
+                        ->sum('quantity');
+
+                    $stockQty = $p->stock->available_stock ?? 0;
+                    $availableStock = max(0, $stockQty - $pendingQty);
+
                     return [
                         'id' => $p->id,
                         'name' => $p->name,
                         'code' => $p->code,
                         'image' => $p->image ?? '',
                         'price' => $this->getPriceValue($p->price),
-                        'stock' => $p->stock->available_stock ?? 0,
+                        'stock' => $availableStock,
+                        'pending' => $pendingQty,
                     ];
                 })->toArray();
             } else {
@@ -1401,6 +1510,7 @@ class StoreBilling extends Component
                 'discount_percentage' => 0,  // Store percentage value if applicable
                 'total' => $product['price'] - $discountPrice,
                 'stock' => $product['stock'],
+                'pending' => $product['pending'] ?? 0,
                 'image' => $product['image'] ?? null,
                 'batch_numbers' => $batchNumbers, // Store batch info for later reference
             ];

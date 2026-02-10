@@ -17,6 +17,7 @@ class Sale extends Model
         'customer_type',
         'subtotal',
         'discount_amount',
+        'discount_type',
         'additional_discount_type',
         'additional_discount_percentage',
         'total_amount',

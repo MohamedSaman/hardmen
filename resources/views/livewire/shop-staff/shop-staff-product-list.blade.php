@@ -42,74 +42,102 @@
         </div>
     </div>
 
-    {{-- Products Table --}}
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="ps-4">Product</th>
-                            <th>Code</th>
-                            <th>Category</th>
-                            <th class="text-end">Retail Price</th>
-                            <th class="text-end">Wholesale Price</th>
-                            <th class="text-center">Stock</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($products as $product)
-                        <tr>
-                            <td class="ps-4">
-                                <div class="d-flex align-items-center">
-                                    @if($product->image)
-                                    <img src="{{ asset('storage/' . $product->image) }}" alt="{{ $product->name }}" class="rounded me-2" style="width: 40px; height: 40px; object-fit: cover;">
-                                    @else
-                                    <div class="bg-light rounded me-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                        <i class="bi bi-box text-muted"></i>
-                                    </div>
-                                    @endif
-                                    <div>
-                                        <span class="fw-medium">{{ $product->name }}</span>
-                                        @if($product->model)
-                                        <small class="d-block text-muted">{{ $product->model }}</small>
-                                        @endif
-                                    </div>
-                                </div>
-                            </td>
-                            <td><span class="badge bg-secondary">{{ $product->code }}</span></td>
-                            <td>{{ $product->category->name ?? 'N/A' }}</td>
-                            <td class="text-end">Rs. {{ number_format($product->price->retail_price ?? 0, 2) }}</td>
-                            <td class="text-end">Rs. {{ number_format($product->price->wholesale_price ?? 0, 2) }}</td>
-                            <td class="text-center">
-                                @php
-                                    $stock = $product->stock->available_stock ?? 0;
-                                @endphp
-                                @if($stock > 10)
-                                    <span class="badge bg-success">{{ $stock }}</span>
-                                @elseif($stock > 0)
-                                    <span class="badge bg-warning">{{ $stock }}</span>
-                                @else
-                                    <span class="badge bg-danger">Out of Stock</span>
-                                @endif
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                No products found matching your criteria.
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+    {{-- Products Grid --}}
+    <div class="row g-3">
+        @forelse($products as $product)
+        @php
+            $imageUrl = $product['image'] ? asset('images/product.jpg') : null;
+        @endphp
+        
+        {{-- Product Card - 5 per row --}}
+        <div class="col-6 col-md-4 col-lg-3 col-xl-2-4">
+            <div class="card border-0 shadow-sm h-100 product-card" style="transition: all 0.3s ease;">
+                {{-- Stock Badge --}}
+                <div class="position-absolute top-0 start-0 m-2" style="z-index: 10;">
+                    @if($product['stock'] <= 0)
+                        <span class="badge bg-danger text-white" style="font-size: 9px;">Out of Stock</span>
+                    @elseif($product['stock'] <= 10)
+                        <span class="badge bg-warning text-dark" style="font-size: 9px;">Low Stock</span>
+                    @else
+                        <span class="badge bg-success text-white" style="font-size: 9px;">In Stock</span>
+                    @endif
+                    @if($product['variant_value'])
+                        <span class="badge bg-primary text-white ms-1" style="font-size: 9px;">Variant</span>
+                    @endif
+                </div>
+
+                {{-- Product Image --}}
+                <div style="height: 180px; overflow: hidden; background-color: #f8f9fa;" class="position-relative">
+                    @if($imageUrl)
+                        <img src="{{ $imageUrl }}" class="w-100 h-100" alt="{{ $product['name'] }}" style="object-fit: cover; object-position: center;">
+                    @else
+                        <div class="w-100 h-100 d-flex align-items-center justify-content-center">
+                            <i class="bi bi-box text-muted" style="font-size: 3rem;"></i>
+                        </div>
+                    @endif
+                </div>
+                
+                {{-- Product Info --}}
+                <div class="card-body pb-2 bg-white">
+                    <p class="mb-1" style="font-size: 9px; color: #94a3b8; font-family: monospace;">{{ $product['code'] }}</p>
+                    <h6 class="card-title fw-bold mb-2" style="font-size: 11px; line-height: 1.4; color: #1e293b;">{{ $product['name'] }}</h6>
+                    
+                    <div class="mb-2">
+                        <span class="badge bg-info" style="font-size: 9px;">{{ $product['category'] }}</span>
+                    </div>
+
+                    <div class="border-top pt-2">
+                        <div class="d-flex justify-content-between mb-1" style="font-size: 12px;">
+                            <span class="text-muted">Retail:</span>
+                            <span class="fw-bold text-success">Rs. {{ number_format($product['retail_price'], 2) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between" style="font-size: 12px;">
+                            <span class="text-muted">Wholesale:</span>
+                            <span class="fw-bold text-primary">Rs. {{ number_format($product['wholesale_price'], 2) }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border-top pt-2 mt-2">
+                        <span style="font-size: 12px; color: #64748b; font-weight: bold;" class="d-block">
+                            <span class="{{ $product['stock'] <= 10 ? 'text-warning' : 'text-success' }}">Avail: {{ $product['stock'] }}</span>
+                            @if($product['pending'] > 0)
+                                | <span class="text-primary">Pend: {{ $product['pending'] }}</span>
+                            @endif
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
+        @empty
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="bi bi-inbox fs-1 text-muted"></i>
+                    </div>
+                    <p class="text-muted mb-0 text-uppercase fw-bold" style="font-size: 12px; letter-spacing: 2px;">No products found</p>
+                </div>
+            </div>
+        </div>
+        @endforelse
     </div>
 
-    {{-- Pagination --}}
-    <div class="mt-4">
-        {{ $products->links() }}
-    </div>
+    <style>
+        /* 5 columns per row for large screens */
+        @media (min-width: 1200px) {
+            .col-xl-2-4 {
+                flex: 0 0 auto;
+                width: 20%;
+            }
+        }
+
+        .product-card {
+            transition: all 0.3s ease;
+        }
+
+        .product-card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15) !important;
+            transform: translateY(-4px);
+        }
+    </style>
 </div>

@@ -361,9 +361,24 @@
                         <div class="col-md-6">
                             <label class="form-label fw-medium">Additional Discount</label>
                             <div class="input-group">
+                                @if($editDiscountType === 'percentage')
+                                <input type="number" wire:model.live="editDiscount" class="form-control" min="0" max="100" step="0.01" placeholder="Percentage">
+                                <span class="input-group-text">%</span>
+                                @else
                                 <span class="input-group-text">Rs.</span>
-                                <input type="number" wire:model.live="editDiscount" class="form-control" min="0" step="0.01">
+                                <input type="number" wire:model.live="editDiscount" class="form-control" min="0" step="0.01" placeholder="Fixed Amount">
+                                @endif
+                                <button class="btn btn-outline-secondary" type="button" wire:click="$toggle('editDiscountType')" title="Toggle between Fixed and Percentage">
+                                    <i class="bi bi-arrow-left-right"></i> {{ $editDiscountType === 'percentage' ? '% ' : 'Rs ' }}
+                                </button>
                             </div>
+                            <small class="text-muted d-block mt-1">
+                                @if($editDiscountType === 'percentage')
+                                    Discount: {{ number_format($editDiscount, 2) }}% = Rs. {{ number_format(($this->editSubtotal * $editDiscount) / 100, 2) }}
+                                @else
+                                    Discount: Rs. {{ number_format($editDiscount, 2) }}
+                                @endif
+                            </small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-medium">Notes</label>
@@ -381,12 +396,26 @@
                             @if($editDiscount > 0)
                             <div class="d-flex justify-content-between mb-2 text-danger">
                                 <span>Discount:</span>
-                                <span>- Rs. {{ number_format($editDiscount, 2) }}</span>
+                                <span>
+                                    @if($editDiscountType === 'percentage')
+                                        - {{ number_format($editDiscount, 2) }}% (Rs. {{ number_format(($this->editSubtotal * $editDiscount) / 100, 2) }})
+                                    @else
+                                        - Rs. {{ number_format($editDiscount, 2) }}
+                                    @endif
+                                </span>
                             </div>
                             @endif
                             <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-2">
                                 <span>Total:</span>
-                                <span class="text-primary">Rs. {{ number_format($this->editTotal, 2) }}</span>
+                                <span class="text-primary">
+                                    @php
+                                        $discountAmount = $editDiscountType === 'percentage' 
+                                            ? ($this->editSubtotal * $editDiscount) / 100 
+                                            : min($editDiscount, $this->editSubtotal);
+                                        $total = $this->editSubtotal - $discountAmount;
+                                    @endphp
+                                    Rs. {{ number_format($total, 2) }}
+                                </span>
                             </div>
                         </div>
                     </div>

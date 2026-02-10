@@ -186,6 +186,9 @@
                                 <option value="inventory-stock">
                                     Product Stock Report
                                 </option>
+                                <option value="product-value">
+                                    Product Value Report
+                                </option>
                                 <option value="outstanding-accounts">
                                     Outstanding Accounts
                                 </option>
@@ -244,7 +247,7 @@
         </style>
 
         <!-- Report Content -->
-        @if($selectedReport && (count($currentReportData) > 0 || $selectedReport === 'monthly-sales' || $selectedReport === 'daily-purchases'))
+        @if($selectedReport && (count($currentReportData) > 0 || $selectedReport === 'monthly-sales' || $selectedReport === 'daily-purchases' || $selectedReport === 'product-value'))
         <div>
             @if($selectedReport === 'daily-sales')
                 @include('livewire.admin.reports.daily-sales-report', ['data' => $currentReportData, 'dailySalesReportTotal' => $currentReportTotal])
@@ -254,6 +257,8 @@
                 @include('livewire.admin.reports.daily-purchases', ['reportData' => $currentReportData, 'reportTotal' => $currentReportTotal, 'reportStartDate' => $reportStartDate, 'reportEndDate' => $reportEndDate])
             @elseif($selectedReport === 'inventory-stock')
                 @include('livewire.admin.reports.inventory-stock', ['reportData' => $currentReportData, 'reportStats' => $reportStats ?? []])
+            @elseif($selectedReport === 'product-value')
+                @include('livewire.admin.reports.product-value', ['reportData' => $currentReportData, 'reportTotal' => $currentReportTotal])
             @elseif($selectedReport === 'outstanding-accounts')
                 @include('livewire.admin.reports.outstanding-accounts', ['reportData' => $currentReportData])
             @elseif($selectedReport === 'payments')

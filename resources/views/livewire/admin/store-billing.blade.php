@@ -123,7 +123,13 @@
                                     class="w-10 h-10 rounded object-cover border border-slate-100">
                                 <div class="flex-1">
                                     <h5 class="text-xs font-bold text-slate-800">{{ $res['name'] }}</h5>
-                                    <p class="text-[10px] text-slate-500 font-mono">{{ $res['code'] }} | Stock: <span class="font-bold {{ $res['stock'] <= 5 ? 'text-amber-500' : 'text-green-600' }}">{{ $res['stock'] }}</span></p>
+                                    <p class="text-[10px] text-slate-500 font-mono">
+                                        {{ $res['code'] }} | 
+                                        <span class="font-bold {{ $res['stock'] <= 5 ? 'text-amber-500' : 'text-green-600' }}">Available: {{ $res['stock'] }}</span>
+                                        @if(($res['pending'] ?? 0) > 0)
+                                            | <span class="font-bold text-orange-500">Pending: {{ $res['pending'] }}</span>
+                                        @endif
+                                    </p>
                                 </div>
                                 <span class="text-xs font-black text-[#e67e22]">Rs. {{ number_format($res['price'], 2) }}</span>
                             </div>
@@ -171,7 +177,12 @@
 
                                         <button class="w-9 h-9 flex items-center justify-center hover:bg-white rounded text-[12px] font-bold transition-all bg-slate-100 border border-slate-200" wire:click="incrementQuantity({{ $index }})">+</button>
 
-                                        <div class="text-[11px] text-slate-400 ml-2">In stock: <span class="font-mono font-bold">{{ $item['stock'] ?? 0 }}</span></div>
+                                        <div class="text-[11px] text-slate-400 ml-2">
+                                            <span class="font-mono font-bold {{ ($item['stock'] ?? 0) <= 5 ? 'text-amber-500' : 'text-green-600' }}">Avail: {{ $item['stock'] ?? 0 }}</span>
+                                            @if(($item['pending'] ?? 0) > 0)
+                                                | <span class="font-mono font-bold text-orange-500">Pending: {{ $item['pending'] }}</span>
+                                            @endif
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="px-2 py-2">
@@ -407,7 +418,12 @@
                                 <div class="mt-auto flex items-end justify-between">
                                     <div class="flex flex-col">
                                         <span class="text-[#e67e22] font-black text-sm leading-none tracking-tighter">Rs. {{ number_format($product['price'], 0) }}</span>
-                                        <span class="text-[9px] text-slate-400 font-bold mt-1.5">Stock: {{ $product['stock'] }}</span>
+                                        <span class="text-[9px] text-slate-400 font-bold mt-1.5">
+                                            <span class="{{ ($product['stock'] ?? 0) <= 5 ? 'text-amber-500' : 'text-green-600' }}">Avail: {{ $product['stock'] }}</span>
+                                            @if(($product['pending'] ?? 0) > 0)
+                                                | <span class="text-orange-500">Pend: {{ $product['pending'] }}</span>
+                                            @endif
+                                        </span>
                                     </div>
                                     <div class="bg-slate-100 p-1.5 rounded-md group-hover:bg-[#e67e22] group-hover:text-white transition-all shadow-sm">
                                         <span class="material-symbols-outlined text-base font-black">add</span>

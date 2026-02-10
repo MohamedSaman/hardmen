@@ -4,7 +4,7 @@ namespace App\Livewire\Salesman;
 
 use App\Models\ProductDetail;
 use App\Models\CategoryList;
-use App\Services\StockAvailabilityService;
+use App\Models\SaleItem;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -23,13 +23,6 @@ class SalesmanProductList extends Component
     // Product detail modal
     public $selectedProduct = null;
     public $showProductModal = false;
-
-    protected StockAvailabilityService $stockService;
-
-    public function boot(StockAvailabilityService $stockService)
-    {
-        $this->stockService = $stockService;
-    }
 
     public function mount()
     {
@@ -59,33 +52,161 @@ class SalesmanProductList extends Component
         $this->selectedProduct = null;
     }
 
+    public function loadProducts()
+    {
+        $query = ProductDetail::with(['stock', 'price', 'category', 'variant', 'stocks', 'prices'])
+            ->where('status', 'active');
+
+        if ($this->categoryFilter) {
+            $query->where('category_id', $this->categoryFilter);
+        }
+
+        $items = [];
+        $products = $query->get();
+
+        foreach ($products as $product) {
+            // If product has variant stocks, expand each variant
+            if (($product->variant_id ?? null) !== null && $product->stocks && $product->stocks->isNotEmpty()) {
+                $orderedValues = [];
+                if ($product->variant && is_array($product->variant->variant_values)) {
+                    $orderedValues = $product->variant->variant_values;
+                }
+
+                $stocksByValue = [];
+                foreach ($product->stocks as $stock) {
+                    $stocksByValue[$stock->variant_value] = $stock;
+                }
+
+                if (!empty($orderedValues)) {
+                    foreach ($orderedValues as $val) {
+                        if (!isset($stocksByValue[$val])) continue;
+                        $stock = $stocksByValue[$val];
+                        $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
+
+                        $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                            $q->where('status', 'pending');
+                        })
+                            ->where('product_id', $product->id)
+                            ->where('variant_value', $stock->variant_value)
+                            ->sum('quantity');
+
+                        $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
+                        $items[] = [
+                            'id' => $product->id . '::' . $stock->variant_value,
+                            'product_id' => $product->id,
+                            'variant_value' => $stock->variant_value,
+                            'name' => $product->name . ' (' . $stock->variant_value . ')',
+                            'code' => $product->code,
+                            'image' => $product->image ?? '',
+                            'category' => $product->category->name ?? 'N/A',
+                            'distributor_price' => $priceRecord->distributor_price ?? $priceRecord->wholesale_price ?? 0,
+                            'stock' => $availableStock,
+                            'pending' => $pendingQty,
+                        ];
+                    }
+
+                    foreach ($stocksByValue as $v => $stock) {
+                        if (in_array($v, $orderedValues)) continue;
+                        $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
+
+                        $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                            $q->where('status', 'pending');
+                        })
+                            ->where('product_id', $product->id)
+                            ->where('variant_value', $stock->variant_value)
+                            ->sum('quantity');
+
+                        $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
+                        $items[] = [
+                            'id' => $product->id . '::' . $stock->variant_value,
+                            'product_id' => $product->id,
+                            'variant_value' => $stock->variant_value,
+                            'name' => $product->name . ' (' . $stock->variant_value . ')',
+                            'code' => $product->code,
+                            'image' => $product->image ?? '',
+                            'category' => $product->category->name ?? 'N/A',
+                            'distributor_price' => $priceRecord->distributor_price ?? $priceRecord->wholesale_price ?? 0,
+                            'stock' => $availableStock,
+                            'pending' => $pendingQty,
+                        ];
+                    }
+                } else {
+                    foreach ($product->stocks as $stock) {
+                        $priceRecord = $product->prices->firstWhere('variant_value', $stock->variant_value) ?? $product->price;
+
+                        $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                            $q->where('status', 'pending');
+                        })
+                            ->where('product_id', $product->id)
+                            ->where('variant_value', $stock->variant_value)
+                            ->sum('quantity');
+
+                        $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
+                        $items[] = [
+                            'id' => $product->id . '::' . $stock->variant_value,
+                            'product_id' => $product->id,
+                            'variant_value' => $stock->variant_value,
+                            'name' => $product->name . ' (' . $stock->variant_value . ')',
+                            'code' => $product->code,
+                            'image' => $product->image ?? '',
+                            'category' => $product->category->name ?? 'N/A',
+                            'distributor_price' => $priceRecord->distributor_price ?? $priceRecord->wholesale_price ?? 0,
+                            'stock' => $availableStock,
+                            'pending' => $pendingQty,
+                        ];
+                    }
+                }
+            } else {
+                // Single product without variants
+                $priceRecord = $product->price;
+                $stockQty = $product->stock->available_stock ?? 0;
+
+                $pendingQty = SaleItem::whereHas('sale', function ($q) {
+                    $q->where('status', 'pending');
+                })
+                    ->where('product_id', $product->id)
+                    ->sum('quantity');
+
+                $availableStock = max(0, $stockQty - $pendingQty);
+
+                $items[] = [
+                    'id' => $product->id,
+                    'product_id' => $product->id,
+                    'variant_value' => null,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'image' => $product->image ?? '',
+                    'category' => $product->category->name ?? 'N/A',
+                    'distributor_price' => $priceRecord->distributor_price ?? $priceRecord->wholesale_price ?? 0,
+                    'stock' => $availableStock,
+                    'pending' => $pendingQty,
+                ];
+            }
+        }
+
+        // Filter items by search term (including variant values)
+        if ($this->search) {
+            $searchTerm = strtolower($this->search);
+            $items = array_filter($items, function ($item) use ($searchTerm) {
+                return str_contains(strtolower($item['name']), $searchTerm)
+                    || str_contains(strtolower($item['code']), $searchTerm)
+                    || (isset($item['variant_value']) && str_contains(strtolower($item['variant_value']), $searchTerm));
+            });
+        }
+
+        return $items;
+    }
+
     public function render()
     {
-        $query = ProductDetail::with(['stock', 'price', 'category', 'stocks', 'prices', 'variant'])
-            ->when($this->search, function ($q) {
-                $q->where(function ($sq) {
-                    $sq->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('code', 'like', '%' . $this->search . '%')
-                        ->orWhere('model', 'like', '%' . $this->search . '%');
-                });
-            })
-            ->when($this->categoryFilter, function ($q) {
-                $q->where('category_id', $this->categoryFilter);
-            })
-            ->orderBy('code')
-            ->orderBy('variant_id');
-
-        $products = $query->paginate(24);
-
-        // Add available stock info to each product
-        $stockInfo = [];
-        foreach ($products as $product) {
-            $stockInfo[$product->id] = $this->stockService->getAvailableStock($product->id);
-        }
+        $products = $this->loadProducts();
 
         return view('livewire.salesman.salesman-product-list', [
             'products' => $products,
-            'stockInfo' => $stockInfo,
+            'categories' => $this->categories,
         ]);
     }
 }

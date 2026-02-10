@@ -108,7 +108,16 @@ class SalesmanBilling extends Component
             $this->customerId = $sale->customer_id;
             $this->selectedCustomer = $sale->customer;
             $this->notes = $sale->notes ?? '';
-            $this->additionalDiscount = $sale->discount_amount ?? 0;
+
+            // Load discount and discount type
+            $this->additionalDiscountType = $sale->discount_type ?? 'fixed';
+            if ($this->additionalDiscountType === 'percentage') {
+                // For percentage type, discount_amount stores the percentage value
+                $this->additionalDiscount = $sale->discount_amount ?? 0;
+            } else {
+                // For fixed type, discount_amount stores the rupee amount
+                $this->additionalDiscount = $sale->discount_amount ?? 0;
+            }
 
             // Load cart items from sale items
             $this->cart = [];
@@ -517,7 +526,16 @@ class SalesmanBilling extends Component
             return;
         }
 
+        // Extract actual product ID (handles composite IDs like "2_price_1000.00")
         $productId = $product['id'];
+        if (strpos($productId, '_price_') !== false) {
+            $productId = explode('_price_', $productId)[0];
+        } elseif (strpos($productId, '_') !== false) {
+            // For variant composite IDs like "2_variantValue_price_1000"
+            $parts = explode('_', $productId);
+            $productId = $parts[0];
+        }
+
         $variantId = $product['variant_id'] ?? null;
         $variantValue = $product['variant_value'] ?? null;
 
@@ -564,7 +582,7 @@ class SalesmanBilling extends Component
                 // Add new item to TOP of cart array (newest first)
                 array_unshift($this->cart, [
                     'cart_key' => $cartKey,
-                    'id' => $product['id'],
+                    'id' => $productId,
                     'variant_id' => $variantId,
                     'variant_value' => $variantValue,
                     'name' => $product['display_name'], // Use display name which includes variant info
@@ -598,7 +616,7 @@ class SalesmanBilling extends Component
             } else {
                 array_unshift($this->cart, [
                     'cart_key' => $cartKey,
-                    'id' => $product['id'],
+                    'id' => $productId,
                     'variant_id' => $variantId,
                     'variant_value' => $variantValue,
                     'name' => $product['display_name'],
@@ -863,10 +881,21 @@ class SalesmanBilling extends Component
                     }
                 }
 
+                // Calculate discount to store properly for edit mode
+                $discountToStoreEdit = 0;
+                if ($this->additionalDiscountType === 'percentage') {
+                    // Store the percentage value
+                    $discountToStoreEdit = $this->additionalDiscount;
+                } else {
+                    // Store the rupee amount
+                    $discountToStoreEdit = $this->additionalDiscountAmount;
+                }
+
                 $sale->update([
                     'customer_id' => $this->customerId,
                     'subtotal' => $this->subtotal,
-                    'discount_amount' => $this->additionalDiscountAmount,
+                    'discount_amount' => $discountToStoreEdit,
+                    'discount_type' => $this->additionalDiscountType,
                     'total_amount' => $this->grandTotal,
                     'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'notes' => $this->notes,
@@ -923,6 +952,16 @@ class SalesmanBilling extends Component
                 $invoiceNumber = Sale::generateInvoiceNumber();
 
                 // Create Sale (status pending means awaiting admin approval)
+                // Store discount amount or percentage based on discount type
+                $discountToStore = 0;
+                if ($this->additionalDiscountType === 'percentage') {
+                    // Store the percentage value
+                    $discountToStore = $this->additionalDiscount;
+                } else {
+                    // Store the rupee amount
+                    $discountToStore = $this->additionalDiscountAmount;
+                }
+
                 $sale = Sale::create([
                     'sale_id' => $saleId,
                     'invoice_number' => $invoiceNumber,
@@ -931,7 +970,8 @@ class SalesmanBilling extends Component
                     'user_id' => Auth::id(),
                     'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'subtotal' => $this->subtotal,
-                    'discount_amount' => $this->additionalDiscountAmount,
+                    'discount_amount' => $discountToStore,
+                    'discount_type' => $this->additionalDiscountType,
                     'total_amount' => $this->grandTotal,
                     'status' => 'pending',
                     'payment_status' => 'pending',

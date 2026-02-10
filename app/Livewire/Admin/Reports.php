@@ -18,6 +18,7 @@ use App\Exports\InventoryReportExport;
 use App\Exports\StaffReportExport;
 use App\Exports\PaymentsReportExport;
 use App\Exports\AttendanceReportExport;
+use App\Exports\ProductValueReportExport;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Livewire\Concerns\WithDynamicLayout;
@@ -50,6 +51,7 @@ class Reports extends Component
     public $monthlySalesReport = [];
     public $dailyPurchasesReport = [];
     public $outstandingAccountsReport = [];
+    public $productValueReport = [];
     public $reportStats = [];
 
     // Modal properties
@@ -67,6 +69,7 @@ class Reports extends Component
     public $dailySalesReportTotal = 0;
     public $monthlySalesReportTotal = 0;
     public $dailyPurchasesReportTotal = 0;
+    public $productValueReportTotal = 0;
 
     public $perPage = 10;
 
@@ -207,6 +210,9 @@ class Reports extends Component
             $this->reportStats = $this->getInventoryStats();
         } elseif ($this->selectedReport === 'outstanding-accounts') {
             $this->outstandingAccountsReport = $this->getOutstandingAccountsReport();
+        } elseif ($this->selectedReport === 'product-value') {
+            $this->productValueReport = $this->getProductValueReport();
+            $this->productValueReportTotal = collect($this->productValueReport)->sum('total_value');
         }
     }
 
@@ -238,6 +244,9 @@ class Reports extends Component
                 break;
             case 'monthly-sales':
                 $export = new SalesReportExport($this->monthlySalesReport, $this->monthlySalesReportTotal);
+                break;
+            case 'product-value':
+                $export = new ProductValueReportExport($this->productValueReport, $this->productValueReportTotal);
                 break;
             default:
                 return;
@@ -524,6 +533,7 @@ class Reports extends Component
             'daily-sales' => $this->dailySalesReport,
             'monthly-sales' => $this->monthlySalesReport,
             'outstanding-accounts' => $this->outstandingAccountsReport,
+            'product-value' => $this->productValueReport,
             default => [],
         };
     }
@@ -542,6 +552,7 @@ class Reports extends Component
             'daily-purchases' => $this->dailyPurchasesReportTotal,
             'inventory-stock' => 0,
             'outstanding-accounts' => 0,
+            'product-value' => $this->productValueReportTotal,
             default => 0,
         };
     }
@@ -557,6 +568,7 @@ class Reports extends Component
             'attendance' => 'Attendance Report',
             'daily-sales' => 'Daily Sales Report',
             'monthly-sales' => 'Monthly Sales Report',
+            'product-value' => 'Product Value Report',
             default => 'Report',
         };
     }
@@ -725,6 +737,88 @@ class Reports extends Component
             'customers' => $customers,
             'suppliers' => $suppliers,
         ];
+    }
+
+    public function getProductValueReport()
+    {
+        $items = [];
+
+        // Get all active products with their stocks, prices, and variants
+        $products = \App\Models\ProductDetail::where('status', 'active')
+            ->with(['variant', 'stock', 'prices'])
+            ->get();
+
+        foreach ($products as $product) {
+            // Check if product has variants
+            if ($product->variant_id && $product->variant) {
+                // Get all stock records for variant products
+                $stocks = $product->stock;
+
+                foreach ($stocks as $stock) {
+                    // Find matching price for this variant
+                    $price = $product->prices->firstWhere('variant_value', $stock->variant_value);
+
+                    if ($price) {
+                        // Calculate pending sales for this specific variant
+                        $pendingQty = \App\Models\SaleItem::whereHas('sale', function ($query) {
+                            $query->where('status', 'pending');
+                        })
+                            ->where('product_id', $product->id)
+                            ->where('variant_value', $stock->variant_value)
+                            ->sum('quantity');
+
+                        // Calculate available stock (physical - pending)
+                        $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
+                        // Calculate total value
+                        $totalValue = $availableStock * ($price->supplier_price ?? 0);
+
+                        $items[] = [
+                            'product_code' => $product->code,
+                            'product_name' => $product->name,
+                            'variant_value' => $stock->variant_value,
+                            'display_name' => $product->name . ' (' . $stock->variant_value . ')',
+                            'available_stock' => $availableStock,
+                            'supplier_price' => $price->supplier_price ?? 0,
+                            'total_value' => $totalValue,
+                        ];
+                    }
+                }
+            } else {
+                // Non-variant product
+                $stock = $product->stock->first();
+                $price = $product->prices->first();
+
+                if ($stock && $price) {
+                    // Calculate pending sales
+                    $pendingQty = \App\Models\SaleItem::whereHas('sale', function ($query) {
+                        $query->where('status', 'pending');
+                    })
+                        ->where('product_id', $product->id)
+                        ->whereNull('variant_value')
+                        ->sum('quantity');
+
+                    // Calculate available stock (physical - pending)
+                    $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
+
+                    // Calculate total value
+                    $totalValue = $availableStock * ($price->supplier_price ?? 0);
+
+                    $items[] = [
+                        'product_code' => $product->code,
+                        'product_name' => $product->name,
+                        'variant_value' => null,
+                        'display_name' => $product->name,
+                        'available_stock' => $availableStock,
+                        'supplier_price' => $price->supplier_price ?? 0,
+                        'total_value' => $totalValue,
+                    ];
+                }
+            }
+        }
+
+        // Sort by total value descending
+        return collect($items)->sortByDesc('total_value')->values()->all();
     }
 
     public function render()

@@ -32,6 +32,7 @@ class SalesmanSalesList extends Component
     public $editItems = [];
     public $editNotes = '';
     public $editDiscount = 0;
+    public $editDiscountType = 'fixed'; // 'fixed' or 'percentage'
 
     // Return properties
     public $showReturnModal = false;
@@ -98,7 +99,18 @@ class SalesmanSalesList extends Component
 
         $this->editingSale = $sale;
         $this->editNotes = $sale->notes ?? '';
-        $this->editDiscount = $sale->discount_amount ?? 0;
+
+        // Load discount type first
+        $this->editDiscountType = $sale->discount_type ?? 'fixed';
+
+        // Load discount value based on type
+        if ($this->editDiscountType === 'percentage') {
+            // For percentage type, discount_amount stores the percentage value
+            $this->editDiscount = $sale->discount_amount ?? 0;
+        } else {
+            // For fixed type, discount_amount stores the rupee amount
+            $this->editDiscount = $sale->discount_amount ?? 0;
+        }
 
         // Prepare edit items
         $this->editItems = [];
@@ -123,6 +135,7 @@ class SalesmanSalesList extends Component
         $this->editItems = [];
         $this->editNotes = '';
         $this->editDiscount = 0;
+        $this->editDiscountType = 'fixed';
     }
 
     public function updateEditItemQuantity($index, $quantity)
@@ -153,7 +166,17 @@ class SalesmanSalesList extends Component
 
     public function getEditTotalProperty()
     {
-        return $this->editSubtotal - $this->editDiscount;
+        $discountRupees = 0;
+
+        if ($this->editDiscountType === 'percentage') {
+            // editDiscount stores percentage, calculate rupees
+            $discountRupees = ($this->editSubtotal * $this->editDiscount) / 100;
+        } else {
+            // editDiscount stores rupee amount
+            $discountRupees = min($this->editDiscount, $this->editSubtotal);
+        }
+
+        return $this->editSubtotal - $discountRupees;
     }
 
     public function saveEditedSale()
@@ -181,11 +204,25 @@ class SalesmanSalesList extends Component
 
             // Recalculate sale totals
             $subtotal = $this->editSubtotal;
-            $total = $this->editTotal;
+
+            // Calculate actual rupee discount and store appropriately
+            $discountRupees = 0;
+            if ($this->editDiscountType === 'percentage') {
+                // For percentage: store percentage value, calculate rupee amount for total
+                $discountRupees = ($subtotal * $this->editDiscount) / 100;
+                $discountToStore = $this->editDiscount; // Store percentage value
+            } else {
+                // For fixed: store rupee amount
+                $discountRupees = min($this->editDiscount, $subtotal);
+                $discountToStore = $discountRupees; // Store rupee amount
+            }
+
+            $total = $subtotal - $discountRupees;
 
             $this->editingSale->update([
                 'subtotal' => $subtotal,
-                'discount_amount' => $this->editDiscount,
+                'discount_amount' => $discountToStore,
+                'discount_type' => $this->editDiscountType,
                 'total_amount' => $total,
                 'due_amount' => $total - ($this->editingSale->paid_amount ?? 0),
                 'notes' => $this->editNotes,
