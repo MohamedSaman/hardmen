@@ -14,6 +14,9 @@ use App\Models\ProductDetail;
 use App\Models\SaleItem;
 use App\Models\Cheque;
 use App\Models\UserLocation;
+use App\Notifications\NewSaleNotification;
+use App\Notifications\PaymentNotification;
+use App\Notifications\LowStockNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -790,6 +793,18 @@ class StaffAppController extends ApiController
 
             $sale->load(['customer', 'items', 'payments']);
 
+            // Notify all admin users about the new staff sale
+            try {
+                $staffUser = Auth::user();
+                $creatorName = $staffUser ? $staffUser->name : 'Staff';
+                $admins = User::where('role', 'admin')->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new NewSaleNotification($sale, $creatorName));
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send staff sale notification: ' . $notifErr->getMessage());
+            }
+
             $message = $isAllocationEnabled
                 ? 'Sale created successfully. Payment is pending admin approval.'
                 : 'Sale submitted for admin approval.';
@@ -935,6 +950,16 @@ class StaffAppController extends ApiController
             }
 
             DB::commit();
+
+            // Notify admins about new payment from staff
+            try {
+                $admins = User::where('role', 'admin')->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new PaymentNotification($payment, 'received'));
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send staff payment notification: ' . $notifErr->getMessage());
+            }
 
             return $this->success([
                 'payment' => $payment,
@@ -1142,6 +1167,25 @@ class StaffAppController extends ApiController
 
             DB::commit();
 
+            // Notify admins about collected payments
+            try {
+                $admins = User::where('role', 'admin')->get();
+                $staffName = Auth::user()->name ?? 'Staff';
+                foreach ($request->payments as $paymentItem) {
+                    $lastPayment = Payment::where('sale_id', $paymentItem['sale_id'])
+                        ->where('created_by', $staffId)
+                        ->latest()
+                        ->first();
+                    if ($lastPayment) {
+                        foreach ($admins as $admin) {
+                            $admin->notify(new PaymentNotification($lastPayment, 'received'));
+                        }
+                    }
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send collection notification: ' . $notifErr->getMessage());
+            }
+
             return $this->success(null, 'Payments collected successfully and sent for approval', 201);
 
         } catch (\Exception $e) {
@@ -1297,6 +1341,16 @@ class StaffAppController extends ApiController
             DB::commit();
 
             $sale->load(['customer', 'user', 'items']);
+
+            // Notify the staff member that their sale was approved
+            try {
+                $staffUser = User::find($sale->user_id);
+                if ($staffUser) {
+                    $staffUser->notify(new NewSaleNotification($sale, 'Admin (Approved)'));
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send sale approval notification: ' . $notifErr->getMessage());
+            }
 
             return $this->success([
                 'sale' => $sale,

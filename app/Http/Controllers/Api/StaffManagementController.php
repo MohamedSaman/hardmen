@@ -10,6 +10,7 @@ use App\Models\ProductDetail;
 use App\Models\ProductStock;
 use App\Models\StaffProduct;
 use App\Models\UserLocation;
+use App\Notifications\PaymentNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -295,6 +296,16 @@ class StaffManagementController extends ApiController
 
             DB::commit();
 
+            // Notify the staff member who created this payment
+            try {
+                $staffUser = User::find($payment->created_by);
+                if ($staffUser) {
+                    $staffUser->notify(new PaymentNotification($payment, 'received'));
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send payment approval notification: ' . $notifErr->getMessage());
+            }
+
             return $this->success(null, 'Payment approved successfully');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -325,6 +336,16 @@ class StaffManagementController extends ApiController
             }
 
             DB::commit();
+
+            // Notify the staff member that their payment was rejected
+            try {
+                $staffUser = User::find($payment->created_by);
+                if ($staffUser) {
+                    $staffUser->notify(new PaymentNotification($payment, 'received'));
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send payment rejection notification: ' . $notifErr->getMessage());
+            }
 
             return $this->success(null, 'Payment rejected successfully');
         } catch (\Exception $e) {

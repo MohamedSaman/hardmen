@@ -11,6 +11,9 @@ use App\Models\User;
 use App\Models\Payment;
 use App\Models\Cheque;
 use App\Models\Customer;
+use App\Notifications\NewSaleNotification;
+use App\Notifications\PaymentNotification;
+use App\Notifications\LowStockNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -312,6 +315,34 @@ class SaleController extends ApiController
             DB::commit();
 
             $sale->load(['customer', 'items.product', 'payments', 'user']);
+
+            // Send notifications to all admin users about the new sale
+            try {
+                $creator = Auth::user();
+                $creatorName = $creator ? $creator->name : 'System';
+                $admins = User::where('role', 'admin')->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new NewSaleNotification($sale, $creatorName));
+                }
+
+                // Check for low stock and notify admins
+                foreach ($items as $item) {
+                    $productId = $item['product_id'] ?? $item['product'];
+                    $stock = ProductStock::where('product_id', $productId)->first();
+                    if ($stock && $stock->available_stock <= 10) {
+                        $product = ProductDetail::find($productId);
+                        if ($product) {
+                            $product->stock = $stock->available_stock;
+                            foreach ($admins as $admin) {
+                                $admin->notify(new LowStockNotification($product));
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send sale notification: ' . $notifErr->getMessage());
+            }
+
             return $this->success($this->transformSale($sale, true), 'Sale created successfully', 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -385,6 +416,17 @@ class SaleController extends ApiController
             DB::commit();
 
             $sale->load(['customer', 'items.product', 'payments', 'user']);
+
+            // Notify admins about the payment
+            try {
+                $admins = User::where('role', 'admin')->get();
+                foreach ($admins as $admin) {
+                    $admin->notify(new PaymentNotification($payment, 'received'));
+                }
+            } catch (\Exception $notifErr) {
+                Log::warning('Failed to send payment notification: ' . $notifErr->getMessage());
+            }
+
             return $this->success([
                 'sale' => $this->transformSale($sale, true),
                 'payment' => [
