@@ -1522,6 +1522,9 @@ class StoreBilling extends Component
         $this->search = '';
         $this->searchResults = [];
         $this->relatedProducts = [];
+
+        // Dispatch event so Alpine can focus the qty input of the newly added item (index 0)
+        $this->dispatch('product-added-to-cart', index: 0);
     }
 
     // Update Quantity
@@ -1537,6 +1540,9 @@ class StoreBilling extends Component
 
         $this->cart[$index]['quantity'] = $quantity;
         $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $quantity;
+
+        // After qty update, focus price input
+        $this->dispatch('qty-updated', index: $index);
     }
 
     // Increment Quantity
@@ -1577,6 +1583,9 @@ class StoreBilling extends Component
         }
 
         $this->cart[$index]['total'] = ($price - $this->cart[$index]['discount']) * $this->cart[$index]['quantity'];
+
+        // After price update, return focus to search input
+        $this->dispatch('price-updated');
     }
 
     // Update Discount - Auto-detects "10" as Rs.10 or "10%" as 10%

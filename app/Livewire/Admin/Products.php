@@ -1168,6 +1168,12 @@ class Products extends Component
     public function deleteProduct($id)
     {
         try {
+            $isUsedInSales = SaleItem::where('product_id', $id)->exists();
+            if ($isUsedInSales) {
+                $this->js("Swal.fire('Cannot Delete!', 'This product is already used in sales, so it cannot be deleted.', 'error')");
+                return;
+            }
+
             $product = ProductDetail::findOrFail($id);
 
             // Delete related records first

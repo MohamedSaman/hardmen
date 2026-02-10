@@ -104,20 +104,73 @@
             
             <!-- LEFT SECTION: Search & Cart (50%) -->
             <aside class="w-1/2 flex flex-col bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                {{-- Search Bar --}}
-                <div class="p-3 border-b border-slate-100 bg-slate-50/50">
+                {{-- Search Bar with Alpine Keyboard Navigation --}}
+                <div class="p-3 border-b border-slate-100 bg-slate-50/50"
+                     x-data="{ highlightIndex: -1 }"
+                     x-on:product-added-to-cart.window="
+                         highlightIndex = -1;
+                         $nextTick(() => {
+                             const qtyInput = document.getElementById('cart-qty-0');
+                             if (qtyInput) { qtyInput.focus(); qtyInput.select(); }
+                         })
+                     "
+                     x-on:qty-updated.window="
+                         $nextTick(() => {
+                             const priceInput = document.getElementById('cart-price-' + $event.detail.index);
+                             if (priceInput) { priceInput.focus(); priceInput.select(); }
+                         })
+                     "
+                     x-on:price-updated.window="
+                         $nextTick(() => {
+                             if ($refs.searchInput) { $refs.searchInput.focus(); }
+                         })
+                     "
+                     x-init="$nextTick(() => { if ($refs.searchInput) $refs.searchInput.focus(); })"
+                >
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
                         <input class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-md focus:ring-2 focus:ring-[#e67e22]/20 focus:border-[#e67e22] outline-none text-sm transition-all" 
+                            x-ref="searchInput"
                             wire:model.live.debounce.300ms="search"
-                            placeholder="Scan barcode or type product name..." type="text">
+                            placeholder="Scan barcode or type product name..." type="text"
+                            x-on:keydown.arrow-down.prevent="
+                                let items = document.querySelectorAll('[data-search-result]');
+                                if (items.length > 0) {
+                                    highlightIndex = (highlightIndex + 1) % items.length;
+                                    items[highlightIndex]?.scrollIntoView({ block: 'nearest' });
+                                }
+                            "
+                            x-on:keydown.arrow-up.prevent="
+                                let items = document.querySelectorAll('[data-search-result]');
+                                if (items.length > 0) {
+                                    highlightIndex = highlightIndex <= 0 ? items.length - 1 : highlightIndex - 1;
+                                    items[highlightIndex]?.scrollIntoView({ block: 'nearest' });
+                                }
+                            "
+                            x-on:keydown.enter.prevent="
+                                if (highlightIndex >= 0) {
+                                    let items = document.querySelectorAll('[data-search-result]');
+                                    if (items[highlightIndex]) items[highlightIndex].click();
+                                    highlightIndex = -1;
+                                }
+                            "
+                            x-on:keydown.escape.prevent="
+                                highlightIndex = -1;
+                                $wire.set('search', '');
+                            "
+                            x-on:input="highlightIndex = -1"
+                        >
 
                         <!-- Search Dropdown -->
                         @if($search && count($searchResults) > 0)
                         <div class="absolute w-full mt-2 bg-white border border-slate-200 rounded-lg shadow-2xl z-50 max-h-96 overflow-y-auto custom-scrollbar">
-                            @foreach($searchResults as $res)
-                            <div class="flex items-center gap-3 p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0" 
-                                wire:click="addToCart({{ json_encode($res) }})">
+                            @foreach($searchResults as $sIndex => $res)
+                            <div class="flex items-center gap-3 p-3 cursor-pointer border-b border-slate-50 last:border-0 transition-colors"
+                                data-search-result
+                                data-search-index="{{ $sIndex }}"
+                                :class="highlightIndex === {{ $sIndex }} ? 'bg-orange-50 border-l-2 !border-l-[#e67e22]' : 'hover:bg-slate-50'"
+                                wire:click="addToCart({{ json_encode($res) }})"
+                                x-on:mouseenter="highlightIndex = {{ $sIndex }}">
                                 <img src="{{ $this->getImageUrl($res['image']) }}" 
                                     onerror="this.onerror=null;this.src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrn_80I-lMAa0pVBNmFmQ7VI6l4rr74JW-eQ&s';" 
                                     class="w-10 h-10 rounded object-cover border border-slate-100">
@@ -173,7 +226,12 @@
                                     <div class="flex items-center gap-3">
                                         <button class="w-9 h-9 flex items-center justify-center hover:bg-white rounded text-[12px] font-bold transition-all bg-slate-100 border border-slate-200" wire:click="decrementQuantity({{ $index }})">-</button>
 
-                                        <input type="number" min="1" step="1" max="{{ $item['stock'] ?? 0 }}" value="{{ $item['quantity'] }}" wire:change="updateQuantity({{ $index }}, $event.target.value)" wire:key="qty-{{ $cartKey }}" wire:keydown.enter="updateQuantity({{ $index }}, $event.target.value)" class="w-28 text-center text-[11px] font-black bg-slate-50 border border-slate-200 rounded px-3 py-2" />
+                                        <input type="number" min="1" step="1" max="{{ $item['stock'] ?? 0 }}" value="{{ $item['quantity'] }}" 
+                                            id="cart-qty-{{ $index }}"
+                                            wire:change="updateQuantity({{ $index }}, $event.target.value)" 
+                                            wire:key="qty-{{ $cartKey }}" 
+                                            @keydown.enter.prevent="$wire.updateQuantity({{ $index }}, $event.target.value)"
+                                            class="w-28 text-center text-[11px] font-black bg-slate-50 border border-slate-200 rounded px-3 py-2" />
 
                                         <button class="w-9 h-9 flex items-center justify-center hover:bg-white rounded text-[12px] font-bold transition-all bg-slate-100 border border-slate-200" wire:click="incrementQuantity({{ $index }})">+</button>
 
@@ -188,7 +246,12 @@
                                 <td class="px-2 py-2">
                                     <div class="flex items-center gap-2">
                                         <span class="text-[11px] font-bold text-slate-500">Rs.</span>
-                                        <input type="number" step="0.01" min="0" value="{{ $item['price'] }}" wire:change="updatePrice({{ $index }}, $event.target.value)" wire:key="price-{{ $cartKey }}" class="w-28 text-right text-[11px] font-bold bg-slate-50 border border-slate-200 rounded px-2 py-1" />
+                                        <input type="number" step="0.01" min="0" value="{{ $item['price'] }}" 
+                                            id="cart-price-{{ $index }}"
+                                            wire:change="updatePrice({{ $index }}, $event.target.value)" 
+                                            wire:key="price-{{ $cartKey }}"
+                                            x-on:keydown.enter.prevent="$wire.updatePrice({{ $index }}, $event.target.value)"
+                                            class="w-28 text-right text-[11px] font-bold bg-slate-50 border border-slate-200 rounded px-2 py-1" />
                                     </div>
                                 </td>
                                 <td class="px-2 py-2 text-center">

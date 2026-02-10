@@ -745,20 +745,23 @@ class Reports extends Component
 
         // Get all active products with their stocks, prices, and variants
         $products = \App\Models\ProductDetail::where('status', 'active')
-            ->with(['variant', 'stock', 'prices'])
+            ->with(['variant', 'stocks', 'prices'])
             ->get();
 
         foreach ($products as $product) {
             // Check if product has variants
             if ($product->variant_id && $product->variant) {
                 // Get all stock records for variant products
-                $stocks = $product->stock;
+                $stocks = $product->stocks;
 
-                foreach ($stocks as $stock) {
-                    // Find matching price for this variant
-                    $price = $product->prices->firstWhere('variant_value', $stock->variant_value);
+                // Ensure stocks is a valid collection before iterating
+                if ($stocks && is_iterable($stocks)) {
+                    foreach ($stocks as $stock) {
+                        // Ensure stock is an object before accessing properties
+                        if (!$stock || !is_object($stock)) {
+                            continue;
+                        }
 
-                    if ($price) {
                         // Calculate pending sales for this specific variant
                         $pendingQty = \App\Models\SaleItem::whereHas('sale', function ($query) {
                             $query->where('status', 'pending');
@@ -770,26 +773,38 @@ class Reports extends Component
                         // Calculate available stock (physical - pending)
                         $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
 
-                        // Calculate total value
-                        $totalValue = $availableStock * ($price->supplier_price ?? 0);
+                        // Only show if there's available stock
+                        if ($availableStock > 0) {
+                            // Find matching price for this variant
+                            $price = $product->prices && count($product->prices) > 0
+                                ? $product->prices->firstWhere('variant_value', $stock->variant_value)
+                                : null;
 
-                        $items[] = [
-                            'product_code' => $product->code,
-                            'product_name' => $product->name,
-                            'variant_value' => $stock->variant_value,
-                            'display_name' => $product->name . ' (' . $stock->variant_value . ')',
-                            'available_stock' => $availableStock,
-                            'supplier_price' => $price->supplier_price ?? 0,
-                            'total_value' => $totalValue,
-                        ];
+                            // Get supplier price or default to 0
+                            $supplierPrice = $price ? ($price->supplier_price ?? 0) : 0;
+
+                            // Calculate total value
+                            $totalValue = $availableStock * $supplierPrice;
+
+                            $items[] = [
+                                'product_code' => $product->code,
+                                'product_name' => $product->name,
+                                'variant_value' => $stock->variant_value,
+                                'display_name' => $product->name . ' (' . $stock->variant_value . ')',
+                                'available_stock' => $availableStock,
+                                'supplier_price' => $supplierPrice,
+                                'total_value' => $totalValue,
+                            ];
+                        }
                     }
                 }
             } else {
                 // Non-variant product
-                $stock = $product->stock->first();
-                $price = $product->prices->first();
+                $stock = $product->stocks && $product->stocks->count() > 0
+                    ? $product->stocks->first()
+                    : null;
 
-                if ($stock && $price) {
+                if ($stock) {
                     // Calculate pending sales
                     $pendingQty = \App\Models\SaleItem::whereHas('sale', function ($query) {
                         $query->where('status', 'pending');
@@ -801,18 +816,28 @@ class Reports extends Component
                     // Calculate available stock (physical - pending)
                     $availableStock = max(0, ($stock->available_stock ?? 0) - $pendingQty);
 
-                    // Calculate total value
-                    $totalValue = $availableStock * ($price->supplier_price ?? 0);
+                    // Only show if there's available stock
+                    if ($availableStock > 0) {
+                        $price = $product->prices && count($product->prices) > 0
+                            ? $product->prices->first()
+                            : null;
 
-                    $items[] = [
-                        'product_code' => $product->code,
-                        'product_name' => $product->name,
-                        'variant_value' => null,
-                        'display_name' => $product->name,
-                        'available_stock' => $availableStock,
-                        'supplier_price' => $price->supplier_price ?? 0,
-                        'total_value' => $totalValue,
-                    ];
+                        // Get supplier price or default to 0
+                        $supplierPrice = $price ? ($price->supplier_price ?? 0) : 0;
+
+                        // Calculate total value
+                        $totalValue = $availableStock * $supplierPrice;
+
+                        $items[] = [
+                            'product_code' => $product->code,
+                            'product_name' => $product->name,
+                            'variant_value' => null,
+                            'display_name' => $product->name,
+                            'available_stock' => $availableStock,
+                            'supplier_price' => $supplierPrice,
+                            'total_value' => $totalValue,
+                        ];
+                    }
                 }
             }
         }

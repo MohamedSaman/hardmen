@@ -235,6 +235,9 @@ class PurchaseOrderList extends Component
         $this->products = [];
         $this->searchProduct = '';
         $this->calculateGrandTotal();
+
+        // Dispatch event for keyboard focus management
+        $this->dispatch('product-added-to-po-order', index: 0);
     }
 
     /**
@@ -307,6 +310,9 @@ class PurchaseOrderList extends Component
         $this->products = [];
         $this->searchProduct = '';
         $this->calculateGrandTotal();
+
+        // Dispatch event for keyboard focus management
+        $this->dispatch('product-added-to-po-edit-order', index: 0);
     }
 
     public function selectProduct($id)
@@ -383,6 +389,9 @@ class PurchaseOrderList extends Component
         $this->searchProduct = '';
         $this->calculateGrandTotal();
 
+        // Dispatch event for keyboard focus management
+        $this->dispatch('product-added-to-po-order', index: 0);
+
         Log::info("Product added: " . $product->name . ", Price: " . $price);
     }
 
@@ -405,6 +414,9 @@ class PurchaseOrderList extends Component
             $this->orderItems[$index]['total_price'] =
                 floatval($quantity) * floatval($this->orderItems[$index]['supplier_price']);
             $this->calculateGrandTotal();
+
+            // Dispatch event for keyboard focus management
+            $this->dispatch('qty-updated-po');
         }
     }
 
@@ -672,6 +684,9 @@ class PurchaseOrderList extends Component
         $this->searchProduct = '';
 
         Log::info("Product added to edit order: " . $product->name);
+
+        // Dispatch event for keyboard focus management
+        $this->dispatch('product-added-to-po-edit-order', index: 0);
     }
 
     // Update total when quantity or price changes in edit modal
@@ -679,6 +694,9 @@ class PurchaseOrderList extends Component
     {
         // This method is called automatically when wire:model.live triggers
         // No calculation needed here as it's done in the blade template
+
+        // Dispatch event for keyboard focus management
+        $this->dispatch('qty-updated-po-edit');
     }
 
     public function removeEditItem($index)

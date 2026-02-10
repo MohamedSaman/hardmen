@@ -283,20 +283,31 @@
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-12 position-relative">
+                        <div class="col-md-12 position-relative"
+                            x-data="{ highlightIndex: -1 }"
+                            x-on:product-added-to-po-order.window="highlightIndex = -1; $nextTick(() => { let q = document.querySelector('#poOrderQty-0'); if(q){ q.focus(); q.select(); } })"
+                            x-on:qty-updated-po.window="$nextTick(() => { document.querySelector('#poSearchInput')?.focus(); })">
                             <label class="form-label fw-semibold">Search & Add Product</label>
                             <input type="text"
+                                id="poSearchInput"
                                 class="form-control"
                                 wire:model.live.debounce.300ms="searchProduct"
                                 placeholder="Type product name or code (min 2 characters)..."
-                                autocomplete="off">
+                                autocomplete="off"
+                                x-on:keydown.arrow-down.prevent="if (highlightIndex < {{ count($products ?? []) - 1 }}) { highlightIndex++; $nextTick(() => { document.querySelector(`[data-po-search-index='${highlightIndex}']`)?.scrollIntoView({block: 'nearest'}); }); }"
+                                x-on:keydown.arrow-up.prevent="if (highlightIndex > 0) { highlightIndex--; $nextTick(() => { document.querySelector(`[data-po-search-index='${highlightIndex}']`)?.scrollIntoView({block: 'nearest'}); }); }"
+                                x-on:keydown.enter.prevent="if (highlightIndex >= 0) { document.querySelector(`[data-po-search-index='${highlightIndex}']`)?.click(); }"
+                                x-on:keydown.escape.prevent="highlightIndex = -1">
                             @if(!empty($products) && count($products) > 0)
                             <ul class="list-group mt-1 position-absolute w-100 z-3 shadow-lg" style="max-height: 300px; overflow-y: auto;">
-                                @foreach($products as $product)
+                                @foreach($products as $sIndex => $product)
                                 @if(is_array($product) && ($product['type'] ?? '') === 'variant')
                                 <li class="list-group-item list-group-item-action p-2"
+                                    data-po-search-result
+                                    data-po-search-index="{{ $sIndex }}"
                                     wire:key="search-product-{{ $product['product_id'] }}-{{ str_replace(' ', '-', $product['variant_value']) }}"
                                     wire:click="selectProductVariant({{ $product['product_id'] }}, '{{ addslashes($product['variant_value']) }}')"
+                                    :class="highlightIndex === {{ $sIndex }} ? 'bg-light border-primary border-2' : ''"
                                     style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
                                         <img src="{{ $product['image'] ? asset($product['image']) : asset('images/product.jpg') }}"
@@ -320,8 +331,11 @@
                                 @else
                                 @php $p = (object) $product; @endphp
                                 <li class="list-group-item list-group-item-action p-2"
+                                    data-po-search-result
+                                    data-po-search-index="{{ $sIndex }}"
                                     wire:key="search-product-{{ $p->product_id }}"
                                     wire:click="selectProduct({{ $p->product_id }})"
+                                    :class="highlightIndex === {{ $sIndex }} ? 'bg-light border-primary border-2' : ''"
                                     style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
                                         <img src="{{ $p->image ? asset($p->image) : asset('images/product.jpg') }}"
@@ -384,9 +398,11 @@
                                 </td>
                                 <td>
                                     <input type="number"
+                                        id="poOrderQty-{{ $index }}"
                                         class="form-control form-control-sm"
                                         wire:model.live.debounce.300ms="orderItems.{{ $index }}.quantity"
                                         wire:change="updateOrderItemQuantity({{ $index }}, $event.target.value)"
+                                        x-on:keydown.enter="$wire.updateOrderItemQuantity({{ $index }}, $event.target.value)"
                                         min="1"
                                         style="width: 100%;">
                                 </td>
@@ -779,20 +795,31 @@
             <div class="modal-body">
                 {{-- Search and Add Product Section --}}
                 <div class="row mb-3">
-                    <div class="col-md-12 position-relative">
+                    <div class="col-md-12 position-relative"
+                        x-data="{ highlightIndex: -1 }"
+                        x-on:product-added-to-po-edit-order.window="highlightIndex = -1; $nextTick(() => { let q = document.querySelector('#poEditOrderQty-0'); if(q){ q.focus(); q.select(); } })"
+                        x-on:qty-updated-po-edit.window="$nextTick(() => { document.querySelector('#poEditSearchInput')?.focus(); })">
                         <label class="form-label fw-semibold">Search & Add Product</label>
                         <input type="text"
+                            id="poEditSearchInput"
                             class="form-control"
                             wire:model.live.debounce.300ms="searchProduct"
                             placeholder="Type product name or code (min 2 characters)..."
-                            autocomplete="off">
+                            autocomplete="off"
+                            x-on:keydown.arrow-down.prevent="if (highlightIndex < {{ count($products ?? []) - 1 }}) { highlightIndex++; $nextTick(() => { document.querySelector(`[data-po-edit-search-index='${highlightIndex}']`)?.scrollIntoView({block: 'nearest'}); }); }"
+                            x-on:keydown.arrow-up.prevent="if (highlightIndex > 0) { highlightIndex--; $nextTick(() => { document.querySelector(`[data-po-edit-search-index='${highlightIndex}']`)?.scrollIntoView({block: 'nearest'}); }); }"
+                            x-on:keydown.enter.prevent="if (highlightIndex >= 0) { document.querySelector(`[data-po-edit-search-index='${highlightIndex}']`)?.click(); }"
+                            x-on:keydown.escape.prevent="highlightIndex = -1">
                         @if(!empty($products) && count($products) > 0)
                         <ul class="list-group mt-1 position-absolute w-100 z-3 shadow-lg" style="max-height: 300px; overflow-y: auto;">
-                            @foreach($products as $product)
+                            @foreach($products as $sIndex => $product)
                                 @if(is_array($product) && ($product['type'] ?? '') === 'variant')
                                 <li class="list-group-item list-group-item-action p-2"
+                                    data-po-edit-search-result
+                                    data-po-edit-search-index="{{ $sIndex }}"
                                     wire:key="edit-search-product-{{ $product['product_id'] }}-{{ str_replace(' ', '-', $product['variant_value']) }}"
                                     wire:click="addProductVariantToEdit({{ $product['product_id'] }}, '{{ addslashes($product['variant_value']) }}')"
+                                    :class="highlightIndex === {{ $sIndex }} ? 'bg-light border-primary border-2' : ''"
                                     style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
                                         <img src="{{ $product['image'] ? asset('storage/' . $product['image']) : asset('images/product.jpg') }}"
@@ -811,8 +838,11 @@
                                 @else
                                 @php $p = is_array($product) ? (object) $product : $product; @endphp
                                 <li class="list-group-item list-group-item-action p-2"
+                                    data-po-edit-search-result
+                                    data-po-edit-search-index="{{ $sIndex }}"
                                     wire:key="edit-search-product-{{ $p->id ?? $p->product_id }}"
                                     wire:click="addProductToEdit({{ $p->id ?? $p->product_id }})"
+                                    :class="highlightIndex === {{ $sIndex }} ? 'bg-light border-primary border-2' : ''"
                                     style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
                                         <img src="{{ ($p->image ?? null) ? asset('storage/' . ($p->image ?? null)) : asset('images/product.jpg') }}"
@@ -872,10 +902,12 @@
                             </td>
                             <td>
                                 <input type="number"
+                                    id="poEditOrderQty-{{ $index }}"
                                     class="form-control form-control-sm"
                                     min="1"
                                     wire:model.live.debounce.300ms="editOrderItems.{{ $index }}.quantity"
-                                    wire:change="updateEditItemTotal({{ $index }})">
+                                    wire:change="updateEditItemTotal({{ $index }})"
+                                    x-on:keydown.enter="$wire.updateEditItemTotal({{ $index }})">
                             </td>
                             <td>
                                 <input type="number"
@@ -1037,6 +1069,22 @@
         });
     });
     
+    // Auto-focus search input when modals open
+    document.addEventListener('DOMContentLoaded', function() {
+        const addModal = document.getElementById('addPurchaseOrderModal');
+        if (addModal) {
+            addModal.addEventListener('shown.bs.modal', function() {
+                setTimeout(() => { document.querySelector('#poSearchInput')?.focus(); }, 100);
+            });
+        }
+        const editModal = document.getElementById('editOrderModal');
+        if (editModal) {
+            editModal.addEventListener('shown.bs.modal', function() {
+                setTimeout(() => { document.querySelector('#poEditSearchInput')?.focus(); }, 100);
+            });
+        }
+    });
+
     // Listen for openViewOrderModal event
     document.addEventListener('livewire:initialized', () => {
         console.log('Livewire initialized - viewOrderModal listener ready');

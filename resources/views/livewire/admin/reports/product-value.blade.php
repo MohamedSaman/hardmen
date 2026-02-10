@@ -16,7 +16,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-1 small">Total Inventory Value</h6>
-                            <h3 class="mb-0 fw-bold text-success">₹{{ number_format($reportTotal ?? 0, 2) }}</h3>
+                            <h3 class="mb-0 fw-bold text-success">Rs. {{ number_format($reportTotal ?? 0, 2) }}</h3>
                         </div>
                         <i class="bi bi-currency-rupee fs-1 text-success opacity-50"></i>
                     </div>
@@ -97,10 +97,10 @@
                         @endif
                     </td>
                     <td class="text-end">
-                        <span class="text-primary fw-semibold">₹{{ number_format($item['supplier_price'], 2) }}</span>
+                        <span class="text-primary fw-semibold">Rs. {{ number_format($item['supplier_price'], 2) }}</span>
                     </td>
                     <td class="text-end">
-                        <span class="fw-bold text-success">₹{{ number_format($item['total_value'], 2) }}</span>
+                        <span class="fw-bold text-success">Rs. {{ number_format($item['total_value'], 2) }}</span>
                     </td>
                 </tr>
                 @endforeach
@@ -109,7 +109,7 @@
                 <tr>
                     <td colspan="5" class="text-end fw-bold">Grand Total:</td>
                     <td class="text-end">
-                        <span class="fw-bold text-success fs-5">₹{{ number_format($reportTotal ?? 0, 2) }}</span>
+                        <span class="fw-bold text-success fs-5">Rs. {{ number_format($reportTotal ?? 0, 2) }}</span>
                     </td>
                 </tr>
             </tfoot>
