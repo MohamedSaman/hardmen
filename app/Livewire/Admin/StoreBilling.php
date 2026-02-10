@@ -703,7 +703,7 @@ class StoreBilling extends Component
     // Load customers for dropdown
     public function loadCustomers()
     {
-        $this->customers = Customer::orderBy('name')->get();
+        $this->customers = Customer::orderBy('business_name')->get();
     }
 
     // Computed Properties for Totals

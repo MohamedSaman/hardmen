@@ -49,7 +49,7 @@
                             <option value="">-- Select Customer --</option>
                             @foreach($customers as $customer)
                                 <option value="{{ $customer->id }}">
-                                    {{ $customer->name }} - {{ $customer->phone ?? 'N/A' }}
+                                    {{ $customer->business_name ?? $customer->name}} - {{ $customer->phone ?? 'N/A' }}
                                 </option>
                             @endforeach
                         </select>

@@ -309,7 +309,7 @@
                                 <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg group-focus-within:text-[#e67e22] transition-colors">person</span>
                                 <select class="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-md outline-none text-xs font-bold appearance-none focus:ring-2 focus:ring-[#e67e22]/10 focus:border-[#e67e22] transition-all" wire:model.live="customerId">
                                     @foreach($customers as $customer)
-                                    <option value="{{ $customer->id }}">{{ $customer->name }} ({{ $customer->phone }})</option>
+                                    <option value="{{ $customer->id }}">{{ $customer->business_name ?? $customer->name }} ({{ $customer->phone }})</option>
                                     @endforeach
                                 </select>
                                 <button class="absolute right-8 top-1/2 -translate-y-1/2 text-[#e67e22] p-1.5 hover:bg-orange-50 rounded-full transition-all" wire:click="openCustomerModal" title="Add Customer">

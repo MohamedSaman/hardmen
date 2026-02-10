@@ -79,7 +79,7 @@ class SalesmanBilling extends Component
 
     public function loadCustomers()
     {
-        $this->customers = Customer::where('type', 'distributor')->orderBy('name')->get();
+        $this->customers = Customer::where('type', 'distributor')->orderBy('business_name')->get();
     }
 
     /**
