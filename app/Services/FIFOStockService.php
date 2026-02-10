@@ -41,11 +41,56 @@ class FIFOStockService
             ->orderBy('id', 'asc')
             ->get();
 
+        // Handle manually added stock without batches
         if ($batches->isEmpty()) {
-            throw new \Exception("No active batches found for product ID: {$productId}");
+            // Check if product stock exists and has available quantity
+            $stockQuery = ProductStock::where('product_id', $productId);
+            if ($variantId) {
+                $stockQuery->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $stockQuery->where('variant_value', $variantValue);
+                }
+            } else {
+                $stockQuery->where(function ($q) {
+                    $q->whereNull('variant_id')->orWhere('variant_id', 0);
+                });
+            }
+            $stock = $stockQuery->first();
+
+            if (!$stock || $stock->available_stock < $quantity) {
+                $available = $stock ? $stock->available_stock : 0;
+                throw new \Exception("Insufficient stock. Required: {$quantity}, Available: {$available}");
+            }
+
+            // Manually added stock - deduct directly from ProductStock without batch tracking
+            DB::beginTransaction();
+            try {
+                $stock->available_stock -= $quantity;
+                $stock->sold_count += $quantity;
+                $stock->updateTotals();
+
+                DB::commit();
+                return [
+                    'success' => true,
+                    'deductions' => [[
+                        'batch_id' => null,
+                        'batch_number' => 'Manual Stock',
+                        'quantity' => $quantity,
+                        'supplier_price' => 0,
+                        'selling_price' => 0,
+                        'cost' => 0,
+                    ]],
+                    'total_cost' => 0,
+                    'average_cost' => 0,
+                    'note' => 'Deducted from manually added stock (no batch records)',
+                ];
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         }
 
-        // Check if we have enough total stock
+        // Check if we have enough total stock in batches
         $totalAvailable = $batches->sum('remaining_quantity');
         if ($totalAvailable < $quantity) {
             throw new \Exception("Insufficient stock. Required: {$quantity}, Available: {$totalAvailable}");
@@ -354,6 +399,44 @@ class FIFOStockService
         $batches = self::getBatchDetails($productId, $variantId, $variantValue);
 
         if ($batches->isEmpty()) {
+            // No batches found - check if manual stock exists
+            $stockQuery = ProductStock::where('product_id', $productId);
+            if ($variantId) {
+                $stockQuery->where('variant_id', $variantId);
+                if ($variantValue) {
+                    $stockQuery->where('variant_value', $variantValue);
+                }
+            } else {
+                $stockQuery->where(function ($q) {
+                    $q->whereNull('variant_id')->orWhere('variant_id', 0);
+                });
+            }
+            $stock = $stockQuery->first();
+
+            // If stock exists, get price from product_prices table
+            if ($stock && $stock->available_stock > 0) {
+                $priceQuery = ProductPrice::where('product_id', $productId);
+                if ($variantId) {
+                    $priceQuery->where('variant_id', $variantId);
+                    if ($variantValue) {
+                        $priceQuery->where('variant_value', $variantValue);
+                    }
+                } else {
+                    $priceQuery->where(function ($q) {
+                        $q->whereNull('variant_id')->orWhere('variant_id', 0);
+                    });
+                }
+                $priceRecord = $priceQuery->first();
+
+                if ($priceRecord) {
+                    return [[
+                        'quantity' => min($quantity, $stock->available_stock),
+                        'price' => $priceRecord->{$priceType} ?? 0,
+                        'batch_number' => 'Manual Stock',
+                    ]];
+                }
+            }
+
             return [];
         }
 
