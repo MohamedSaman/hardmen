@@ -446,11 +446,10 @@
                 <thead>
                     <tr>
                         <th style="width: 5%;" class="text-center">#</th>
-                        <th style="width: 30%;">PRODUCT</th>
+                        <th style="width: 35%;">PRODUCT</th>
                         <th style="width: 15%;">CODE</th>
                         <th style="width: 15%;" class="text-center">RETURN QTY</th>
                         <th style="width: 17%;" class="text-right">UNIT PRICE</th>
-                        <th style="width: 15%;" class="text-right">UNIT DISCOUNT</th>
                         <th style="width: 18%;" class="text-right">TOTAL</th>
                     </tr>
                 </thead>
@@ -463,16 +462,15 @@
                         <td>{{ $return->product->code ?? '-' }}</td>
                         <td class="text-center">{{ $return->return_quantity }}</td>
                         <td class="text-right">Rs.{{ number_format($return->selling_price, 2) }}</td>
-                        <td class="text-right">Rs.{{ number_format($return->discount_per_unit, 2) }}</td>
                         <td class="text-right">Rs.{{ number_format($return->total_amount, 2) }}</td>
                     </tr>
                     @endforeach
                     <tr style="background: #f8f8f8; font-weight: bold;">
-                        <td colspan="6" class="text-right" style="padding: 8px;">Return Amount:</td>
+                        <td colspan="5" class="text-right" style="padding: 8px;">Return Amount:</td>
                         <td class="text-right" style="padding: 8px;">- Rs.{{ number_format($returnAmount, 2) }}</td>
                     </tr>
                     <tr style="background: #e9ecef; font-weight: bold;">
-                        <td colspan="6" class="text-right" style="padding: 8px;">Net Amount:</td>
+                        <td colspan="5" class="text-right" style="padding: 8px;">Net Amount:</td>
                         <td class="text-right" style="padding: 8px;">Rs.{{ number_format((($sale->subtotal ?? $sale->total_amount) - ($sale->discount_amount ?? 0) - $returnAmount), 2) }}</td>
                     </tr>
                 </tbody>

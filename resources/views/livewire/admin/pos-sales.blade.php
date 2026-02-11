@@ -428,6 +428,37 @@ use App\Models\Sale;
                             </tbody>
                         </table>
 
+                        
+
+                        @if(isset($selectedSale->returns) && count($selectedSale->returns) > 0)
+                        <!-- Returned Items Section -->
+                        <div style="margin-top:20px; padding-top:12px; border-top:1px solid #ddd;">
+                            <h4 style="margin:0 0 8px 0; color:#dc3545; font-size:14px; font-weight:bold;">RETURNED ITEMS</h4>
+                            <table class="receipt-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th style="text-align:center;">Qty</th>
+                                        <th style="text-align:center;">Price</th>
+                                        <th style="text-align:center;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($selectedSale->returns as $index => $return)
+                                    <tr>
+                                        <td>{{ $index + 1 }}</td>
+                                        <td>{{ $return->product->name ?? 'N/A' }}</td>
+                                        <td class="text-end">{{ $return->return_quantity }}</td>
+                                        <td class="text-end">Rs.{{ number_format($return->selling_price, 2) }}</td>
+                                        <td class="text-end">Rs.{{ number_format($return->total_amount, 2) }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @endif
+
                         <!-- Summary / Payments -->
                         <div style="display:flex; gap:20px; margin-top:25px; border-top:2px solid #000; padding-top:12px;">
                             <div style="flex:1;">
@@ -466,35 +497,6 @@ use App\Models\Sale;
                                 </div>
                             </div>
                         </div>
-
-                        @if(isset($selectedSale->returns) && count($selectedSale->returns) > 0)
-                        <!-- Returned Items Section -->
-                        <div style="margin-top:20px; padding-top:12px; border-top:1px solid #ddd;">
-                            <h4 style="margin:0 0 8px 0; color:#dc3545; font-size:14px; font-weight:bold;">RETURNED ITEMS</h4>
-                            <table class="receipt-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Product</th>
-                                        <th style="text-align:center;">Qty</th>
-                                        <th style="text-align:center;">Price</th>
-                                        <th style="text-align:center;">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($selectedSale->returns as $index => $return)
-                                    <tr>
-                                        <td>{{ $index + 1 }}</td>
-                                        <td>{{ $return->product->name ?? 'N/A' }}</td>
-                                        <td class="text-end">{{ $return->quantity }}</td>
-                                        <td class="text-end">Rs.{{ number_format($return->unit_price, 2) }}</td>
-                                        <td class="text-end">Rs.{{ number_format($return->total_amount, 2) }}</td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                        @endif
 
                         @if($selectedSale->notes)
                         <!-- Notes Section -->

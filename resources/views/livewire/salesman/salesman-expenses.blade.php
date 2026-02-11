@@ -199,6 +199,7 @@
                                 <option value="Parking">Parking</option>
                                 <option value="Office Supplies">Office Supplies</option>
                                 <option value="Customer Entertainment">Customer Entertainment</option>
+                                <option value="Vehicle Maintenance">Vehicle Maintenance</option>
                                 <option value="Other">Other</option>
                             </select>
                             @error('expense_type')
