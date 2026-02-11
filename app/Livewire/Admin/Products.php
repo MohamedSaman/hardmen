@@ -910,8 +910,8 @@ class Products extends Component
             'editBarcode' => 'nullable|string|max:255|unique:product_details,barcode,' . $this->editId,
             'editStatus' => 'required|in:active,inactive',
             'editSupplierPrice' => 'required|numeric|min:0',
-            'editRetailPrice' => 'required|numeric|min:0|gte:editSupplierPrice',
-            'editWholesalePrice' => 'required|numeric|min:0|gte:editSupplierPrice',
+            'editRetailPrice' => 'required|numeric|min:0',
+            'editWholesalePrice' => 'required|numeric|min:0',
             'editDiscountPrice' => 'nullable|numeric|min:0|lte:editRetailPrice',
             'editDamageStock' => 'required|integer|min:0',
         ];
@@ -941,8 +941,8 @@ class Products extends Component
         if ($isVariantMode) {
             foreach ($this->variant_prices as $k => $vals) {
                 $rules["variant_prices.{$k}.supplier_price"] = 'required|numeric|min:0';
-                $rules["variant_prices.{$k}.retail_price"] = "required|numeric|min:0|gte:variant_prices.{$k}.supplier_price";
-                $rules["variant_prices.{$k}.wholesale_price"] = "required|numeric|min:0|gte:variant_prices.{$k}.supplier_price";
+                $rules["variant_prices.{$k}.retail_price"] = "required|numeric|min:0";
+                $rules["variant_prices.{$k}.wholesale_price"] = "required|numeric|min:0";
                 $rules["variant_prices.{$k}.distributor_price"] = 'nullable|numeric|min:0';
                 $rules["variant_prices.{$k}.stock"] = 'required|integer|min:0';
             }

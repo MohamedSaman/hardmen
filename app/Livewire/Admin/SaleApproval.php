@@ -68,10 +68,12 @@ class SaleApproval extends Component
     public function approveSale()
     {
         if (!$this->selectedSaleId) {
+            $this->showToast('error', 'No sale selected.');
             return;
         }
 
         if ($this->isProcessing) {
+            $this->showToast('warning', 'Request is already being processed. Please wait.');
             return;
         }
 
@@ -83,16 +85,24 @@ class SaleApproval extends Component
             $sale = Sale::with(['items', 'customer'])->find($this->selectedSaleId);
 
             if (!$sale) {
+                DB::rollBack();
                 $this->isProcessing = false;
-                $this->dispatch('show-toast', type: 'error', message: 'Sale not found.');
-                $this->closeApproveModal();
+                $this->showToast('error', 'Sale not found.');
                 return;
             }
 
             if ($sale->status !== 'pending') {
+                DB::rollBack();
                 $this->isProcessing = false;
-                $this->dispatch('show-toast', type: 'error', message: 'Sale is already processed.');
-                $this->closeApproveModal();
+                $this->showToast('error', 'Sale is already processed. Current status: ' . $sale->status);
+                return;
+            }
+
+            // Validate sale has items
+            if (empty($sale->items) || count($sale->items) === 0) {
+                DB::rollBack();
+                $this->isProcessing = false;
+                $this->showToast('error', 'Sale has no items. Cannot approve.');
                 return;
             }
 
@@ -113,12 +123,13 @@ class SaleApproval extends Component
                     if (!$isOldSale) {
                         DB::rollBack();
                         $this->isProcessing = false;
+                        $errorMsg = "Stock insufficient for {$item->product_name}: " . $e->getMessage();
                         Log::error("Stock deduction failed for product: {$item->product_name} (ID: {$item->product_id})", [
                             'error' => $e->getMessage(),
-                            'sale_id' => $sale->id
+                            'sale_id' => $sale->id,
+                            'quantity_needed' => $item->quantity
                         ]);
-                        $this->dispatch('show-toast', type: 'error', message: $e->getMessage());
-                        $this->closeApproveModal();
+                        $this->showToast('error', $errorMsg);
                         return;
                     }
                     // For old sales, log warning but continue
@@ -143,13 +154,20 @@ class SaleApproval extends Component
                 $sale->payment_status = 'pending';
             }
 
-            $sale->save();
+            if (!$sale->save()) {
+                throw new \Exception('Failed to save sale status update.');
+            }
 
             // Update customer due amount
             if ($sale->customer && $sale->due_amount > 0) {
-                $sale->customer->due_amount = ($sale->customer->due_amount ?? 0) + $sale->due_amount;
-                $sale->customer->total_due = ($sale->customer->opening_balance ?? 0) + $sale->customer->due_amount;
-                $sale->customer->save();
+                try {
+                    $sale->customer->due_amount = ($sale->customer->due_amount ?? 0) + $sale->due_amount;
+                    $sale->customer->total_due = ($sale->customer->opening_balance ?? 0) + $sale->customer->due_amount;
+                    $sale->customer->save();
+                } catch (\Exception $e) {
+                    Log::warning("Failed to update customer due amount for sale {$sale->id}: " . $e->getMessage());
+                    // Continue with approval anyway, customer update is secondary
+                }
             }
 
             DB::commit();
@@ -159,13 +177,24 @@ class SaleApproval extends Component
             $this->showDetailsModal = false;
             $this->selectedSaleId = null;
 
-            $this->dispatch('show-toast', type: 'success', message: 'Sale approved successfully!');
+            $this->showToast('success', 'Sale approved successfully! Stock has been updated.');
         } catch (\Exception $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             $this->isProcessing = false;
-            Log::error('Sale approval error: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
-            $this->dispatch('show-toast', type: 'error', message: 'Error approving sale: ' . $e->getMessage());
-            $this->closeApproveModal();
+
+            $errorMsg = $e->getMessage();
+            if (empty($errorMsg) || strlen($errorMsg) < 5) {
+                $errorMsg = 'An unexpected error occurred while approving the sale. Please try again.';
+            }
+
+            Log::error('Sale approval error for sale ID: ' . $this->selectedSaleId, [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            $this->showToast('error', $errorMsg);
         }
     }
 
@@ -202,6 +231,7 @@ class SaleApproval extends Component
     public function rejectSale()
     {
         if (!$this->selectedSaleId) {
+            $this->showToast('error', 'No sale selected.');
             return;
         }
 
@@ -212,24 +242,80 @@ class SaleApproval extends Component
         try {
             $sale = Sale::find($this->selectedSaleId);
             if (!$sale) {
-                $this->dispatch('show-toast', type: 'error', message: 'Sale not found.');
-                $this->closeRejectModal();
+                $this->showToast('error', 'Sale not found.');
                 return;
             }
 
-            $sale->update([
+            if ($sale->status !== 'pending') {
+                $this->showToast('error', 'Only pending sales can be rejected. Current status: ' . $sale->status);
+                return;
+            }
+
+            $result = $sale->update([
                 'status' => 'rejected',
                 'approved_by' => Auth::id(),
                 'approved_at' => now(),
                 'rejection_reason' => $this->rejectionReason,
             ]);
 
+            if (!$result) {
+                throw new \Exception('Failed to update sale status.');
+            }
+
             $this->closeRejectModal();
-            $this->dispatch('show-toast', type: 'success', message: 'Sale rejected successfully.');
+            $this->closeDetailsModal();
+            $this->showToast('success', 'Sale rejected successfully with reason recorded.');
         } catch (\Exception $e) {
-            Log::error('Sale rejection error: ' . $e->getMessage());
-            $this->dispatch('show-toast', type: 'error', message: 'Error rejecting sale.');
+            Log::error('Sale rejection error for sale ID: ' . $this->selectedSaleId, [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            $this->showToast('error', 'Error rejecting sale: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Show toast notification with custom styling
+     * 
+     * @param string $type - 'success', 'error', 'warning', 'info'
+     * @param string $message - The message to display
+     */
+    private function showToast($type, $message)
+    {
+        $bgColors = [
+            'success' => '#10b981',
+            'error' => '#ef4444',
+            'warning' => '#f59e0b',
+            'info' => '#3b82f6',
+        ];
+
+        $icons = [
+            'success' => '✓',
+            'error' => '✕',
+            'warning' => '⚠',
+            'info' => 'ℹ',
+        ];
+
+        $bg = $bgColors[$type] ?? $bgColors['info'];
+        $icon = $icons[$type] ?? $icons['info'];
+
+        $escapedMessage = addslashes($message);
+
+        $this->js("
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:{$bg};color:white;padding:16px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;font-size:14px;font-weight:600;display:flex;align-items:center;gap:12px;animation:slideIn 0.3s ease;min-width:300px;max-width:500px;';
+            toast.innerHTML = '<span style=\"font-size:20px;font-weight:bold;\">{$icon}</span><span>{$escapedMessage}</span>';
+            document.body.appendChild(toast);
+            
+            const style = document.createElement('style');
+            style.textContent = '@keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } } @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }';
+            document.head.appendChild(style);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        ");
     }
 
     public function render()

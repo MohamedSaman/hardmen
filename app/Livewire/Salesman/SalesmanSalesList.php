@@ -81,19 +81,19 @@ class SalesmanSalesList extends Component
         $sale = Sale::with(['items', 'customer'])->find($saleId);
 
         if (!$sale) {
-            $this->dispatch('show-toast', type: 'error', message: 'Sale not found.');
+            $this->showToast('error', 'Sale not found.');
             return;
         }
 
         // Only allow editing of pending sales
         if ($sale->status !== 'pending') {
-            $this->dispatch('show-toast', type: 'error', message: 'Only pending sales can be edited.');
+            $this->showToast('error', 'Only pending sales can be edited.');
             return;
         }
 
         // Only allow editing own sales
         if ($sale->user_id !== Auth::id()) {
-            $this->dispatch('show-toast', type: 'error', message: 'You can only edit your own sales.');
+            $this->showToast('error', 'You can only edit your own sales.');
             return;
         }
 
@@ -112,16 +112,45 @@ class SalesmanSalesList extends Component
             $this->editDiscount = $sale->discount_amount ?? 0;
         }
 
-        // Prepare edit items
+        // Prepare edit items with available stock info
         $this->editItems = [];
         foreach ($sale->items as $item) {
+            // Calculate available stock for this product (excluding this sale's pending qty)
+            $stockRecord = ProductStock::where('product_id', $item->product_id)
+                ->when($item->variant_value, function ($q) use ($item) {
+                    return $q->where('variant_value', $item->variant_value);
+                }, function ($q) {
+                    return $q->where(function ($sq) {
+                        $sq->whereNull('variant_value')
+                            ->orWhere('variant_value', '')
+                            ->orWhere('variant_value', 'null');
+                    })->whereNull('variant_id');
+                })
+                ->first();
+
+            $rawAvailable = $stockRecord ? ($stockRecord->available_stock ?? 0) : 0;
+
+            // Subtract OTHER pending sales' quantities
+            $otherPending = SaleItem::whereHas('sale', function ($q) use ($sale) {
+                $q->where('status', 'pending')->where('id', '!=', $sale->id);
+            })
+                ->where('product_id', $item->product_id)
+                ->when($item->variant_value, function ($q) use ($item) {
+                    return $q->where('variant_value', $item->variant_value);
+                })
+                ->sum('quantity');
+
+            $availableStock = max(0, $rawAvailable - $otherPending);
+
             $this->editItems[] = [
                 'id' => $item->id,
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
                 'quantity' => $item->quantity,
+                'original_qty' => $item->quantity,
                 'unit_price' => $item->unit_price,
                 'discount' => $item->discount_per_unit ?? 0,
+                'available' => $availableStock,
             ];
         }
 
@@ -141,7 +170,15 @@ class SalesmanSalesList extends Component
     public function updateEditItemQuantity($index, $quantity)
     {
         if (isset($this->editItems[$index])) {
-            $this->editItems[$index]['quantity'] = max(1, (int)$quantity);
+            $newQty = max(1, (int)$quantity);
+            $available = $this->editItems[$index]['available'] ?? 999;
+
+            if ($newQty > $available) {
+                $this->showToast('error', 'Not enough stock! Available: ' . $available);
+                return;
+            }
+
+            $this->editItems[$index]['quantity'] = $newQty;
         }
     }
 
@@ -151,7 +188,7 @@ class SalesmanSalesList extends Component
             unset($this->editItems[$index]);
             $this->editItems = array_values($this->editItems);
         } else {
-            $this->dispatch('show-toast', type: 'error', message: 'Sale must have at least one item.');
+            $this->showToast('error', 'Sale must have at least one item.');
         }
     }
 
@@ -182,7 +219,7 @@ class SalesmanSalesList extends Component
     public function saveEditedSale()
     {
         if (!$this->editingSale || $this->editingSale->status !== 'pending') {
-            $this->dispatch('show-toast', type: 'error', message: 'Cannot update this sale.');
+            $this->showToast('error', 'Cannot update this sale.');
             return;
         }
 
@@ -231,11 +268,11 @@ class SalesmanSalesList extends Component
             DB::commit();
 
             $this->closeEditModal();
-            $this->dispatch('show-toast', type: 'success', message: 'Sale updated successfully.');
+            $this->showToast('success', 'Sale updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Sale edit error: ' . $e->getMessage());
-            $this->dispatch('show-toast', type: 'error', message: 'Error updating sale.');
+            $this->showToast('error', 'Error updating sale.');
         }
     }
 
@@ -245,13 +282,13 @@ class SalesmanSalesList extends Component
         $sale = Sale::with(['items.product', 'customer'])->find($saleId);
 
         if (!$sale) {
-            $this->dispatch('show-toast', type: 'error', message: 'Sale not found.');
+            $this->showToast('error', 'Sale not found.');
             return;
         }
 
         // Only allow returns on approved/confirmed sales
         if ($sale->status !== 'confirm') {
-            $this->dispatch('show-toast', type: 'error', message: 'Returns can only be made on approved sales.');
+            $this->showToast('error', 'Returns can only be made on approved sales.');
             return;
         }
 
@@ -272,6 +309,8 @@ class SalesmanSalesList extends Component
                 'item_id' => $item->id,
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
+                'variant_id' => $item->variant_id ?? null,
+                'variant_value' => $item->variant_value ?? null,
                 'original_qty' => $item->quantity,
                 'returned_qty' => $returnedQty,
                 'available_qty' => $availableQty,
@@ -323,7 +362,7 @@ class SalesmanSalesList extends Component
         }
 
         if (!$hasReturns) {
-            $this->dispatch('show-toast', type: 'error', message: 'Please select at least one item to return.');
+            $this->showToast('error', 'Please select at least one item to return.');
             return;
         }
 
@@ -341,6 +380,8 @@ class SalesmanSalesList extends Component
                     ReturnsProduct::create([
                         'sale_id' => $this->selectedSale->id,
                         'product_id' => $item['product_id'],
+                        'variant_id' => $item['variant_id'] ?? null,
+                        'variant_value' => $item['variant_value'] ?? null,
                         'return_quantity' => $item['return_qty'],
                         'selling_price' => $item['unit_price'],
                         'total_amount' => $returnAmount,
@@ -358,12 +399,37 @@ class SalesmanSalesList extends Component
                 }
             }
 
-            // Update sale amounts
-            $newTotal = $this->selectedSale->total_amount - $totalReturnAmount;
-            $newDue = $this->selectedSale->due_amount - $totalReturnAmount;
-            if ($newDue < 0) $newDue = 0;
+            // ✅ Correct calculation: Recalculate with discount percentage
+            // Step 1: Get current subtotal from all sale items
+            $currentSubtotal = SaleItem::where('sale_id', $this->selectedSale->id)
+                ->get()
+                ->sum(function ($item) {
+                    return ($item->unit_price * $item->quantity) - ($item->discount_per_unit * $item->quantity);
+                });
+
+            // Step 2: Subtract return amount from subtotal
+            $newSubtotal = $currentSubtotal - $totalReturnAmount;
+
+            // Step 3: Recalculate discount based on sale's additional discount settings
+            $discountAmount = 0;
+            if ($this->selectedSale->additional_discount_type === 'percentage' && $this->selectedSale->additional_discount_percentage > 0) {
+                $discountAmount = ($newSubtotal * $this->selectedSale->additional_discount_percentage) / 100;
+            } elseif ($this->selectedSale->additional_discount_type === 'fixed') {
+                // For fixed discount, keep it as is (but don't exceed new subtotal)
+                $discountAmount = min($this->selectedSale->discount_amount ?? 0, $newSubtotal);
+            }
+
+            // Step 4: Calculate new total
+            $newTotal = $newSubtotal - $discountAmount;
+
+            // Step 5: Update due amount proportionally
+            $previousTotal = $this->selectedSale->total_amount;
+            $totalReduction = $previousTotal - $newTotal;
+            $newDue = max(0, $this->selectedSale->due_amount - $totalReduction);
 
             $this->selectedSale->update([
+                'subtotal' => $newSubtotal,
+                'discount_amount' => $discountAmount,
                 'total_amount' => $newTotal,
                 'due_amount' => $newDue,
             ]);
@@ -371,11 +437,11 @@ class SalesmanSalesList extends Component
             DB::commit();
 
             $this->closeReturnModal();
-            $this->dispatch('show-toast', type: 'success', message: 'Return processed successfully.');
+            $this->showToast('success', 'Return processed successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Return processing error: ' . $e->getMessage());
-            $this->dispatch('show-toast', type: 'error', message: 'Error processing return.');
+            $this->showToast('error', 'Error processing return.');
         }
     }
 
@@ -406,5 +472,49 @@ class SalesmanSalesList extends Component
             'approvedCount' => Sale::where('user_id', Auth::id())->where('status', 'confirm')->count(),
             'rejectedCount' => Sale::where('user_id', Auth::id())->where('status', 'rejected')->count(),
         ]);
+    }
+
+    /**
+     * Show toast notification with custom styling
+     * 
+     * @param string $type - 'success', 'error', 'warning', 'info'
+     * @param string $message - The message to display
+     */
+    private function showToast($type, $message)
+    {
+        $bgColors = [
+            'success' => '#10b981',
+            'error' => '#ef4444',
+            'warning' => '#f59e0b',
+            'info' => '#3b82f6',
+        ];
+
+        $icons = [
+            'success' => '✓',
+            'error' => '✕',
+            'warning' => '⚠',
+            'info' => 'ℹ',
+        ];
+
+        $bg = $bgColors[$type] ?? $bgColors['info'];
+        $icon = $icons[$type] ?? $icons['info'];
+
+        $escapedMessage = addslashes($message);
+
+        $this->js("
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:{$bg};color:white;padding:16px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;font-size:14px;font-weight:600;display:flex;align-items:center;gap:12px;animation:slideIn 0.3s ease;min-width:300px;max-width:500px;';
+            toast.innerHTML = '<span style=\"font-size:20px;font-weight:bold;\">{$icon}</span><span>{$escapedMessage}</span>';
+            document.body.appendChild(toast);
+            
+            const style = document.createElement('style');
+            style.textContent = '@keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } } @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }';
+            document.head.appendChild(style);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        ");
     }
 }

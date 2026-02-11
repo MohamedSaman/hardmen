@@ -325,12 +325,18 @@
                             <tbody>
                                 @foreach($editItems as $index => $item)
                                 <tr>
-                                    <td>{{ $item['product_name'] }}</td>
+                                    <td>
+                                        {{ $item['product_name'] }}
+                                        @if(isset($item['available']))
+                                            <small class="text-success d-block">Available: {{ $item['available'] }}</small>
+                                        @endif
+                                    </td>
                                     <td class="text-center">
                                         <input type="number" 
                                                wire:change="updateEditItemQuantity({{ $index }}, $event.target.value)"
                                                value="{{ $item['quantity'] }}"
                                                min="1"
+                                               max="{{ $item['available'] ?? 999 }}"
                                                class="form-control form-control-sm text-center">
                                     </td>
                                     <td class="text-end">Rs. {{ number_format($item['unit_price'], 2) }}</td>

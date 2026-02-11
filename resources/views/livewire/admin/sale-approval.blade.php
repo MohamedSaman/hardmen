@@ -307,9 +307,15 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" wire:click="closeRejectModal">Cancel</button>
-                    <button wire:click="rejectSale" class="btn btn-danger">
-                        <i class="bi bi-x-circle me-2"></i>Reject Sale
+                    <button type="button" class="btn btn-secondary" wire:click="closeRejectModal" wire:loading.attr="disabled" wire:target="rejectSale">Cancel</button>
+                    <button type="button" wire:click="rejectSale" class="btn btn-danger" wire:loading.attr="disabled" wire:target="rejectSale" wire:loading.class="opacity-50">
+                        <span wire:loading.remove wire:target="rejectSale">
+                            <i class="bi bi-x-circle me-2"></i>Reject Sale
+                        </span>
+                        <span wire:loading wire:target="rejectSale">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Processing...
+                        </span>
                     </button>
                 </div>
             </div>
@@ -339,8 +345,8 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" wire:click="closeApproveModal" wire:loading.attr="disabled">Cancel</button>
-                    <button wire:click="approveSale" class="btn btn-success" wire:loading.attr="disabled" wire:loading.class="opacity-50">
+                    <button type="button" class="btn btn-secondary" wire:click="closeApproveModal" wire:loading.attr="disabled" wire:target="approveSale">Cancel</button>
+                    <button type="button" wire:click="approveSale" class="btn btn-success" wire:loading.attr="disabled" wire:target="approveSale" wire:loading.class="opacity-50">
                         <span wire:loading.remove wire:target="approveSale">
                             <i class="bi bi-check-circle me-2"></i>Confirm Approval
                         </span>

@@ -11,6 +11,8 @@ class ReturnsProduct extends Model
     protected $fillable = [
         'sale_id',
         'product_id',
+        'variant_id',
+        'variant_value',
         'return_quantity',
         'selling_price',
         'total_amount',

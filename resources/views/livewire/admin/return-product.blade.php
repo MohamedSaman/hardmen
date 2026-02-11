@@ -105,7 +105,7 @@
                     @if($selectedCustomer && count($customerInvoices) > 0)
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
-                            <thead class="table-light">
+                            <thead class="table">
                                 <tr>
                                     <th class="ps-4">Invoice #</th>
                                     <th>Date</th>
@@ -165,7 +165,7 @@
                 <div class="card-body overflow-auto">
                     <div class="table-responsive">
                         <table class="table table-bordered align-middle mb-0">
-                            <thead class="table-light">
+                            <thead class="table">
                                 <tr>
                                     <th>Product</th>
                                     <th>Total Returned</th>
@@ -211,20 +211,14 @@
                             <h5 class="fw-bold mb-0">
                                 <i class="bi bi-receipt text-info me-2"></i> Invoice #{{ $selectedInvoice->invoice_number }} Items
                             </h5>
-                            <p class="text-muted small mb-0">Select return quantity for each item below</p>
+                            <p class="text-muted small mb-0">Select return quantity for each item. Discount will be recalculated automatically after return.</p>
                         </div>
-                        @if($overallDiscountPerItem > 0)
-                        <div class="text-end">
-                            <span class="badge bg-success">Overall Discount Applied</span>
-                            <p class="small text-muted mb-0">Rs.{{ number_format($overallDiscountPerItem, 2) }} per item</p>
-                        </div>
-                        @endif
                     </div>
                 </div>
                 <div class="card-body overflow-auto">
                     <div class="table-responsive">
                         <table class="table table-bordered align-middle mb-0">
-                            <thead class="table-light">
+                            <thead class="table">
                                 <tr>
                                     <th>Product</th>
                                     <th>Code</th>
@@ -232,10 +226,7 @@
                                     <th>Returned</th>
                                     <th>Available</th>
                                     <th>Return Qty</th>
-                                    <th>Unit Price</th>
-                                    <th>Unit Disc.</th>
-                                    <th>Overall Disc.</th>
-                                    <th>Net Price</th>
+                                    <th>Selling Price</th>
                                     <th>Total</th>
                                 </tr>
                             </thead>
@@ -258,37 +249,12 @@
                                     <td>
                                         <input type="number" class="form-control form-control-sm" style="width: 80px;" 
                                             min="0" max="{{ $item['max_qty'] }}"
-                                            wire:model.lazy="returnItems.{{ $index }}.return_qty"
+                                            wire:model.live="returnItems.{{ $index }}.return_qty"
                                             @if($item['max_qty'] == 0) disabled @endif>
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.product_id" value="{{ $item['product_id'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.name" value="{{ $item['name'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.unit_price" value="{{ $item['unit_price'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.discount_per_unit" value="{{ $item['discount_per_unit'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.overall_discount_per_unit" value="{{ $item['overall_discount_per_unit'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.total_discount_per_unit" value="{{ $item['total_discount_per_unit'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.net_unit_price" value="{{ $item['net_unit_price'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.max_qty" value="{{ $item['max_qty'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.original_qty" value="{{ $item['original_qty'] }}">
-                                        <input type="hidden" wire:model="returnItems.{{ $index }}.already_returned" value="{{ $item['already_returned'] }}">
                                     </td>
-                                    <td>Rs.{{ number_format($item['unit_price'], 2) }}</td>
-                                    <td>
-                                        @if($item['discount_per_unit'] > 0)
-                                        <span class="text-danger">-Rs.{{ number_format($item['discount_per_unit'], 2) }}</span>
-                                        @else
-                                        <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($item['overall_discount_per_unit'] > 0)
-                                        <span class="text-danger">-Rs.{{ number_format($item['overall_discount_per_unit'], 2) }}</span>
-                                        @else
-                                        <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                    <td class="fw-bold">Rs.{{ number_format($item['net_unit_price'], 2) }}</td>
+                                    <td class="fw-bold">Rs.{{ number_format($item['selling_price'], 2) }}</td>
                                     <td class="fw-bold text-success">
-                                        Rs.{{ number_format($item['return_qty'] * $item['net_unit_price'], 2) }}
+                                        Rs.{{ number_format($item['return_qty'] * $item['selling_price'], 2) }}
                                     </td>
                                 </tr>
                                 @endforeach
@@ -334,11 +300,11 @@
                     <h6 class="fw-bold mb-3">Return Items Summary</h6>
                     <div class="table-responsive">
                         <table class="table table-bordered">
-                            <thead class="table-light">
+                            <thead class="table">
                                 <tr>
                                     <th>Product</th>
                                     <th>Return Qty</th>
-                                    <th>Net Unit Price</th>
+                                    <th>Selling Price</th>
                                     <th>Total</th>
                                 </tr>
                             </thead>
@@ -346,20 +312,15 @@
                                 @foreach($returnItems as $item)
                                 @if($item['return_qty'] > 0)
                                 <tr>
-                                    <td>
-                                        {{ $item['name'] }}
-                                        @if($item['total_discount_per_unit'] > 0)
-                                        <br><small class="text-muted">(Discounts applied: Rs.{{ number_format($item['overall_discount_per_unit'], 2) }}/unit)</small>
-                                        @endif
-                                    </td>
+                                    <td>{{ $item['name'] }}</td>
                                     <td>{{ $item['return_qty'] }}</td>
-                                    <td>Rs.{{ number_format($item['net_unit_price'], 2) }}</td>
-                                    <td class="fw-bold">Rs.{{ number_format($item['return_qty'] * $item['net_unit_price'], 2) }}</td>
+                                    <td>Rs.{{ number_format($item['selling_price'], 2) }}</td>
+                                    <td class="fw-bold">Rs.{{ number_format($item['return_qty'] * $item['selling_price'], 2) }}</td>
                                 </tr>
                                 @endif
                                 @endforeach
                             </tbody>
-                            <tfoot class="table-light">
+                            <tfoot class="table">
                                 <tr>
                                     <td colspan="3" class="text-end fw-bold">Total Return Amount:</td>
                                     <td class="fw-bold text-success">Rs.{{ number_format($totalReturnValue, 2) }}</td>
@@ -405,7 +366,7 @@
                     <h6 class="fw-bold mb-3">Invoice Items</h6>
                     <div class="table-responsive">
                         <table class="table table-bordered">
-                            <thead class="table-light">
+                            <thead class="table">
                                 <tr>
                                     <th>Product</th>
                                     <th>Code</th>
@@ -479,7 +440,7 @@
     .table th {
         border-top: none;
         font-weight: 600;
-        color: #ffff;
+        color: #000;
         font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -509,6 +470,9 @@
 
     .border-warning {
         border-width: 2px !important;
+    }
+    .table{
+        color:black !important;
     }
 </style>
 @endpush

@@ -243,10 +243,39 @@ class StaffSalesList extends Component
                     }
                 }
 
-                // Update sale amounts
+                // ✅ Correct calculation: Recalculate with discount percentage
+                // Step 1: Get current subtotal from all sale items
+                $currentSubtotal = SaleItem::where('sale_id', $this->selectedSale->id)
+                    ->get()
+                    ->sum(function ($item) {
+                        return ($item->unit_price * $item->quantity) - ($item->discount_per_unit * $item->quantity);
+                    });
+
+                // Step 2: Subtract return amount from subtotal
+                $newSubtotal = $currentSubtotal - $this->totalReturnValue;
+
+                // Step 3: Recalculate discount based on sale's additional discount settings
+                $discountAmount = 0;
+                if ($this->selectedSale->additional_discount_type === 'percentage' && $this->selectedSale->additional_discount_percentage > 0) {
+                    $discountAmount = ($newSubtotal * $this->selectedSale->additional_discount_percentage) / 100;
+                } elseif ($this->selectedSale->additional_discount_type === 'fixed') {
+                    // For fixed discount, keep it as is (but don't exceed new subtotal)
+                    $discountAmount = min($this->selectedSale->discount_amount ?? 0, $newSubtotal);
+                }
+
+                // Step 4: Calculate new total
+                $newTotal = $newSubtotal - $discountAmount;
+
+                // Step 5: Update due amount proportionally
+                $previousTotal = $this->selectedSale->total_amount;
+                $totalReduction = $previousTotal - $newTotal;
+                $newDue = max(0, $this->selectedSale->due_amount - $totalReduction);
+
                 $this->selectedSale->update([
-                    'total_amount' => $this->selectedSale->total_amount - $this->totalReturnValue,
-                    'due_amount' => max(0, $this->selectedSale->due_amount - $this->totalReturnValue),
+                    'subtotal' => $newSubtotal,
+                    'discount_amount' => $discountAmount,
+                    'total_amount' => $newTotal,
+                    'due_amount' => $newDue,
                 ]);
 
                 $this->showReturnModal = false;

@@ -119,25 +119,40 @@ class SalesmanBilling extends Component
                 $this->additionalDiscount = $sale->discount_amount ?? 0;
             }
 
-            // Load cart items from sale items
+            // Load cart items from sale items with actual stock
             $this->cart = [];
             foreach ($sale->items as $item) {
                 $cartKey = $item->product_id . ($item->variant_value ? '_' . $item->variant_value : '');
+
+                // Calculate actual available stock for this product
+                $actualAvailable = $this->getActualAvailableForEdit(
+                    $item->product_id,
+                    $item->variant_id ?? null,
+                    $item->variant_value ?? null
+                );
+
+                // Build display name with variant if exists
+                $displayName = $item->product_name;
+                if ($item->variant_value && $item->variant_value !== '' && $item->variant_value !== 'null') {
+                    $displayName .= ' (' . $item->variant_value . ')';
+                }
+
                 $this->cart[] = [
                     'cart_key' => $cartKey,
                     'id' => $item->product_id,
                     'variant_id' => $item->variant_id ?? null,
                     'variant_value' => $item->variant_value ?? null,
-                    'name' => $item->product_name,
+                    'name' => $displayName,
                     'code' => $item->product_code,
                     'price' => $item->unit_price,
                     'distributor_price' => $item->unit_price,
                     'quantity' => $item->quantity,
                     'discount' => $item->discount_per_unit,
                     'total' => $item->total,
-                    'available' => 999, // Doesn't matter for edit mode
+                    'available' => $actualAvailable,
                     'image' => '',
                     'is_variant' => $item->variant_id ? true : false,
+                    'original_qty' => $item->quantity, // Track original qty for stock validation
                 ];
             }
 
@@ -151,6 +166,7 @@ class SalesmanBilling extends Component
     /**
      * Calculate available stock considering pending sales
      * Actual stock - Pending order quantities = Available to sell
+     * When editing, excludes the current sale's quantities from pending calculation
      */
     private function getAvailableStock($productId, $variantValue = null)
     {
@@ -158,14 +174,65 @@ class SalesmanBilling extends Component
         $actualAvailable = $stockInfo['available'] ?? 0;
 
         // Get pending quantity from pending sales for this product
-        $pendingQuantity = SaleItem::whereHas('sale', function ($q) {
-            $q->where('status', 'pending'); // Only pending sales (awaiting approval)
-        })
-            ->where('product_id', $productId)
-            ->sum('quantity');
+        $pendingQuery = SaleItem::whereHas('sale', function ($q) {
+            $q->where('status', 'pending');
+        })->where('product_id', $productId);
 
-        // Return: actual stock minus pending orders
+        if ($variantValue) {
+            $pendingQuery->where('variant_value', $variantValue);
+        }
+
+        // Exclude current editing sale's items from pending count
+        if ($this->editMode && $this->editingSaleId) {
+            $pendingQuery->where('sale_id', '!=', $this->editingSaleId);
+        }
+
+        $pendingQuantity = $pendingQuery->sum('quantity');
+
+        // Return: actual stock minus pending orders (other sales)
         return max(0, $actualAvailable - $pendingQuantity);
+    }
+
+    /**
+     * Get actual available stock for edit mode
+     * Returns actual stock - other pending sales (excludes current sale)
+     */
+    private function getActualAvailableForEdit($productId, $variantId = null, $variantValue = null)
+    {
+        // Get raw stock from ProductStock
+        $stockQuery = ProductStock::where('product_id', $productId);
+
+        if ($variantValue) {
+            $stockQuery->where('variant_value', $variantValue);
+        } elseif ($variantId) {
+            $stockQuery->where('variant_id', $variantId);
+        } else {
+            $stockQuery->where(function ($q) {
+                $q->whereNull('variant_value')
+                    ->orWhere('variant_value', '')
+                    ->orWhere('variant_value', 'null');
+            })->whereNull('variant_id');
+        }
+
+        $stockRecord = $stockQuery->first();
+        $rawAvailable = $stockRecord ? ($stockRecord->available_stock ?? 0) : 0;
+
+        // Subtract pending quantities from OTHER sales only
+        $otherPendingQuery = SaleItem::whereHas('sale', function ($q) {
+            $q->where('status', 'pending');
+        })->where('product_id', $productId);
+
+        if ($variantValue) {
+            $otherPendingQuery->where('variant_value', $variantValue);
+        }
+
+        if ($this->editingSaleId) {
+            $otherPendingQuery->where('sale_id', '!=', $this->editingSaleId);
+        }
+
+        $otherPending = $otherPendingQuery->sum('quantity');
+
+        return max(0, $rawAvailable - $otherPending);
     }
 
     public function updatedSearch()
@@ -274,8 +341,13 @@ class SalesmanBilling extends Component
 
                             if ($variantPrice && $variantStock) {
                                 // Get pending quantity for this specific variant
-                                $pendingQuantity = SaleItem::whereHas('sale', function ($q) {
+                                $editingSaleId = $this->editingSaleId;
+                                $pendingQuantity = SaleItem::whereHas('sale', function ($q) use ($editingSaleId) {
                                     $q->where('status', 'pending');
+                                    // Exclude current editing sale from pending count
+                                    if ($editingSaleId) {
+                                        $q->where('id', '!=', $editingSaleId);
+                                    }
                                 })
                                     ->where('product_id', $product->id)
                                     ->where('variant_value', $variantValue)
@@ -365,8 +437,13 @@ class SalesmanBilling extends Component
                         $availableStockRaw = $productStock->available_stock ?? 0;
 
                         // Get pending quantity for this product (all variants combined if any)
-                        $pendingQuantity = SaleItem::whereHas('sale', function ($q) {
+                        $editingSaleId = $this->editingSaleId;
+                        $pendingQuantity = SaleItem::whereHas('sale', function ($q) use ($editingSaleId) {
                             $q->where('status', 'pending');
+                            // Exclude current editing sale from pending count
+                            if ($editingSaleId) {
+                                $q->where('id', '!=', $editingSaleId);
+                            }
                         })
                             ->where('product_id', $product->id)
                             ->sum('quantity');
@@ -664,14 +741,29 @@ class SalesmanBilling extends Component
         $variantId = $item['variant_id'] ?? null;
         $variantValue = $item['variant_value'] ?? null;
 
+        // Stock validation: check if quantity exceeds available stock
+        $availableStock = $item['available'];
+        if ($quantity > $availableStock) {
+            session()->flash('error', 'Exceeds available stock! Maximum: ' . $availableStock);
+            return;
+        }
+
         // Get batch price breakdown for the requested quantity
-        $priceBreakdown = FIFOStockService::getBatchPriceBreakdown(
-            $productId,
-            $quantity,
-            'distributor_price',
-            $variantId,
-            $variantValue
-        );
+        $priceBreakdown = [];
+        try {
+            $priceBreakdown = FIFOStockService::getBatchPriceBreakdown(
+                $productId,
+                $quantity,
+                'distributor_price',
+                $variantId,
+                $variantValue
+            );
+        } catch (\Exception $e) {
+            Log::warning('getBatchPriceBreakdown failed, updating quantity directly', [
+                'product_id' => $productId,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // If multiple batches with different prices are needed, split into separate cart entries
         if (count($priceBreakdown) > 1) {
@@ -698,13 +790,13 @@ class SalesmanBilling extends Component
                     $this->cart[$existingBatchIndex]['quantity'] += $batchInfo['quantity'];
                     $this->cart[$existingBatchIndex]['total'] = ($this->cart[$existingBatchIndex]['price'] - $this->cart[$existingBatchIndex]['discount']) * $this->cart[$existingBatchIndex]['quantity'];
                 } else {
-                    // Add new batch entry
+                    // Add new batch entry (without batch number in name)
                     array_unshift($this->cart, [
                         'cart_key' => $batchCartKey,
                         'id' => $productId,
                         'variant_id' => $variantId,
                         'variant_value' => $variantValue,
-                        'name' => $item['name'] . ' (Batch: ' . $batchInfo['batch_number'] . ')',
+                        'name' => $item['name'],
                         'code' => $item['code'],
                         'price' => $batchInfo['price'],
                         'distributor_price' => $batchInfo['price'],
@@ -721,12 +813,7 @@ class SalesmanBilling extends Component
 
             session()->flash('info', 'Product split by batch prices');
         } else {
-            // Single batch, update normally
-            if ($quantity > $this->cart[$index]['available']) {
-                session()->flash('error', 'Exceeds available stock!');
-                return;
-            }
-
+            // Single batch or no batch info, update normally
             $this->cart[$index]['quantity'] = $quantity;
             $this->cart[$index]['total'] = ($this->cart[$index]['price'] - $this->cart[$index]['discount']) * $quantity;
         }

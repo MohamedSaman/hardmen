@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\Customer;
 use App\Models\ProductDetail;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\ProductStock;
 use App\Models\ReturnsProduct;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,6 @@ class ReturnProduct extends Component
     public $invoiceProducts = [];
     public $returnItems = [];
     public $totalReturnValue = 0;
-    public $overallDiscountPerItem = 0;
 
     public $showInvoiceModal = false;
     public $invoiceModalData = null;
@@ -103,9 +103,6 @@ class ReturnProduct extends Component
         }
 
         if ($this->selectedInvoice) {
-            // Calculate overall discount per item
-            $this->calculateOverallDiscountPerItem();
-
             // Load previous returns for this invoice
             $this->loadPreviousReturns();
 
@@ -115,26 +112,14 @@ class ReturnProduct extends Component
                 $remainingQty = $item->quantity - $alreadyReturned;
 
                 if ($remainingQty > 0) {
-                    // Apply unit discount first
-                    $unitDiscount = $item->discount_per_unit ?? 0;
-
-                    // Apply proportional overall discount per item
-                    $proportionalOverallDiscount = $this->overallDiscountPerItem;
-
-                    // Total discount per unit is unit discount + proportional overall discount
-                    $totalDiscountPerUnit = $unitDiscount + $proportionalOverallDiscount;
-
-                    // Net price after all discounts
-                    $netUnitPrice = $item->unit_price - $totalDiscountPerUnit;
+                    // Use the selling price directly from sale_items
+                    // Discount will be recalculated after subtotal adjustment
+                    $sellingPrice = $item->unit_price;
 
                     $this->returnItems[] = [
                         'product_id' => $item->product->id,
                         'name' => $item->product->name,
-                        'unit_price' => $item->unit_price,
-                        'discount_per_unit' => $unitDiscount,
-                        'overall_discount_per_unit' => $proportionalOverallDiscount,
-                        'total_discount_per_unit' => $totalDiscountPerUnit,
-                        'net_unit_price' => $netUnitPrice,
+                        'selling_price' => $sellingPrice,
                         'original_qty' => $item->quantity,
                         'already_returned' => $alreadyReturned,
                         'max_qty' => $remainingQty,
@@ -150,30 +135,7 @@ class ReturnProduct extends Component
         $this->searchCustomer = '';
     }
 
-    /** 📊 Calculate Overall Discount Per Item */
-    private function calculateOverallDiscountPerItem()
-    {
-        if (!$this->selectedInvoice) {
-            $this->overallDiscountPerItem = 0;
-            return;
-        }
-
-        $totalQuantity = $this->selectedInvoice->items->sum('quantity');
-        $totalDiscountAmount = $this->selectedInvoice->discount_amount ?? 0;
-
-        // Calculate total unit discounts from all sale items
-        $totalUnitDiscounts = $this->selectedInvoice->items->sum(function ($item) {
-            return ($item->discount_per_unit ?? 0) * $item->quantity;
-        });
-
-        // Calculate remaining overall discount after unit discounts
-        $remainingOverallDiscount = $totalDiscountAmount - $totalUnitDiscounts;
-
-        // Distribute remaining overall discount per item
-        $this->overallDiscountPerItem = $totalQuantity > 0 ? ($remainingOverallDiscount / $totalQuantity) : 0;
-    }
-
-    /** 📜 Load Previous Returns */
+    /**  Load Previous Returns */
     private function loadPreviousReturns()
     {
         if (!$this->selectedInvoice) {
@@ -325,7 +287,7 @@ class ReturnProduct extends Component
     private function calculateTotalReturnValue()
     {
         $this->totalReturnValue = collect($this->returnItems)->sum(
-            fn($item) => $item['return_qty'] * $item['net_unit_price']
+            fn($item) => $item['return_qty'] * $item['selling_price']
         );
     }
 
@@ -383,14 +345,16 @@ class ReturnProduct extends Component
             $totalReturnAmount = 0;
 
             foreach ($itemsToReturn as $item) {
-                $returnAmount = $item['return_qty'] * $item['net_unit_price'];
+                $returnAmount = $item['return_qty'] * $item['selling_price'];
                 $totalReturnAmount += $returnAmount;
 
                 ReturnsProduct::create([
                     'sale_id' => $this->selectedInvoice->id,
                     'product_id' => $item['product_id'],
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'variant_value' => $item['variant_value'] ?? null,
                     'return_quantity' => $item['return_qty'],
-                    'selling_price' => $item['net_unit_price'],
+                    'selling_price' => $item['selling_price'],
                     'total_amount' => $returnAmount,
                     'notes' => 'Customer return processed via system',
                 ]);
@@ -403,11 +367,53 @@ class ReturnProduct extends Component
                 );
             }
 
+            // ✅ Correct calculation: Recalculate sale totals with discount percentage
+            if ($this->selectedInvoice && $totalReturnAmount > 0) {
+                // Step 1: Get current subtotal from all sale items
+                $currentSubtotal = SaleItem::where('sale_id', $this->selectedInvoice->id)
+                    ->get()
+                    ->sum(function ($item) {
+                        return ($item->unit_price * $item->quantity) - ($item->discount_per_unit * $item->quantity);
+                    });
+
+                // Step 2: Subtract return amount from subtotal
+                $newSubtotal = $currentSubtotal - $totalReturnAmount;
+
+                // Step 3: Recalculate discount based on sale's additional discount settings
+                $discountAmount = 0;
+                if ($this->selectedInvoice->additional_discount_type === 'percentage' && $this->selectedInvoice->additional_discount_percentage > 0) {
+                    $discountAmount = ($newSubtotal * $this->selectedInvoice->additional_discount_percentage) / 100;
+                } elseif ($this->selectedInvoice->additional_discount_type === 'fixed') {
+                    // For fixed discount, keep it as is (but don't exceed new subtotal)
+                    $discountAmount = min($this->selectedInvoice->discount_amount ?? 0, $newSubtotal);
+                }
+
+                // Step 4: Calculate new total
+                $newTotal = $newSubtotal - $discountAmount;
+
+                // Step 5: Update due amount proportionally
+                $previousTotal = $this->selectedInvoice->total_amount;
+                $totalReduction = $previousTotal - $newTotal;
+                $newDue = max(0, $this->selectedInvoice->due_amount - $totalReduction);
+
+                $this->selectedInvoice->update([
+                    'subtotal' => $newSubtotal,
+                    'discount_amount' => $discountAmount,
+                    'total_amount' => $newTotal,
+                    'due_amount' => $newDue,
+                ]);
+            }
+
             // Fix #4: Restore customer balance after return
             if ($this->selectedCustomer && $totalReturnAmount > 0) {
+                // Calculate the actual reduction in total (not just return amount)
+                $actualReduction = $this->selectedInvoice ?
+                    ($this->selectedInvoice->getOriginal('total_amount') - $this->selectedInvoice->total_amount) :
+                    $totalReturnAmount;
+
                 $customer = Customer::find($this->selectedCustomer->id);
                 if ($customer) {
-                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $totalReturnAmount);
+                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $actualReduction);
                     $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
                     $customer->save();
                 }
@@ -485,7 +491,6 @@ class ReturnProduct extends Component
         $this->availableProducts = [];
         $this->invoiceProductsForSearch = [];
         $this->totalReturnValue = 0;
-        $this->overallDiscountPerItem = 0;
         $this->previousReturns = [];
     }
 

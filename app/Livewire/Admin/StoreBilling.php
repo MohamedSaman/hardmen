@@ -142,7 +142,7 @@ class StoreBilling extends Component
         $editId = request()->query('edit');
         if ($editId) {
             $this->editingSaleId = $editId;
-            $this->editingSale = Sale::with(['customer', 'items'])->find($editId);
+            $this->editingSale = Sale::with(['customer', 'items', 'payments'])->find($editId);
 
             if ($this->editingSale) {
                 // Load sale data
@@ -156,9 +156,98 @@ class StoreBilling extends Component
                     $this->additionalDiscount = $this->editingSale->additional_discount_percentage ?? 0;
                 }
 
-                // Load cart items from sale
+                // Load payment data from existing payments
+                if ($this->editingSale->payments && $this->editingSale->payments->count() > 0) {
+                    $payments = $this->editingSale->payments;
+
+                    // Determine payment method based on payments
+                    $paymentMethods = $payments->pluck('payment_method')->unique();
+
+                    if ($paymentMethods->count() === 1) {
+                        // Single payment method
+                        $method = $paymentMethods->first();
+                        $this->paymentMethod = $method;
+
+                        if ($method === 'cash') {
+                            $this->cashAmount = $payments->sum('amount');
+                            $this->amountReceived = $this->cashAmount;
+                        } elseif ($method === 'cheque') {
+                            // Load cheques from database
+                            $this->cheques = [];
+                            foreach ($payments as $payment) {
+                                $chequeRecords = Cheque::where('payment_id', $payment->id)->get();
+                                foreach ($chequeRecords as $cheque) {
+                                    $this->cheques[] = [
+                                        'number' => $cheque->cheque_number,
+                                        'bank_name' => $cheque->bank_name,
+                                        'date' => $cheque->cheque_date,
+                                        'amount' => $cheque->cheque_amount,
+                                    ];
+                                }
+                            }
+                        } elseif ($method === 'bank_transfer') {
+                            $payment = $payments->first();
+                            $this->bankTransferAmount = $payment->amount;
+                            $this->bankTransferBankName = $payment->bank_name ?? '';
+                            $this->bankTransferReferenceNumber = $payment->payment_reference ?? '';
+                        } elseif ($method === 'credit') {
+                            $this->paymentMethod = 'credit';
+                        }
+                    } elseif ($paymentMethods->count() > 1) {
+                        // Multiple payment methods
+                        $this->paymentMethod = 'multiple';
+
+                        foreach ($payments as $payment) {
+                            if ($payment->payment_method === 'cash') {
+                                $this->cashAmount += $payment->amount;
+                            } elseif ($payment->payment_method === 'cheque') {
+                                // Load cheques
+                                $chequeRecords = Cheque::where('payment_id', $payment->id)->get();
+                                foreach ($chequeRecords as $cheque) {
+                                    $this->cheques[] = [
+                                        'number' => $cheque->cheque_number,
+                                        'bank_name' => $cheque->bank_name,
+                                        'date' => $cheque->cheque_date,
+                                        'amount' => $cheque->cheque_amount,
+                                    ];
+                                }
+                            } elseif ($payment->payment_method === 'bank_transfer') {
+                                $this->bankTransferAmount += $payment->amount;
+                                if (!$this->bankTransferBankName) {
+                                    $this->bankTransferBankName = $payment->bank_name ?? '';
+                                    $this->bankTransferReferenceNumber = $payment->payment_reference ?? '';
+                                }
+                            }
+                        }
+
+                        $this->amountReceived = $this->cashAmount;
+                    }
+                } else {
+                    // No payments yet - likely credit sale or pending
+                    if ($this->editingSale->payment_status === 'pending' || $this->editingSale->due_amount > 0) {
+                        $this->paymentMethod = 'credit';
+                    }
+                }
+
+                // Load cart items from sale with actual available stock
                 $this->cart = [];
                 foreach ($this->editingSale->items as $item) {
+                    // Calculate actual available stock for this product
+                    $stockQuery = ProductStock::where('product_id', $item->product_id);
+                    if ($item->variant_value && $item->variant_value !== '' && $item->variant_value !== 'null') {
+                        $stockQuery->where('variant_value', $item->variant_value);
+                    } else {
+                        $stockQuery->where(function ($q) {
+                            $q->whereNull('variant_value')
+                                ->orWhere('variant_value', '')
+                                ->orWhere('variant_value', 'null');
+                        })->whereNull('variant_id');
+                    }
+                    $stockRecord = $stockQuery->first();
+                    $allocatedQty = $this->getAvailableStockForEdit($item->product_id, $item->variant_value ?? null) ?? 0;
+                    $rawStock = $stockRecord ? ($stockRecord->available_stock ?? 0) : 0;
+                    $availableStock = $rawStock + $allocatedQty;
+
                     $this->cart[] = [
                         'id' => $item->product_id,
                         'product_id' => $item->product_id,
@@ -171,9 +260,9 @@ class StoreBilling extends Component
                         'discount' => $item->discount_per_unit ?? 0,
                         'total' => $item->total,
                         'variant_value' => $item->variant_value ?? '',
-                        'variant_id' => null,
+                        'variant_id' => $item->variant_id ?? null,
                         'model' => '',
-                        'stock' => 0,
+                        'stock' => $availableStock,
                         'image' => '',
                         'retail_price' => $item->unit_price,
                         'wholesale_price' => 0,
@@ -1448,19 +1537,49 @@ class StoreBilling extends Component
         }
     }
 
+    /**
+     * Get available stock accounting for quantities already in the current sale being edited
+     */
+    private function getAvailableStockForEdit($productId, $variantValue = null)
+    {
+        if (!$this->editingSaleId) {
+            return null; // Not editing, use regular stock check
+        }
+
+        // Find how much of this product is already in the original sale
+        $allocatedQty = SaleItem::where('sale_id', $this->editingSaleId)
+            ->where('product_id', $productId)
+            ->when($variantValue, function ($q) use ($variantValue) {
+                return $q->where('variant_value', $variantValue);
+            }, function ($q) {
+                return $q->where(function ($sq) {
+                    $sq->whereNull('variant_value')
+                        ->orWhere('variant_value', '')
+                        ->orWhere('variant_value', 'null');
+                });
+            })
+            ->sum('quantity');
+
+        return $allocatedQty;
+    }
+
     // Add to Cart
     public function addToCart($product)
     {
-        // Check stock availability
-        if (($product['stock'] ?? 0) <= 0) {
-            $this->showToast('error', 'Not enough stock available!');
-            return;
-        }
-
         // Determine base product id (handles variant entries where 'product_id' is provided)
         $baseProductId = $product['product_id'] ?? $product['id'];
         $variantId = $product['variant_id'] ?? null;
         $variantValue = $product['variant_value'] ?? null;
+
+        // Get allocated stock if editing
+        $allocatedStock = $this->getAvailableStockForEdit($baseProductId, $variantValue) ?? 0;
+        $availableStock = ($product['stock'] ?? 0) + $allocatedStock;
+
+        // Check stock availability
+        if ($availableStock <= 0) {
+            $this->showToast('error', 'Not enough stock available!');
+            return;
+        }
 
         // Get batch numbers if product was split by batch
         $batchNumbers = $product['batch_numbers'] ?? null;
@@ -1474,8 +1593,8 @@ class StoreBilling extends Component
         $existing = collect($this->cart)->firstWhere('id', $cartId);
 
         if ($existing) {
-            // Check if adding more exceeds stock
-            if (($existing['quantity'] + 1) > $product['stock']) {
+            // Check if adding more exceeds stock (with edit mode adjustment)
+            if (($existing['quantity'] + 1) > $availableStock) {
                 $this->showToast('error', 'Not enough stock available!');
                 return;
             }
@@ -1532,9 +1651,15 @@ class StoreBilling extends Component
     {
         if ($quantity < 1) $quantity = 1;
 
-        $productStock = $this->cart[$index]['stock'];
-        if ($quantity > $productStock) {
-            $this->showToast('error', 'Not enough stock available! Maximum: ' . $productStock);
+        $baseProductId = $this->cart[$index]['product_id'];
+        $variantValue = $this->cart[$index]['variant_value'] ?? null;
+
+        // Get allocated stock if editing
+        $allocatedStock = $this->getAvailableStockForEdit($baseProductId, $variantValue) ?? 0;
+        $availableStock = $this->cart[$index]['stock'] + $allocatedStock;
+
+        if ($quantity > $availableStock) {
+            $this->showToast('error', 'Not enough stock available! Maximum: ' . $availableStock);
             return;
         }
 
@@ -1549,10 +1674,15 @@ class StoreBilling extends Component
     public function incrementQuantity($index)
     {
         $currentQuantity = $this->cart[$index]['quantity'];
-        $productStock = $this->cart[$index]['stock'];
+        $baseProductId = $this->cart[$index]['product_id'];
+        $variantValue = $this->cart[$index]['variant_value'] ?? null;
 
-        if (($currentQuantity + 1) > $productStock) {
-            $this->showToast('error', 'Not enough stock available! Maximum: ' . $productStock);
+        // Get allocated stock if editing
+        $allocatedStock = $this->getAvailableStockForEdit($baseProductId, $variantValue) ?? 0;
+        $availableStock = $this->cart[$index]['stock'] + $allocatedStock;
+
+        if (($currentQuantity + 1) > $availableStock) {
+            $this->showToast('error', 'Not enough stock available! Maximum: ' . $availableStock);
             return;
         }
 
