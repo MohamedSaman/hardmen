@@ -197,7 +197,12 @@
                                     <tr>
                                         <td>{{ $index + 1 }}</td>
                                         <td>{{ $item->product_code ?? '' }}</td>
-                                        <td>{{ $item->product_name }}</td>
+                                        <td>
+                                            {{ $item->product_name }}
+                                            @if($item->variant_value && $item->variant)
+                                                <br><small class="text-muted">({{ $item->variant->variant_name ?? 'Variant' }}: {{ $item->variant_value }})</small>
+                                            @endif
+                                        </td>
                                         <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
                                         <td class="text-end">{{ $item->quantity }}</td>
                                         <td class="text-end">
@@ -220,6 +225,35 @@
                                     @endforeach
                                 </tbody>
                             </table>
+
+                            @if(isset($this->selectedSale->returns) && count($this->selectedSale->returns) > 0)
+                            <!-- Returned Items Section -->
+                            <div style="margin-top:20px; padding-top:12px; border-top:1px solid #ddd;">
+                                <h4 style="margin:0 0 8px 0; color:#dc3545; font-size:14px; font-weight:bold;">RETURNED ITEMS</h4>
+                                <table class="receipt-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Product</th>
+                                            <th style="text-align:center;">Qty</th>
+                                            <th style="text-align:center;">Price</th>
+                                            <th style="text-align:center;">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($this->selectedSale->returns as $index => $return)
+                                        <tr>
+                                            <td>{{ $index + 1 }}</td>
+                                            <td>{{ $return->product->name ?? 'N/A' }}</td>
+                                            <td class="text-end">{{ $return->return_quantity }}</td>
+                                            <td class="text-end">Rs.{{ number_format($return->selling_price, 2) }}</td>
+                                            <td class="text-end">Rs.{{ number_format($return->total_amount, 2) }}</td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            @endif
 
                             {{-- Summary / Payments --}}
                             <div style="display:flex; gap:20px; margin-top:25px; border-top:2px solid #000; padding-top:12px;">

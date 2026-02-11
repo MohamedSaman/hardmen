@@ -35,7 +35,11 @@ class SaleApproval extends Component
         if (!$this->selectedSaleId) {
             return null;
         }
-        return Sale::with(['customer', 'items.product', 'user'])->find($this->selectedSaleId);
+        return Sale::with(['customer', 'items' => function ($q) {
+            $q->with('variant');
+        }, 'items.product', 'user', 'returns' => function ($q) {
+            $q->with('product');
+        }])->find($this->selectedSaleId);
     }
 
     protected $queryString = ['search', 'statusFilter'];
