@@ -151,22 +151,24 @@
                             <input type="text" class="form-control" wire:model.live="search" placeholder="Search by name or code...">
                             @if(!empty($products) && count($products) > 0)
                             <ul class="list-group mt-1 position-absolute w-100 me-4 z-3 shadow-lg">
-                                @foreach($products as $product)
+                                @foreach($products as $index => $product)
                                 <li class="list-group-item list-group-item-action p-2"
-                                    wire:click="selectProduct({{ $product->id }})"
+                                    wire:click="selectProduct({{ $index }})"
                                     style="cursor: pointer;">
                                     <div class="d-flex align-items-center">
-                                        <img src="{{ $product->image ? asset('storage/' . $product->image) : asset('images/product.jpg') }}"
-                                            alt="{{ $product->name }}"
+                                        <img src="{{ isset($product['image']) && $product['image'] ? asset('storage/' . $product['image']) : asset('images/product.jpg') }}"
+                                            alt="{{ $product['name'] }}"
                                             class="me-2"
                                             style="width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #dee2e6;">
                                         <div class="flex-grow-1">
-                                            <div class="fw-semibold text-dark">{{ $product->name }}</div>
+                                            <div class="fw-semibold text-dark">{{ isset($product['display_name']) ? $product['display_name'] : $product['name'] }}</div>
                                             <small class="text-muted">
-                                                Code: <span class="badge bg-secondary">{{ $product->code }}</span>
-                                                | Stock: <span class="badge {{ ($product->stock->total_stock ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">
-                                                    {{ $product->stock->total_stock ?? 0 }} units
+                                                Code: <span class="badge bg-secondary">{{ $product['code'] }}</span>
+                                                @if(isset($product['stock']) && $product['stock'])
+                                                | Stock: <span class="badge {{ ($product['stock']->total_stock ?? 0) > 0 ? 'bg-success' : 'bg-danger' }}">
+                                                    {{ $product['stock']->total_stock ?? 0 }} units
                                                 </span>
+                                                @endif
                                             </small>
                                         </div>
                                     </div>
@@ -181,7 +183,13 @@
                     <div class="row align-items-end bg-light p-3 rounded border mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Selected Product</label>
-                            <input type="text" class="form-control" value="{{ $selectedProduct->name }}" readonly>
+                            <input type="text" class="form-control" value="
+                                @if($selectedVariantValue)
+                                    {{ $selectedProduct->name }} ({{ $selectedProduct->variant_name }}: {{ $selectedVariantValue }})
+                                @else
+                                    {{ $selectedProduct->name }}
+                                @endif
+                            " readonly>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold">Quantity</label>
@@ -209,7 +217,16 @@
                             @forelse($orderItems as $index => $item)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>{{ $item['name'] }}</td>
+                                <td>
+                                    @if(isset($item['display_name']))
+                                        {{ $item['display_name'] }}
+                                    @else
+                                        {{ $item['name'] }}
+                                        @if(isset($item['variant_value']) && $item['variant_value'])
+                                            ({{ $item['variant_value'] }})
+                                        @endif
+                                    @endif
+                                </td>
                                 <td>{{ $item['quantity'] }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-danger" wire:click="removeItem({{ $index }})">
@@ -264,7 +281,9 @@
                         <tbody>
                             @foreach($selectedOrder->items as $item)
                             <tr>
-                                <td title="{{ $this->formatProductName($item->product ?? null, $item->unit_price ?? null) }}">{{ $this->formatProductName($item->product ?? null, $item->unit_price ?? null) }}</td>
+                                <td title="{{ $item->product->name ?? 'N/A' }}{{ isset($item->variant_value) && $item->variant_value ? ' (' . $item->variant_value . ')' : '' }}">
+                                    {{ $item->product->name ?? 'N/A' }}{{ isset($item->variant_value) && $item->variant_value ? ' (' . $item->variant_value . ')' : '' }}
+                                </td>
                                 <td>{{ $item->quantity }}</td>
                                 <td>{{ $item->unit_price }}</td>
                             </tr>
@@ -300,7 +319,16 @@
                             <tbody>
                                 @foreach($editOrderItems as $index => $item)
                                 <tr>
-                                    <td>{{ $item['name'] }}</td>
+                                    <td>
+                                        @if(isset($item['display_name']))
+                                            {{ $item['display_name'] }}
+                                        @else
+                                            {{ $item['name'] }}
+                                            @if(isset($item['variant_value']) && $item['variant_value'])
+                                                ({{ $item['variant_value'] }})
+                                            @endif
+                                        @endif
+                                    </td>
                                     <td>
                                         <input type="number" class="form-control form-control-sm" min="1" wire:model.defer="editOrderItems.{{ $index }}.quantity">
                                     </td>

@@ -730,6 +730,6 @@ class GRN extends Component
 
         return view('livewire.admin.g-r-n', [
             'purchaseOrders' => $purchaseOrders,
-        ]);
+        ])->layout($this->layout);
     }
 }

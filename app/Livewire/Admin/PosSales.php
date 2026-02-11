@@ -65,7 +65,9 @@ class PosSales extends Component
     {
         $this->selectedSale = Sale::with([
             'customer',
-            'items',
+            'items' => function ($q) {
+                $q->with('variant');
+            },
             'user',
             'returns' => function ($q) {
                 $q->with('product');
@@ -313,7 +315,9 @@ class PosSales extends Component
         // Load the sale and show the view modal
         $this->selectedSale = Sale::with([
             'customer',
-            'items',
+            'items' => function ($q) {
+                $q->with('variant');
+            },
             'user',
             'returns' => function ($q) {
                 $q->with('product');
@@ -336,7 +340,9 @@ class PosSales extends Component
 
     public function printInvoice($saleId)
     {
-        $sale = \App\Models\Sale::with(['customer', 'items', 'payments', 'returns' => function ($q) {
+        $sale = \App\Models\Sale::with(['customer', 'items' => function ($q) {
+            $q->with('variant');
+        }, 'payments', 'returns' => function ($q) {
             $q->with('product');
         }])->find($saleId);
         if (!$sale) {
@@ -352,7 +358,9 @@ class PosSales extends Component
 
     public function downloadInvoice($saleId)
     {
-        $sale = Sale::with(['customer', 'items', 'returns' => function ($q) {
+        $sale = Sale::with(['customer', 'items' => function ($q) {
+            $q->with('variant');
+        }, 'returns' => function ($q) {
             $q->with('product');
         }])->find($saleId);
 

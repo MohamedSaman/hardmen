@@ -21,6 +21,7 @@ class Quotation extends Component
     public $search = '';
     public $products = [];
     public $selectedProduct = null;
+    public $selectedVariantValue = null;
     public $quantity = 1;
     public $orderItems = [];
     public $orders;
@@ -38,34 +39,84 @@ class Quotation extends Component
     public function updatedSearch()
     {
         if ($this->search != '') {
-            $this->products = ProductDetail::where('name', 'like', '%' . $this->search . '%')
+            $baseProducts = ProductDetail::where('name', 'like', '%' . $this->search . '%')
                 ->orWhere('code', 'like', '%' . $this->search . '%')
-                ->with(['stock'])
-                ->limit(5)
+                ->with(['stock', 'variant'])
+                ->limit(10)
                 ->get();
+
+            $this->products = [];
+
+            foreach ($baseProducts as $product) {
+                if ($product->variant_id) {
+                    // Product has variants - add each variant value as separate item
+                    $variant = $product->variant;
+                    if ($variant && $variant->variant_values) {
+                        foreach ($variant->variant_values as $variantValue) {
+                            $this->products[] = [
+                                'id' => $product->id,
+                                'name' => $product->name,
+                                'code' => $product->code,
+                                'image' => $product->image,
+                                'stock' => $product->stock,
+                                'variant_id' => $product->variant_id,
+                                'variant_name' => $variant->variant_name ?? '',
+                                'variant_value' => $variantValue,
+                                'display_name' => $product->name . ' (' . $variant->variant_name . ': ' . $variantValue . ')'
+                            ];
+                        }
+                    }
+                } else {
+                    // Product without variants - add as is
+                    $this->products[] = [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'code' => $product->code,
+                        'image' => $product->image,
+                        'stock' => $product->stock,
+                        'variant_id' => null,
+                        'variant_name' => '',
+                        'variant_value' => null,
+                        'display_name' => $product->name
+                    ];
+                }
+            }
         } else {
             $this->products = [];
         }
     }
 
-    public function selectProduct($id)
+    public function selectProduct($index)
     {
-        $this->selectedProduct = ProductDetail::with(['stock'])->find($id);
-        $this->products = [];
-        $this->search = ''; // Clear search after selection
+        if (isset($this->products[$index])) {
+            $product = $this->products[$index];
+            $this->selectedProduct = (object) $product;
+            $this->selectedVariantValue = $product['variant_value'] ?? null;
+            $this->products = [];
+            $this->search = ''; // Clear search after selection
+        }
     }
 
     public function addItem()
     {
         if (!$this->selectedProduct || $this->quantity < 1) return;
 
+        $displayName = $this->selectedProduct->name;
+        if ($this->selectedVariantValue) {
+            $displayName .= ' (' . $this->selectedProduct->variant_name . ': ' . $this->selectedVariantValue . ')';
+        }
+
         $this->orderItems[] = [
             'product_id' => $this->selectedProduct->id,
             'name' => $this->selectedProduct->name,
+            'variant_id' => $this->selectedProduct->variant_id,
+            'variant_value' => $this->selectedVariantValue,
+            'display_name' => $displayName,
             'quantity' => $this->quantity,
         ];
 
         $this->selectedProduct = null;
+        $this->selectedVariantValue = null;
         $this->search = '';
         $this->quantity = 1;
     }
@@ -104,6 +155,8 @@ class Quotation extends Component
             PurchaseOrderItem::create([
                 'order_id' => $order->id,
                 'product_id' => $item['product_id'],
+                'variant_id' => $item['variant_id'] ?? null,
+                'variant_value' => $item['variant_value'] ?? null,
                 'quantity' => $item['quantity'],
                 'unit_price' => 0,
                 'discount' => 0,
@@ -152,10 +205,18 @@ class Quotation extends Component
         $this->editOrderId = $order->id;
         $this->editOrderItems = [];
         foreach ($order->items as $item) {
+            $displayName = $item->product->name ?? 'N/A';
+            if ($item->variant_value && $item->variant) {
+                $displayName .= ' (' . $item->variant->variant_name . ': ' . $item->variant_value . ')';
+            }
+
             $this->editOrderItems[] = [
                 'item_id' => $item->id,
                 'product_id' => $item->product_id,
                 'name' => $item->product->name ?? 'N/A',
+                'variant_id' => $item->variant_id,
+                'variant_value' => $item->variant_value,
+                'display_name' => $displayName,
                 'quantity' => $item->quantity,
                 'unit_price' => $item->unit_price,
                 'discount' => $item->discount,
@@ -198,6 +259,8 @@ class Quotation extends Component
                 $orderItem = PurchaseOrderItem::find($item['item_id']);
                 if ($orderItem) {
                     $orderItem->quantity = $qty;
+                    $orderItem->variant_id = $item['variant_id'] ?? null;
+                    $orderItem->variant_value = $item['variant_value'] ?? null;
                     $orderItem->unit_price = $item['unit_price'] ?? 0;
                     $orderItem->discount = $item['discount'] ?? 0;
                     $orderItem->save();
@@ -208,6 +271,8 @@ class Quotation extends Component
                 $new = PurchaseOrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'variant_value' => $item['variant_value'] ?? null,
                     'quantity' => $qty,
                     'unit_price' => $item['unit_price'] ?? 0,
                     'discount' => $item['discount'] ?? 0,

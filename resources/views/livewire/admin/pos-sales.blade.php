@@ -405,7 +405,12 @@ use App\Models\Sale;
                                 <tr>
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $item->product_code ?? '' }}</td>
-                                    <td>{{ $item->product_name }}</td>
+                                    <td>
+                                        {{ $item->product_name }}
+                                        @if($item->variant_value && $item->variant)
+                                            <br><small class="text-muted">({{ $item->variant->variant_name ?? 'Variant' }}: {{ $item->variant_value }})</small>
+                                        @endif
+                                    </td>
                                     <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
                                     <td class="text-end">{{ $item->quantity }}</td>
                                     <td class="text-end">
