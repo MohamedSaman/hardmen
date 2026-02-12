@@ -277,16 +277,11 @@
                                         <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                                             <span>Total Discount:</span>
                                             <span>
-                                                @php
-                                                // Calculate total discount percentage
-                                                $itemDiscountTotal = $this->selectedSale->items->sum(function($item) {
-                                                    return ($item->discount_per_unit ?? 0) * $item->quantity;
-                                                });
-                                                $additionalDiscountAmount = is_numeric($this->selectedSale->discount_amount) ? max(0, $this->selectedSale->discount_amount - $itemDiscountTotal) : 0;
-                                                $totalDiscountAmount = $itemDiscountTotal + $additionalDiscountAmount;
-                                                $totalDiscountPercent = $this->selectedSale->subtotal > 0 ? (($totalDiscountAmount / $this->selectedSale->subtotal) * 100) : 0;
-                                                @endphp
-                                                {{ number_format($totalDiscountPercent, 2) }}%
+                                                @if($this->selectedSale->discount_type === 'percentage')
+                                                    {{ number_format($this->selectedSale->discount_amount, 2) }}%
+                                                @else
+                                                    Rs.{{ number_format($this->selectedSale->discount_amount, 2) }}
+                                                @endif
                                             </span>
                                         </div>
                                         <hr>

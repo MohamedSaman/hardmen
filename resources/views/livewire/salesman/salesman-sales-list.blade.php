@@ -222,7 +222,13 @@
                                 @if($selectedSale->discount_amount > 0)
                                 <tr>
                                     <td colspan="3" class="text-end text-danger">Discount:</td>
-                                    <td class="text-end text-danger">- Rs. {{ number_format($selectedSale->discount_amount, 2) }}</td>
+                                    <td class="text-end text-danger">
+                                        @if($selectedSale->discount_type === 'percentage')
+                                            - {{ number_format($selectedSale->discount_amount, 2) }}%
+                                        @else
+                                            - Rs. {{ number_format($selectedSale->discount_amount, 2) }}
+                                        @endif
+                                    </td>
                                 </tr>
                                 @endif
                                 <tr class="table-primary">
