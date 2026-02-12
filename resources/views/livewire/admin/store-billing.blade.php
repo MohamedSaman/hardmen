@@ -885,7 +885,7 @@
                         .mb-1 { margin-bottom: 4px; }
                         table.receipt-table { width:100%; border-collapse: collapse; margin-top: 12px; }
                         table.receipt-table th{border-bottom: 1px solid #000; padding: 8px; text-align: left;}
-                         table.receipt-table td { border: 0px solid #000; padding: 8px; text-align: left; }
+                         table.receipt-table td { border: 0px solid #000; padding: 2px; text-align: left; }
                         table.receipt-table th { background: none; font-weight: bold; }
                         .text-end { text-align: right; }
                     </style>
@@ -1261,7 +1261,7 @@
                     }
                     
                     table.receipt-table td { 
-                        padding: 8px; 
+                        padding: 2px; 
                         text-align: left;
                         border: none;
                     }

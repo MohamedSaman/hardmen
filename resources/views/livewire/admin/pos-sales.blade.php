@@ -348,7 +348,7 @@ use App\Models\Sale;
                             .mb-1 { margin-bottom: 4px; }
                             table.receipt-table { width:100%; border-collapse: collapse; margin-top: 12px; }
                             table.receipt-table th{border-bottom: 1px solid #000; padding: 8px; text-align: left;}
-                            table.receipt-table td { border: 0px solid #000; padding: 8px; text-align: left; }
+                            table.receipt-table td { border: 0px solid #000; padding: 2px; text-align: left; }
                             table.receipt-table th { background: none; font-weight: bold; }
                             .text-end { text-align: right; }
                         </style>
@@ -407,9 +407,6 @@ use App\Models\Sale;
                                     <td>{{ $item->product_code ?? '' }}</td>
                                     <td>
                                         {{ $item->product_name }}
-                                        @if($item->variant_value && $item->variant)
-                                            <br><small class="text-muted">({{ $item->variant->variant_name ?? 'Variant' }}: {{ $item->variant_value }})</small>
-                                        @endif
                                     </td>
                                     <td class="text-end">Rs.{{ number_format($item->unit_price, 2) }}</td>
                                     <td class="text-end">{{ $item->quantity }}</td>
@@ -1274,7 +1271,7 @@ use App\Models\Sale;
                     }
                     
                     table.receipt-table td { 
-                        padding: 8px; 
+                        padding: 2px; 
                         text-align: left;
                         border: none;
                     }

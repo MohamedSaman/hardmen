@@ -326,8 +326,16 @@ class SaleApproval extends Component
     {
         $query = Sale::with(['customer', 'user']);
 
-        // If not admin, show only their own sales
-        if (Auth::user()->role !== 'admin') {
+        // Check if user is admin
+        $isAdmin = Auth::user()->role === 'admin';
+
+        // Filter to show only staff/salesman sales (exclude admin-created sales)
+        $query->whereHas('user', function ($q) {
+            $q->where('role', '!=', 'admin');
+        });
+
+        // If viewing user is not admin, also filter by their own sales
+        if (!$isAdmin) {
             $query->where('user_id', Auth::id());
         }
 
@@ -347,17 +355,21 @@ class SaleApproval extends Component
         })
             ->orderBy('created_at', 'desc');
 
+        // Base query for counts - always exclude admin-created sales
+        $baseCountQuery = Sale::query()->whereHas('user', function ($q) {
+            $q->where('role', '!=', 'admin');
+        });
+
+        // If not admin, also filter by their own sales
+        if (!$isAdmin) {
+            $baseCountQuery->where('user_id', Auth::id());
+        }
+
         return view('livewire.admin.sale-approval', [
             'sales' => $query->paginate($this->perPage),
-            'pendingCount' => Sale::when(Auth::user()->role !== 'admin', function ($q) {
-                $q->where('user_id', Auth::id());
-            })->where('status', 'pending')->count(),
-            'approvedCount' => Sale::when(Auth::user()->role !== 'admin', function ($q) {
-                $q->where('user_id', Auth::id());
-            })->where('status', 'confirm')->count(),
-            'rejectedCount' => Sale::when(Auth::user()->role !== 'admin', function ($q) {
-                $q->where('user_id', Auth::id());
-            })->where('status', 'rejected')->count(),
+            'pendingCount' => (clone $baseCountQuery)->where('status', 'pending')->count(),
+            'approvedCount' => (clone $baseCountQuery)->where('status', 'confirm')->count(),
+            'rejectedCount' => (clone $baseCountQuery)->where('status', 'rejected')->count(),
         ]);
     }
 }
