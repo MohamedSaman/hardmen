@@ -8,10 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 class ReturnSupplier extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'purchase_order_id',
         'product_id',
+        'variant_id',
+        'variant_value',
         'return_quantity',
         'unit_price',
         'total_amount',

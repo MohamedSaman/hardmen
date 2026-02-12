@@ -521,12 +521,19 @@ class StaffQuotationList extends Component
                 // Total discount = items discount + additional discount
                 $totalCombinedDiscount = $this->totalDiscount + $this->additionalDiscountAmount;
 
+                // Map customer type to valid sale customer types (retail or wholesale)
+                $saleCustomerType = match ($customer->type) {
+                    'distributor', 'wholesale' => 'wholesale',
+                    'retail' => 'retail',
+                    default => 'retail'
+                };
+
                 // Create sale
                 $sale = Sale::create([
                     'sale_id' => Sale::generateSaleId(),
                     'invoice_number' => Sale::generateInvoiceNumber(),
                     'customer_id' => $customer->id,
-                    'customer_type' => $customer->type,
+                    'customer_type' => $saleCustomerType,
                     'subtotal' => $this->subtotal,
                     'discount_amount' => $totalCombinedDiscount,
                     'total_amount' => $this->grandTotal,

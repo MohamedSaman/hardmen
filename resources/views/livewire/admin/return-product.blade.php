@@ -234,7 +234,7 @@
                                 @foreach($returnItems as $index => $item)
                                 <tr>
                                     <td>{{ $item['name'] }}</td>
-                                    <td>{{ $selectedInvoice->items[$index]->product->code }}</td>
+                                    <td>{{ $item['product_code'] ?? 'N/A' }}</td>
                                     <td>{{ $item['original_qty'] }}</td>
                                     <td>
                                         @if($item['already_returned'] > 0)

@@ -114,10 +114,16 @@ class ReturnSupplier extends Component
 
             // Build return items with remaining quantities
             foreach ($this->selectedPurchaseOrder->items as $item) {
-                $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product->id);
+                $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product->id, $item->variant_value);
                 $remainingQty = $item->received_quantity - $alreadyReturned;
 
                 if ($remainingQty > 0) {
+                    // Build display name with variant
+                    $displayName = $item->product->name;
+                    if ($item->variant_value) {
+                        $displayName .= ' (' . $item->variant_value . ')';
+                    }
+
                     // Calculate per-unit discount (item discount is percentage)
                     $unitPrice = $item->unit_price;
                     $itemDiscountPercentage = $item->discount ?? 0;
@@ -128,7 +134,9 @@ class ReturnSupplier extends Component
                     $this->returnItems[] = [
                         'purchase_order_item_id' => $item->id,
                         'product_id' => $item->product->id,
-                        'name' => $item->product->name,
+                        'variant_id' => $item->variant_id,
+                        'variant_value' => $item->variant_value,
+                        'name' => $displayName,
                         'code' => $item->product->code,
                         'unit_price' => $unitPrice,
                         'discount_percentage' => $itemDiscountPercentage,
@@ -175,10 +183,21 @@ class ReturnSupplier extends Component
         $this->previousReturns = ReturnSupplierModel::where('purchase_order_id', $this->selectedPurchaseOrder->id)
             ->with('product')
             ->get()
-            ->groupBy('product_id')
+            ->groupBy(function ($return) {
+                // Group by product_id and variant_id combination
+                return $return->product_id . '_' . ($return->variant_id ?? 'no_variant');
+            })
             ->map(function ($returns) {
+                $firstReturn = $returns->first();
+                $productName = $firstReturn->product->name ?? 'Unknown';
+
+                // Add variant value to name if exists
+                if ($firstReturn->variant_value) {
+                    $productName .= ' (' . $firstReturn->variant_value . ')';
+                }
+
                 return [
-                    'product_name' => $returns->first()->product->name ?? 'Unknown',
+                    'product_name' => $productName,
                     'total_returned' => $returns->sum('return_quantity'),
                     'total_amount' => $returns->sum('total_amount'),
                     'returns' => $returns->map(function ($return) {
@@ -195,13 +214,21 @@ class ReturnSupplier extends Component
     }
 
     /** 🔢 Get Already Returned Quantity */
-    private function getAlreadyReturnedQuantity($productId)
+    private function getAlreadyReturnedQuantity($productId, $variantValue = null)
     {
         if (!$this->selectedPurchaseOrder) return 0;
 
-        return ReturnSupplierModel::where('purchase_order_id', $this->selectedPurchaseOrder->id)
-            ->where('product_id', $productId)
-            ->sum('return_quantity');
+        $query = ReturnSupplierModel::where('purchase_order_id', $this->selectedPurchaseOrder->id)
+            ->where('product_id', $productId);
+
+        // Filter by variant_value if provided
+        if ($variantValue) {
+            $query->where('variant_value', $variantValue);
+        } else {
+            $query->whereNull('variant_value');
+        }
+
+        return $query->sum('return_quantity');
     }
 
     /** 👁️ View Purchase Order Details in Modal */
@@ -227,8 +254,14 @@ class ReturnSupplier extends Component
                     $totalDiscountPerUnit = $itemDiscountAmount + $discountPerItem;
                     $netPrice = $unitPrice - $totalDiscountPerUnit;
 
+                    // Build display name with variant
+                    $displayName = $item->product->name;
+                    if ($item->variant_value) {
+                        $displayName .= ' (' . $item->variant_value . ')';
+                    }
+
                     return [
-                        'product_name' => $item->product->name,
+                        'product_name' => $displayName,
                         'product_code' => $item->product->code,
                         'quantity' => $item->received_quantity,
                         'unit_price' => $unitPrice,
@@ -266,12 +299,20 @@ class ReturnSupplier extends Component
             $purchaseOrder = PurchaseOrder::with(['items.product'])->find($purchaseOrderId);
             if ($purchaseOrder) {
                 $products = $purchaseOrder->items->map(function ($item) use ($purchaseOrder) {
-                    $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product->id);
+                    $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product->id, $item->variant_value);
                     $remainingQty = $item->received_quantity - $alreadyReturned;
+
+                    // Build display name with variant
+                    $displayName = $item->product->name;
+                    if ($item->variant_value) {
+                        $displayName .= ' (' . $item->variant_value . ')';
+                    }
 
                     return [
                         'id' => $item->product->id,
-                        'name' => $item->product->name,
+                        'variant_id' => $item->variant_id,
+                        'variant_value' => $item->variant_value,
+                        'name' => $displayName,
                         'code' => $item->product->code,
                         'image' => $item->product->image,
                         'unit_price' => $item->unit_price,
@@ -284,7 +325,10 @@ class ReturnSupplier extends Component
             }
         }
 
-        $this->purchaseOrderProductsForSearch = $allProducts->unique('id')->values()->toArray();
+        // Use unique key combining product_id and variant_id
+        $this->purchaseOrderProductsForSearch = $allProducts->unique(function ($item) {
+            return $item['id'] . '_' . ($item['variant_id'] ?? 'no_variant');
+        })->values()->toArray();
     }
 
     /** ❌ Remove Product from Return Cart */
@@ -376,6 +420,8 @@ class ReturnSupplier extends Component
                 ReturnSupplierModel::create([
                     'purchase_order_id' => $this->selectedPurchaseOrder->id,
                     'product_id' => $item['product_id'],
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'variant_value' => $item['variant_value'] ?? null,
                     'return_quantity' => $item['return_qty'],
                     'unit_price' => $item['net_unit_price'],
                     'total_amount' => $returnAmount,
@@ -383,7 +429,12 @@ class ReturnSupplier extends Component
                     'notes' => 'Supplier return processed via system',
                 ]);
 
-                $this->updateProductStock($item['product_id'], $item['return_qty'], $item['return_reason']);
+                $this->updateProductStock(
+                    $item['product_id'],
+                    $item['variant_value'] ?? null,
+                    $item['return_qty'],
+                    $item['return_reason']
+                );
             }
 
             // Handle return amount - reduce dues or add to overpayment
@@ -425,11 +476,27 @@ class ReturnSupplier extends Component
     }
 
     /** 📈 Update Product Stock (Reduce stock for supplier returns) */
-    private function updateProductStock($productId, $quantity, $reason)
+    private function updateProductStock($productId, $variantValue, $quantity, $reason)
     {
-        $stock = ProductStock::where('product_id', $productId)->first();
+        // Find the correct stock record based on product and variant_value
+        $query = ProductStock::where('product_id', $productId);
+
+        if ($variantValue) {
+            // Match by variant_value which is the actual variant identifier ("4", "4.5", etc)
+            $query->where('variant_value', $variantValue);
+        } else {
+            // For non-variant products
+            $query->whereNull('variant_value');
+        }
+
+        $stock = $query->first();
 
         if ($stock) {
+            // Validate available stock before reduction
+            if ($stock->available_stock < $quantity) {
+                throw new \Exception("Insufficient stock available for this variant. Available: {$stock->available_stock}, Requested: {$quantity}");
+            }
+
             // For supplier returns, we reduce the stock
             $stock->available_stock = max(0, $stock->available_stock - $quantity);
 
@@ -439,6 +506,8 @@ class ReturnSupplier extends Component
             }
 
             $stock->updateTotals(); // Recalculate total_stock = available_stock + damage_stock
+        } else {
+            throw new \Exception("Stock record not found for product ID: {$productId}, variant: " . ($variantValue ?? 'none'));
         }
     }
 

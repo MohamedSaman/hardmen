@@ -2536,6 +2536,7 @@ class StoreBilling extends Component
         $this->showSaleModal = false;
         $this->lastSaleId = null;
         $this->createdSale = null;
+        $this->loadProducts(); // Refresh product stock display
     }
 
     // Continue creating new sale

@@ -508,11 +508,12 @@ use App\Models\Sale;
                         @endif
 
                         <!-- Footer -->
-                        <div style="margin-top:30px; text-align:center; padding-top:12px; border-top:2px solid #000;">
+                        <div style="margin-top:auto; text-align:center; padding-top:12px; display:flex; flex-direction:column;">
                             <div style="display:flex; justify-content:center; gap:20px; margin-bottom:12px;">
-                                <div style="flex:0 0 50%; text-align:center;"><p><strong>........................</strong></p><p><strong>Authorized Signature</strong></p></div>
-                                <div style="flex:0 0 50%; text-align:center;"><p><strong>........................</strong></p><p><strong>Customer Signature</strong></p></div>
+                                <div style="flex:0 0 50%; text-align:center;"><p><strong>....................</strong></p><p><strong>Authorized Signature</strong></p></div>
+                                <div style="flex:0 0 50%; text-align:center;"><p><strong>....................</strong></p><p><strong>Customer Signature</strong></p></div>
                             </div>
+                            
                             <div>
                                 <p style="margin:0; font-size:12px;">Thank you for your business!</p>
                                 <p style="margin:0; font-size:12px;">www.hardmen.lk | info@hardmen.lk</p>

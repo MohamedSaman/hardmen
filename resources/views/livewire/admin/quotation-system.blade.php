@@ -56,7 +56,7 @@
                 <div class="card-body">
                     <div class="row g-3">
                         {{-- Select Customer --}}
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold">Select Customer *</label>
                             <select class="form-select shadow-sm" wire:model.live="customerId">
                                 @foreach($customers as $customer)
@@ -83,8 +83,21 @@
                             </div>
                         </div>
 
+                        {{-- Price Type Selection --}}
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Price Type *</label>
+                            <select class="form-select shadow-sm" wire:model.live="priceType">
+                                <option value="retail">Retail Price</option>
+                                <option value="wholesale">Wholesale Price</option>
+                                <option value="distribute">Distribute Price</option>
+                            </select>
+                            <div class="form-text mt-2">
+                                <i class="bi bi-tags me-1"></i> Select pricing for quotation
+                            </div>
+                        </div>
+
                         {{-- Valid Until --}}
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold">Valid Until *</label>
                             <input type="date" class="form-control shadow-sm" wire:model="validUntil">
                         </div>
@@ -102,24 +115,94 @@
                     </h5>
                 </div>
 
-                <div class="card-body">
+                <div class="card-body"
+                     x-data="{ 
+                         highlightIndex: -1,
+                         resultCount: 0
+                     }"
+                     x-init="
+                         $watch('resultCount', value => {
+                             if (value === 0) highlightIndex = -1;
+                         });
+                         
+                         Livewire.on('product-added-to-cart', () => {
+                             $nextTick(() => {
+                                 const qtyInput = document.querySelector('tbody tr:first-child .qty-input-0');
+                                 if (qtyInput) {
+                                     qtyInput.focus();
+                                     qtyInput.select();
+                                 }
+                             });
+                         });
+                         
+                         // Focus search on page load
+                         $nextTick(() => {
+                             if ($refs.searchInput) {
+                                 $refs.searchInput.focus();
+                             }
+                         });
+                     "
+                     @keydown.escape.window="highlightIndex = -1; if ($refs.searchInput) $refs.searchInput.focus()">
+                    
                     {{-- Search Field --}}
                     <div class="mb-3">
-                        <input type="text" class="form-control shadow-sm"
+                        <input type="text" 
+                            class="form-control shadow-sm quotation-search-input"
                             wire:model.live="search"
-                            placeholder="Search by product name, code, or model...">
+                            id="quotationSearchInput"
+                            x-ref="searchInput"
+                            placeholder="Search by product name, code, model, or variant..."
+                            @keydown.down.prevent="
+                                resultCount = document.querySelectorAll('.search-result-item').length;
+                                if (resultCount > 0) {
+                                    highlightIndex = highlightIndex < resultCount - 1 ? highlightIndex + 1 : highlightIndex;
+                                    $nextTick(() => {
+                                        const active = document.querySelector('.search-result-item.active');
+                                        if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                    });
+                                }
+                            "
+                            @keydown.up.prevent="
+                                resultCount = document.querySelectorAll('.search-result-item').length;
+                                if (highlightIndex > 0) {
+                                    highlightIndex--;
+                                    $nextTick(() => {
+                                        const active = document.querySelector('.search-result-item.active');
+                                        if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                    });
+                                } else {
+                                    highlightIndex = -1;
+                                }
+                            "
+                            @keydown.enter.prevent="
+                                if (highlightIndex >= 0) {
+                                    const highlighted = document.querySelector('.search-result-item.active button');
+                                    if (highlighted) {
+                                        highlighted.click();
+                                        highlightIndex = -1;
+                                    }
+                                }
+                            "
+                            @focus="
+                                resultCount = document.querySelectorAll('.search-result-item').length;
+                            ">
                     </div>
 
                     {{-- Search Results --}}
                     @if($search && count($searchResults) > 0)
-                        <div class="search-results border rounded bg-white shadow-sm" style="max-height: 300px; overflow-y: auto;">
-                            @foreach($searchResults as $product)
-                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center"
-                                    wire:key="product-{{ $product['id'] }}">
+                        <div class="search-results border rounded bg-white shadow-sm" 
+                             style="max-height: 300px; overflow-y: auto;"
+                             x-init="resultCount = {{ count($searchResults) }}">
+                            @foreach($searchResults as $idx => $product)
+                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center search-result-item"
+                                    wire:key="product-{{ $product['id'] }}"
+                                    :class="highlightIndex === {{ $idx }} ? 'active' : ''"
+                                    @mouseenter="highlightIndex = {{ $idx }}"
+                                    @click="highlightIndex = {{ $idx }}">
                                     <div>
                                         <h6 class="mb-1 fw-semibold">{{ $product['name'] }}</h6>
                                         <p class="text-muted small mb-0">
-                                            Code: {{ $product['code'] }} | Model: {{ $product['model'] }}
+                                            Code: {{ $product['code'] }} | Model: {{ $product['model'] ?? 'N/A' }}
                                         </p>
                                         <p class="text-success small mb-0">
                                             Rs.{{ number_format($product['price'], 2) }} | Stock: {{ $product['stock'] }}
@@ -159,8 +242,8 @@
                                 <tr>
                                     <th width="30">#</th>
                                     <th>Product</th>
-                                    <th width="120">Unit Price</th>
                                     <th width="150">Quantity</th>
+                                    <th width="120">Unit Price</th>
                                     <th width="120">Discount/Unit</th>
                                     <th width="120">Total</th>
                                     <th width="100" class="text-center">Actions</th>
@@ -168,7 +251,7 @@
                             </thead>
                             <tbody>
                                 @foreach($cart as $index => $item)
-                                <tr>
+                                <tr wire:key="cart-{{ $item['id'] }}">
                                     <td>{{ $index + 1 }}</td>
                                     <td>
                                         <div>
@@ -179,21 +262,38 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <input type="number" class="form-control form-control-sm text-primary" min="0" step="0.01"
-                                            wire:change="updateUnitPrice({{ $index }}, $event.target.value)"
-                                            value="{{ $item['price'] }}">
-                                    </td>
-                                    <td>
                                         <div class="input-group input-group-sm">
                                             <button class="btn btn-outline-secondary" type="button"
                                                 wire:click="decrementQuantity({{ $index }})">-</button>
-                                            <input type="number" class="form-control text-center"
+                                            <input type="number" 
+                                                class="form-control text-center qty-input-{{ $index }}"
                                                 wire:change="updateQuantity({{ $index }}, $event.target.value)"
-                                                value="{{ $item['quantity'] }}" min="1">
+                                                value="{{ $item['quantity'] }}" 
+                                                min="1"
+                                                @keydown.enter.prevent="
+                                                    const priceInput = document.querySelector('.price-input-{{ $index }}');
+                                                    if (priceInput) priceInput.focus();
+                                                ">
                                             <button class="btn btn-outline-secondary" type="button"
                                                 wire:click="incrementQuantity({{ $index }})">+</button>
                                         </div>
                                     </td>
+                                    <td>
+                                        <input type="number" 
+                                            class="form-control form-control-sm text-primary price-input-{{ $index }}" 
+                                            min="0" 
+                                            step="0.01"
+                                            wire:change="updateUnitPrice({{ $index }}, $event.target.value)"
+                                            value="{{ $item['price'] }}"
+                                            @keydown.enter.prevent="
+                                                const searchInput = document.getElementById('quotationSearchInput');
+                                                if (searchInput) {
+                                                    searchInput.focus();
+                                                    searchInput.select();
+                                                }
+                                            ">
+                                    </td>
+                                    
                                     <td>
                                         <input type="number" class="form-control form-control-sm text-danger"
                                             wire:change="updateDiscount({{ $index }}, $event.target.value)"
@@ -550,10 +650,16 @@
 
     .search-results .p-3 {
         transition: background-color 0.2s ease;
+        cursor: pointer;
     }
 
     .search-results .p-3:hover {
         background-color: #f8f9fa;
+    }
+
+    .search-result-item.active {
+        background-color: #e7f3ff !important;
+        border-left: 3px solid #0d6efd;
     }
 
     .table th {

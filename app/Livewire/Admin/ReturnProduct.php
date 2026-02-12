@@ -116,9 +116,17 @@ class ReturnProduct extends Component
                     // Discount will be recalculated after subtotal adjustment
                     $sellingPrice = $item->unit_price;
 
+                    // Build display name with variant
+                    $displayName = $item->product_name ?? $item->product->name;
+                    if ($item->variant_value) {
+                        $displayName .= ' (' . $item->variant_value . ')';
+                    }
+
                     $this->returnItems[] = [
                         'product_id' => $item->product->id,
-                        'name' => $item->product->name,
+                        'product_code' => $item->product_code ?? $item->product->code,
+                        'name' => $displayName,
+                        'product_name' => $item->product_name ?? $item->product->name,
                         'selling_price' => $sellingPrice,
                         'original_qty' => $item->quantity,
                         'already_returned' => $alreadyReturned,
@@ -148,8 +156,16 @@ class ReturnProduct extends Component
             ->get()
             ->groupBy('product_id')
             ->map(function ($returns) {
+                $firstReturn = $returns->first();
+                $productName = $firstReturn->product->name ?? 'Unknown';
+                
+                // Add variant value if exists
+                if ($firstReturn->variant_value) {
+                    $productName .= ' (' . $firstReturn->variant_value . ')';
+                }
+                
                 return [
-                    'product_name' => $returns->first()->product->name ?? 'Unknown',
+                    'product_name' => $productName,
                     'total_returned' => $returns->sum('return_quantity'),
                     'total_amount' => $returns->sum('total_amount'),
                     'returns' => $returns->map(function ($return) {
@@ -203,9 +219,15 @@ class ReturnProduct extends Component
                     $totalDiscountPerUnit = $itemDiscount + $overallDiscountPerItem;
                     $netPrice = $item->unit_price - $totalDiscountPerUnit;
 
+                    // Build display name with variant
+                    $displayName = $item->product_name ?? $item->product->name;
+                    if ($item->variant_value) {
+                        $displayName .= ' (' . $item->variant_value . ')';
+                    }
+
                     return [
-                        'product_name' => $item->product->name,
-                        'product_code' => $item->product->code,
+                        'product_name' => $displayName,
+                        'product_code' => $item->product_code ?? $item->product->code,
                         'quantity' => $item->quantity,
                         'unit_price' => $item->unit_price,
                         'item_discount' => $itemDiscount,
@@ -244,10 +266,16 @@ class ReturnProduct extends Component
                     $alreadyReturned = $this->getAlreadyReturnedQuantity($item->product->id);
                     $remainingQty = $item->quantity - $alreadyReturned;
 
+                    // Build display name with variant
+                    $displayName = $item->product_name ?? $item->product->name;
+                    if ($item->variant_value) {
+                        $displayName .= ' (' . $item->variant_value . ')';
+                    }
+
                     return [
                         'id' => $item->product->id,
-                        'name' => $item->product->name,
-                        'code' => $item->product->code,
+                        'name' => $displayName,
+                        'code' => $item->product_code ?? $item->product->code,
                         'image' => $item->product->image,
                         'selling_price' => $item->unit_price,
                         'invoice_id' => $invoice->id,
@@ -402,20 +430,15 @@ class ReturnProduct extends Component
                     'total_amount' => $newTotal,
                     'due_amount' => $newDue,
                 ]);
-            }
 
-            // Fix #4: Restore customer balance after return
-            if ($this->selectedCustomer && $totalReturnAmount > 0) {
-                // Calculate the actual reduction in total (not just return amount)
-                $actualReduction = $this->selectedInvoice ?
-                    ($this->selectedInvoice->getOriginal('total_amount') - $this->selectedInvoice->total_amount) :
-                    $totalReturnAmount;
-
-                $customer = Customer::find($this->selectedCustomer->id);
-                if ($customer) {
-                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $actualReduction);
-                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
-                    $customer->save();
+                // Reduce customer's due amount by the same reduction amount
+                if ($this->selectedCustomer && $totalReduction > 0) {
+                    $customer = Customer::find($this->selectedCustomer->id);
+                    if ($customer) {
+                        $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $totalReduction);
+                        $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                        $customer->save();
+                    }
                 }
             }
         });

@@ -47,6 +47,8 @@ class QuotationSystem extends Component
     public $additionalDiscount = 0;
     public $additionalDiscountType = 'fixed'; // 'fixed' or 'percentage'
 
+    // Price Type Selection
+    public $priceType = 'wholesale'; // 'retail', 'wholesale', or 'distribute'
 
     // Modals
     public $showQuotationModal = false;
@@ -211,6 +213,26 @@ class QuotationSystem extends Component
         }
     }
 
+    // Helper method to get price based on price type
+    public function getPriceValue($priceRecord)
+    {
+        return match ($this->priceType) {
+            'retail' => $priceRecord->retail_price ?? 0,
+            'wholesale' => $priceRecord->wholesale_price ?? 0,
+            'distribute' => $priceRecord->distributor_price ?? 0,
+            default => $priceRecord->wholesale_price ?? 0,
+        };
+    }
+
+    // When price type changes
+    public function updatedPriceType($value)
+    {
+        // Re-run search if there are existing results
+        if (!empty($this->search)) {
+            $this->updatedSearch();
+        }
+    }
+
     // Search Products
     public function updatedSearch()
     {
@@ -248,24 +270,67 @@ class QuotationSystem extends Component
                         ];
                     });
             } else {
-                // For admin: show all products
-                $this->searchResults = ProductDetail::with(['stock', 'price'])
-                    ->where('name', 'like', '%' . $this->search . '%')
-                    ->orWhere('code', 'like', '%' . $this->search . '%')
-                    ->orWhere('model', 'like', '%' . $this->search . '%')
+                // For admin: show all products with variants
+                $products = ProductDetail::with(['stocks', 'prices', 'variant'])
+                    ->where(function ($query) {
+                        $query->where('name', 'like', '%' . $this->search . '%')
+                            ->orWhere('code', 'like', '%' . $this->search . '%')
+                            ->orWhere('model', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhereHas('stocks', function ($query) {
+                        $query->where('variant_value', 'like', '%' . $this->search . '%');
+                    })
                     ->take(10)
-                    ->get()
-                    ->map(function ($product) {
-                        return [
+                    ->get();
+
+                $results = [];
+                foreach ($products as $product) {
+                    // Check if product has variants
+                    $hasVariants = $product->stocks()->whereNotNull('variant_value')->exists();
+
+                    if ($hasVariants) {
+                        // Show each variant as separate entry
+                        $variantStocks = $product->stocks()->whereNotNull('variant_value')->get();
+                        foreach ($variantStocks as $variantStock) {
+                            // Get variant-specific price
+                            $variantPrice = $product->prices()->where('variant_id', $variantStock->variant_id)->first();
+                            $price = $variantPrice ? $this->getPriceValue($variantPrice) : 0;
+
+                            $results[] = [
+                                'id' => $product->id . '_variant_' . $variantStock->id,
+                                'product_id' => $product->id,
+                                'variant_id' => $variantStock->variant_id,
+                                'variant_value' => $variantStock->variant_value,
+                                'name' => $product->name . ' (' . $variantStock->variant_value . ')',
+                                'code' => $product->code,
+                                'model' => $product->model,
+                                'price' => $price,
+                                'stock' => $variantStock->available_stock ?? 0,
+                                'image' => $product->image
+                            ];
+                        }
+                    } else {
+                        // Show product without variant
+                        $productPrice = $product->prices()->whereNull('variant_id')->first();
+                        $price = $productPrice ? $this->getPriceValue($productPrice) : 0;
+                        $productStock = $product->stocks()->whereNull('variant_value')->first();
+
+                        $results[] = [
                             'id' => $product->id,
+                            'product_id' => $product->id,
+                            'variant_id' => null,
+                            'variant_value' => null,
                             'name' => $product->name,
                             'code' => $product->code,
                             'model' => $product->model,
-                            'price' => $product->price->selling_price ?? 0,
-                            'stock' => $product->stock->available_stock ?? 0,
+                            'price' => $price,
+                            'stock' => $productStock->available_stock ?? 0,
                             'image' => $product->image
                         ];
-                    });
+                    }
+                }
+
+                $this->searchResults = collect($results);
             }
         } else {
             $this->searchResults = [];
@@ -275,12 +340,13 @@ class QuotationSystem extends Component
     // Add to Cart
     public function addToCart($product)
     {
-        $existing = collect($this->cart)->firstWhere('id', $product['id']);
+        $cartId = $product['id'];
+        $existing = collect($this->cart)->firstWhere('id', $cartId);
 
         if ($existing) {
             // Increase quantity if already in cart
-            $this->cart = collect($this->cart)->map(function ($item) use ($product) {
-                if ($item['id'] == $product['id']) {
+            $this->cart = collect($this->cart)->map(function ($item) use ($cartId) {
+                if ($item['id'] == $cartId) {
                     $item['quantity'] += 1;
                     $item['total'] = ($item['price'] - $item['discount']) * $item['quantity'];
                 }
@@ -288,22 +354,43 @@ class QuotationSystem extends Component
             })->toArray();
         } else {
             // Add new item - use discount_price if available, otherwise 0
-            $discountPrice = ProductDetail::find($product['id'])->price->discount_price ?? 0;
+            $productId = $product['product_id'] ?? $product['id'];
+            $variantId = $product['variant_id'] ?? null;
 
-            $this->cart[] = [
-                'id' => $product['id'],
+            // Get discount price from prices table based on variant
+            $priceRecord = \App\Models\ProductPrice::where('product_id', $productId)
+                ->where(function ($q) use ($variantId) {
+                    if ($variantId) {
+                        $q->where('variant_id', $variantId);
+                    } else {
+                        $q->whereNull('variant_id');
+                    }
+                })
+                ->first();
+
+            $discountPrice = $priceRecord->discount_price ?? 0;
+
+            // Add new item at the beginning of cart array (prepend)
+            array_unshift($this->cart, [
+                'id' => $cartId,
+                'product_id' => $productId,
+                'variant_id' => $variantId,
+                'variant_value' => $product['variant_value'] ?? null,
                 'name' => $product['name'],
                 'code' => $product['code'],
-                'model' => $product['model'],
-                'price' => $product['price'], // Unit price from selling_price
+                'model' => $product['model'] ?? '',
+                'price' => $product['price'], // Unit price based on selected price type
                 'quantity' => 1,
                 'discount' => $discountPrice, // Pre-fill with discount_price from database
                 'total' => $product['price'] - $discountPrice // Initial total with discount applied
-            ];
+            ]);
         }
 
         $this->search = '';
         $this->searchResults = [];
+
+        // Dispatch event to focus the first cart item's quantity input
+        $this->dispatch('product-added-to-cart');
     }
 
     // Update Quantity
@@ -460,10 +547,12 @@ class QuotationSystem extends Component
             $items = collect($this->cart)->map(function ($item, $index) {
                 return [
                     'id' => $index + 1,
-                    'product_id' => $item['id'],
+                    'product_id' => $item['product_id'],
+                    'variant_id' => $item['variant_id'] ?? null,
+                    'variant_value' => $item['variant_value'] ?? null,
                     'product_code' => $item['code'],
                     'product_name' => $item['name'],
-                    'product_model' => $item['model'],
+                    'product_model' => $item['model'] ?? '',
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['price'],
                     'discount_per_unit' => $item['discount'],
@@ -476,11 +565,18 @@ class QuotationSystem extends Component
             $totalItemDiscount = $this->totalDiscount;
             $totalDiscount = $totalItemDiscount + $this->additionalDiscountAmount;
 
+            // Map customer type to valid quotation customer types (retail or wholesale)
+            $quotationCustomerType = match ($customer->type) {
+                'distributor', 'wholesale' => 'wholesale',
+                'retail' => 'retail',
+                default => 'retail'
+            };
+
             // Create quotation
             $quotation = Quotation::create([
                 'quotation_number' => Quotation::generateQuotationNumber(),
                 'customer_id' => $customer->id,
-                'customer_type' => $customer->type,
+                'customer_type' => $quotationCustomerType,
                 'customer_name' => $customer->name,
                 'customer_phone' => $customer->phone,
                 'customer_email' => $customer->email,

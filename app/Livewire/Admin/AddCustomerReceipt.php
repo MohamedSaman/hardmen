@@ -213,16 +213,7 @@ class AddCustomerReceipt extends Component
     }
 
     /**
-     * Calculate total return amount for a specific sale
-     */
-    private function calculateReturnAmount($saleId)
-    {
-        return ReturnsProduct::where('sale_id', $saleId)
-            ->sum('total_amount');
-    }
-
-    /**
-     * Load customer sales with return amounts calculated and opening balance
+     * Load customer sales with opening balance
      */
     private function loadCustomerSales()
     {
@@ -236,15 +227,11 @@ class AddCustomerReceipt extends Component
                 'invoice_number' => 'Opening Balance',
                 'sale_id' => 'OB',
                 'sale_date' => 'N/A',
-                'original_total_amount' => $this->selectedCustomer->opening_balance,
                 'total_amount' => $this->selectedCustomer->opening_balance,
-                'original_due_amount' => $this->selectedCustomer->opening_balance,
                 'due_amount' => $this->selectedCustomer->opening_balance,
-                'return_amount' => 0,
                 'paid_amount' => 0,
                 'payment_status' => 'pending',
                 'items_count' => 0,
-                'has_returns' => false,
                 'is_opening_balance' => true,
             ];
         }
@@ -267,36 +254,23 @@ class AddCustomerReceipt extends Component
         $mappedSales = $sales->map(function ($sale) {
             $paidAmount = $sale->total_amount - $sale->due_amount;
 
-            // Calculate total return amount for this sale
-            $returnAmount = $this->calculateReturnAmount($sale->id);
-
-            // Adjusted amounts after returns
-            $adjustedTotalAmount = $sale->total_amount - $returnAmount;
-            $adjustedDueAmount = max(0, $sale->due_amount - $returnAmount);
-
-            // If adjusted due amount is 0 or negative, update the sale status
-            if ($adjustedDueAmount <= 0.01) {
-                $this->autoMarkSaleAsPaid($sale->id, $returnAmount);
-            }
+            // Note: due_amount is already adjusted by return processing in ReturnProduct component
+            // Do NOT calculate return amounts here to avoid double reduction
 
             return [
                 'id' => $sale->id,
                 'invoice_number' => $sale->invoice_number,
                 'sale_id' => $sale->sale_id,
                 'sale_date' => $sale->created_at->format('M d, Y'),
-                'original_total_amount' => $sale->total_amount,
-                'total_amount' => $adjustedTotalAmount,
-                'original_due_amount' => $sale->due_amount,
-                'due_amount' => $adjustedDueAmount,
-                'return_amount' => $returnAmount,
+                'total_amount' => $sale->total_amount,
+                'due_amount' => $sale->due_amount,
                 'paid_amount' => $paidAmount,
-                'payment_status' => $adjustedDueAmount <= 0.01 ? 'paid' : $sale->payment_status,
+                'payment_status' => $sale->payment_status,
                 'items_count' => $sale->items->count(),
-                'has_returns' => $returnAmount > 0,
                 'is_opening_balance' => false,
             ];
         })->filter(function ($sale) {
-            // Only show sales with due amount > 0 after returns
+            // Only show sales with due amount > 0
             return $sale['due_amount'] > 0.01;
         })->values()->toArray();
 
@@ -484,69 +458,7 @@ class AddCustomerReceipt extends Component
     public function viewSale($saleId)
     {
         $this->selectedSale = Sale::with(['customer', 'items', 'payments', 'returns.product'])->find($saleId);
-
-        // Calculate return amount for display
-        if ($this->selectedSale) {
-            $this->selectedSale->return_amount = $this->calculateReturnAmount($saleId);
-            $this->selectedSale->adjusted_total = $this->selectedSale->total_amount - $this->selectedSale->return_amount;
-            $this->selectedSale->adjusted_due = max(0, $this->selectedSale->due_amount - $this->selectedSale->return_amount);
-        }
-
         $this->showViewModal = true;
-    }
-
-    /**
-     * Automatically mark sale as paid if returns cover the full due amount
-     */
-    private function autoMarkSaleAsPaid($saleId, $returnAmount)
-    {
-        try {
-            $sale = Sale::find($saleId);
-            if ($sale && $sale->due_amount <= $returnAmount) {
-                DB::beginTransaction();
-
-                // Create a system payment record for the return adjustment
-                $payment = Payment::create([
-                    'customer_id' => $sale->customer_id,
-                    'amount' => min($sale->due_amount, $returnAmount),
-                    'payment_method' => 'return_adjustment',
-                    'payment_reference' => 'AUTO-RETURN-' . $sale->invoice_number,
-                    'payment_date' => now(),
-                    'status' => 'paid',
-                    'is_completed' => 1,
-                    'notes' => 'Automatically adjusted due to product returns covering the full amount',
-                    'created_by' => Auth::id() ?? 1,
-                ]);
-
-                // Create payment allocation
-                DB::table('payment_allocations')->insert([
-                    'payment_id' => $payment->id,
-                    'sale_id' => $saleId,
-                    'allocated_amount' => min($sale->due_amount, $returnAmount),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                // Update sale
-                $sale->due_amount = 0;
-                $sale->payment_status = 'paid';
-                $sale->save();
-
-                DB::commit();
-
-                Log::info('Sale automatically marked as paid due to returns', [
-                    'sale_id' => $saleId,
-                    'return_amount' => $returnAmount,
-                    'payment_id' => $payment->id
-                ]);
-            }
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to auto-mark sale as paid', [
-                'sale_id' => $saleId,
-                'error' => $e->getMessage()
-            ]);
-        }
     }
 
     public function processPayment()
@@ -669,11 +581,10 @@ class AddCustomerReceipt extends Component
                     $saleModel = Sale::find($saleId);
                     if ($saleModel) {
                         $newDueAmount = $saleModel->due_amount - $paymentAmount;
-                        $returnAmount = $this->calculateReturnAmount($saleId);
 
-                        // Adjust for returns
-                        $adjustedDueAmount = max(0, $newDueAmount - $returnAmount);
-                        $saleModel->due_amount = $adjustedDueAmount;
+                        // Note: due_amount is already adjusted by return processing
+                        // Do not recalculate returns here
+                        $saleModel->due_amount = max(0, $newDueAmount);
 
                         if ($saleModel->due_amount <= 0.01) {
                             $saleModel->payment_status = 'paid';
@@ -696,7 +607,6 @@ class AddCustomerReceipt extends Component
                         Log::info('Sale updated and allocation created', [
                             'sale_id' => $saleId,
                             'payment_amount' => $paymentAmount,
-                            'return_amount' => $returnAmount,
                             'new_due' => $saleModel->due_amount
                         ]);
                     }
@@ -784,13 +694,7 @@ class AddCustomerReceipt extends Component
                     'sales.total_amount',
                     'payment_allocations.allocated_amount'
                 )
-                ->get()
-                ->map(function ($allocation) {
-                    $returnAmount = $this->calculateReturnAmount($allocation->sale_id);
-                    $allocation->return_amount = $returnAmount;
-                    $allocation->adjusted_total = $allocation->total_amount - $returnAmount;
-                    return $allocation;
-                });
+                ->get();
 
             $receiptData = [
                 'payment' => $payment,

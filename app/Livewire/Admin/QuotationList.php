@@ -108,11 +108,29 @@ class QuotationList extends Component
             // Initialize editable items with quotation data and current stock
             $this->editableItems = collect($items)->map(function ($item) {
                 $product = ProductDetail::find($item['product_id']);
-                $currentStock = $product->stock->available_stock ?? 0;
-                $discountPrice = $product->price->discount_price ?? 0;
+
+                // Get variant-specific stock and price if variant exists
+                $variantId = $item['variant_id'] ?? null;
+                $variantValue = $item['variant_value'] ?? null;
+
+                if ($variantId && $product) {
+                    // Get variant-specific stock
+                    $stockRecord = $product->stocks()->where('variant_id', $variantId)->first();
+                    $currentStock = $stockRecord->available_stock ?? 0;
+
+                    // Get variant-specific discount price
+                    $priceRecord = $product->prices()->where('variant_id', $variantId)->first();
+                    $discountPrice = $priceRecord->discount_price ?? 0;
+                } else {
+                    // Get non-variant stock and price
+                    $currentStock = $product->stock->available_stock ?? 0;
+                    $discountPrice = $product->price->discount_price ?? 0;
+                }
 
                 return [
                     'product_id' => $item['product_id'] ?? null,
+                    'variant_id' => $variantId,
+                    'variant_value' => $variantValue,
                     'product_name' => $item['product_name'] ?? $item['name'] ?? 'N/A',
                     'product_code' => $item['product_code'] ?? '',
                     'product_model' => $item['product_model'] ?? '',
@@ -476,12 +494,19 @@ class QuotationList extends Component
                 // Total discount = items discount + additional discount
                 $totalCombinedDiscount = $this->totalDiscount + $this->additionalDiscountAmount;
 
+                // Map customer type to valid sale customer types (retail or wholesale)
+                $saleCustomerType = match ($customer->type) {
+                    'distributor', 'wholesale' => 'wholesale',
+                    'retail' => 'retail',
+                    default => 'retail'
+                };
+
                 // Create sale
                 $sale = Sale::create([
                     'sale_id' => Sale::generateSaleId(),
                     'invoice_number' => Sale::generateInvoiceNumber(),
                     'customer_id' => $customer->id,
-                    'customer_type' => $customer->type,
+                    'customer_type' => $saleCustomerType,
                     'subtotal' => $this->subtotal,
                     'discount_amount' => $totalCombinedDiscount,
                     'total_amount' => $this->grandTotal,
@@ -499,6 +524,8 @@ class QuotationList extends Component
                     SaleItem::create([
                         'sale_id' => $sale->id,
                         'product_id' => $item['product_id'],
+                        'variant_id' => $item['variant_id'] ?? null,
+                        'variant_value' => $item['variant_value'] ?? null,
                         'product_code' => $item['product_code'],
                         'product_name' => $item['product_name'],
                         'product_model' => $item['product_model'],
@@ -509,11 +536,23 @@ class QuotationList extends Component
                         'total' => $item['total']
                     ]);
 
-                    // Update product stock
+                    // Update product stock based on variant
                     $product = ProductDetail::find($item['product_id']);
-                    if ($product && $product->stock) {
-                        $product->stock->available_stock -= $item['quantity'];
-                        $product->stock->save();
+                    if ($product) {
+                        if ($item['variant_id']) {
+                            // Update variant-specific stock
+                            $stockRecord = $product->stocks()->where('variant_id', $item['variant_id'])->first();
+                            if ($stockRecord) {
+                                $stockRecord->available_stock -= $item['quantity'];
+                                $stockRecord->save();
+                            }
+                        } else {
+                            // Update non-variant stock
+                            if ($product->stock) {
+                                $product->stock->available_stock -= $item['quantity'];
+                                $product->stock->save();
+                            }
+                        }
                     }
                 }
 

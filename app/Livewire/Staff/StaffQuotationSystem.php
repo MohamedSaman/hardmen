@@ -438,11 +438,18 @@ class StaffQuotationSystem extends Component
             $totalItemDiscount = $this->totalDiscount;
             $totalDiscount = $totalItemDiscount + $this->additionalDiscountAmount;
 
+            // Map customer type to valid quotation customer types (retail or wholesale)
+            $quotationCustomerType = match ($customer->type) {
+                'distributor', 'wholesale' => 'wholesale',
+                'retail' => 'retail',
+                default => 'retail'
+            };
+
             // Create quotation with created_by and user_id = Auth::id()
             $quotation = Quotation::create([
                 'quotation_number' => Quotation::generateQuotationNumber(),
                 'customer_id' => $customer->id,
-                'customer_type' => $customer->type,
+                'customer_type' => $quotationCustomerType,
                 'customer_name' => $customer->name,
                 'customer_phone' => $customer->phone,
                 'customer_email' => $customer->email,
