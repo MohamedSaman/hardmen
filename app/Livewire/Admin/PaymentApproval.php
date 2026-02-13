@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\Payment;
 use App\Models\Sale;
+use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -11,6 +12,7 @@ use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 #[Title('Payment Approvals')]
 #[Layout('components.layouts.admin')]
@@ -20,12 +22,22 @@ class PaymentApproval extends Component
 
     public $search = '';
     public $statusFilter = 'pending';
+    public $staffFilter = '';
+    public $dateFrom = '';
+    public $dateTo = '';
+    public $perPage = 15;
     public $selectedPayment = null;
     public $showApproveModal = false;
     public $showRejectModal = false;
     public $rejectionReason = '';
 
-    protected $queryString = ['search', 'statusFilter'];
+    protected $queryString = ['search', 'statusFilter', 'staffFilter', 'dateFrom', 'dateTo'];
+
+    public function mount()
+    {
+        $this->dateFrom = Carbon::now()->format('Y-m-d');
+        $this->dateTo = Carbon::now()->format('Y-m-d');
+    }
 
     public function updatedSearch()
     {
@@ -33,6 +45,26 @@ class PaymentApproval extends Component
     }
 
     public function updatedStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStaffFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateFrom()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage()
     {
         $this->resetPage();
     }
@@ -168,7 +200,11 @@ class PaymentApproval extends Component
 
     public function render()
     {
+        // Filter to show only staff-collected payments
         $query = Payment::with(['sale.customer', 'collectedBy', 'customer'])
+            ->whereHas('collectedBy', function ($q) {
+                $q->where('role', 'staff');
+            })
             ->when($this->search, function ($q) {
                 $q->where(function ($sq) {
                     $sq->whereHas('sale', function ($saleQ) {
@@ -183,13 +219,31 @@ class PaymentApproval extends Component
             ->when($this->statusFilter, function ($q) {
                 $q->where('status', $this->statusFilter);
             })
+            ->when($this->staffFilter, function ($q) {
+                $q->where('collected_by', $this->staffFilter);
+            })
+            ->when($this->dateFrom, function ($q) {
+                $q->whereDate('collected_at', '>=', $this->dateFrom);
+            })
+            ->when($this->dateTo, function ($q) {
+                $q->whereDate('collected_at', '<=', $this->dateTo);
+            })
             ->orderBy('created_at', 'desc');
 
+        // Get staff users for dropdown
+        $staffUsers = User::where('role', 'staff')->orderBy('name')->get(['id', 'name', 'staff_type']);
+
+        // Base query for counts - only staff-collected payments
+        $baseCountQuery = Payment::query()->whereHas('collectedBy', function ($q) {
+            $q->where('role', 'staff');
+        });
+
         return view('livewire.admin.payment-approval', [
-            'payments' => $query->paginate(15),
-            'pendingCount' => Payment::where('status', 'pending')->count(),
-            'approvedCount' => Payment::whereIn('status', ['approved', 'paid'])->count(),
-            'rejectedCount' => Payment::where('status', 'rejected')->count(),
+            'payments' => $query->paginate($this->perPage),
+            'staffUsers' => $staffUsers,
+            'pendingCount' => (clone $baseCountQuery)->where('status', 'pending')->count(),
+            'approvedCount' => (clone $baseCountQuery)->whereIn('status', ['approved', 'paid'])->count(),
+            'rejectedCount' => (clone $baseCountQuery)->where('status', 'rejected')->count(),
         ]);
     }
 }

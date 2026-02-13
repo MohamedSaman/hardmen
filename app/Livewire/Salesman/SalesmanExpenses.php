@@ -4,6 +4,7 @@ namespace App\Livewire\Salesman;
 
 use App\Models\StaffExpense;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -58,19 +59,61 @@ class SalesmanExpenses extends Component
         $this->validate();
 
         try {
-            StaffExpense::create([
+            DB::beginTransaction();
+
+            // Create staff expense with auto-approval
+            $staffExpense = StaffExpense::create([
                 'staff_id' => Auth::id(),
                 'expense_type' => $this->expense_type,
                 'amount' => $this->amount,
                 'description' => $this->description,
                 'expense_date' => $this->expense_date,
-                'status' => 'pending',
+                'status' => 'approved',
+                'admin_notes' => 'Auto-approved',
             ]);
 
-            $this->js("Swal.fire('Success!', 'Expense added successfully! Waiting for admin approval.', 'success')");
+            // Create a regular expense record
+            \App\Models\Expense::create([
+                'category' => 'Staff Expense - ' . $this->expense_type,
+                'amount' => $this->amount,
+                'description' => 'Staff: ' . Auth::user()->name . ' - ' . ($this->description ?? $this->expense_type),
+                'date' => $this->expense_date,
+                'expense_type' => 'daily',
+            ]);
+
+            // Update cash in hands - subtract expense amount
+            $cashInHandRecord = DB::table('cash_in_hands')->where('key', 'cash_amount')->first();
+
+            if ($cashInHandRecord) {
+                DB::table('cash_in_hands')
+                    ->where('key', 'cash_amount')
+                    ->update([
+                        'value' => $cashInHandRecord->value - $this->amount,
+                        'updated_at' => now()
+                    ]);
+            }
+
+            // Update today's POS session if expense is for today
+            try {
+                if (\Carbon\Carbon::parse($this->expense_date)->isToday()) {
+                    $session = \App\Models\POSSession::getTodaySession(Auth::id());
+                    if ($session) {
+                        $session->expenses = ($session->expenses ?? 0) + $this->amount;
+                        $session->save();
+                        $session->calculateDifference();
+                    }
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to update POS session after staff expense: ' . $e->getMessage());
+            }
+
+            DB::commit();
+
+            $this->js("Swal.fire('Success!', 'Expense added and approved successfully!', 'success')");
             $this->closeAddModal();
             $this->resetPage();
         } catch (\Exception $e) {
+            DB::rollBack();
             $this->js("Swal.fire('Error!', 'Error adding expense: " . $e->getMessage() . "', 'error')");
         }
     }

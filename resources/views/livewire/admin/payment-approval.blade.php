@@ -3,9 +3,9 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h3 class="fw-bold text-dark mb-2">
-                <i class="bi bi-cash-coin text-success me-2"></i> Payment Approvals
+                <i class="bi bi-cash-coin text-success me-2"></i> Staff Payment Collection
             </h3>
-            <p class="text-muted mb-0">Review and approve/reject payments collected by delivery staff</p>
+            <p class="text-muted mb-0">View payments collected by staff members</p>
         </div>
     </div>
 
@@ -13,18 +13,39 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                        <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search by invoice or customer...">
+                        <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search invoice or customer...">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <select wire:model.live="staffFilter" class="form-select">
+                        <option value="">All Staff</option>
+                        @foreach($staffUsers as $staff)
+                            <option value="{{ $staff->id }}">{{ $staff->name }} ({{ ucfirst($staff->staff_type) }})</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <select wire:model.live="statusFilter" class="form-select">
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                         <option value="">All Status</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="date" wire:model.live="dateFrom" class="form-control" title="From Date">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" wire:model.live="dateTo" class="form-control" title="To Date">
+                </div>
+                <div class="col-md-1">
+                    <select wire:model.live="perPage" class="form-select form-select-sm" title="Entries">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
                     </select>
                 </div>
             </div>

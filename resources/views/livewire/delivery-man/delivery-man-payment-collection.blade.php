@@ -1,11 +1,11 @@
 <div class="container-fluid py-3">
     {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <h3 class="fw-bold text-dark mb-2">
                 <i class="bi bi-cash-stack text-success me-2"></i> Payment Collection
             </h3>
-            <p class="text-muted mb-0">Collect payments from customers (requires admin approval)</p>
+            <p class="text-muted mb-0">Collect payments directly from customers</p>
         </div>
         <a href="{{ route('delivery.dashboard') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-2"></i> Back to Dashboard
@@ -51,17 +51,32 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <div class="row">
+                @if(!$selectedCustomer)
                 <div class="col-md-6">
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                         <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search by customer name or phone...">
                     </div>
                 </div>
-                @if($selectedCustomer)
-                <div class="col-md-6">
-                    <button class="btn btn-outline-secondary" wire:click="clearSelectedCustomer">
-                        <i class="bi bi-x-circle me-1"></i> Clear Selection
-                    </button>
+                @else
+                <div class="col-md-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 text-primary">
+                                <i class="bi bi-person-check-fill me-2"></i>
+                                Selected Customer: <strong>{{ $selectedCustomer->name }}</strong>
+                            </h5>
+                            <small class="text-muted">
+                                <i class="bi bi-telephone me-1"></i>{{ $selectedCustomer->phone ?? 'N/A' }}
+                                @if($selectedCustomer->address)
+                                <span class="ms-3"><i class="bi bi-geo-alt me-1"></i>{{ $selectedCustomer->address }}</span>
+                                @endif
+                            </small>
+                        </div>
+                        <button class="btn btn-outline-secondary" wire:click="clearSelectedCustomer">
+                            <i class="bi bi-x-circle me-1"></i> Clear Selection
+                        </button>
+                    </div>
                 </div>
                 @endif
             </div>
@@ -446,9 +461,9 @@
                     </div>
                     @endif
 
-                    <div class="alert alert-info mt-3">
-                        <i class="bi bi-info-circle me-2"></i>
-                        This payment will be sent to admin for approval before being processed.
+                    <div class="alert alert-success mt-3">
+                        <i class="bi bi-check-circle me-2"></i>
+                        This payment will be processed immediately and due amounts will be reduced.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -456,9 +471,6 @@
                     <button type="button" class="btn btn-success" wire:click="collectPayment" wire:loading.attr="disabled">
                         <span wire:loading.remove wire:target="collectPayment">
                             <i class="bi bi-check-circle me-2"></i>Collect Payment
-                        </span>
-                        <span wire:loading wire:target="collectPayment">
-                            <span class="spinner-border spinner-border-sm me-2"></span>Processing...
                         </span>
                     </button>
                 </div>

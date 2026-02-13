@@ -2061,6 +2061,10 @@ class StoreBilling extends Component
                     return;
                 }
 
+                // Store old due amount for customer update
+                $oldDueAmount = $sale->due_amount;
+                $oldCustomerId = $sale->customer_id;
+
                 // Restore previous stock quantities (both ProductStock and ProductBatch)
                 $previousItems = SaleItem::where('sale_id', $sale->id)->get();
                 foreach ($previousItems as $prevItem) {
@@ -2120,6 +2124,40 @@ class StoreBilling extends Component
                 Cheque::where('payment_id', '!=', null)->whereIn('payment_id', function ($q) use ($sale) {
                     $q->select('id')->from('payments')->where('sale_id', $sale->id);
                 })->delete();
+
+                // Update customer due_amount for EDIT: subtract old due, add new due
+                // Handle both old customer and new customer (if customer changed)
+                if ($oldCustomerId) {
+                    $oldCustomer = Customer::find($oldCustomerId);
+                    if ($oldCustomer && $oldCustomer->id !== $customer->id) {
+                        // Customer changed: remove old due from old customer (only if it was added)
+                        if ($oldDueAmount > 0) {
+                            $oldCustomer->due_amount = max(0, ($oldCustomer->due_amount ?? 0) - $oldDueAmount);
+                            $oldCustomer->total_due = ($oldCustomer->opening_balance ?? 0) + $oldCustomer->due_amount;
+                            $oldCustomer->save();
+                        }
+                    }
+                }
+
+                // Update or add due amount to current customer (only if due amount exists)
+                if ($customer->id == $oldCustomerId) {
+                    // Same customer: adjust the difference
+                    // Only subtract old due if it was actually added (>0)
+                    if ($oldDueAmount > 0) {
+                        $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $oldDueAmount);
+                    }
+                    // Only add new due if it exists (>0)
+                    if ($this->dueAmount > 0) {
+                        $customer->due_amount = ($customer->due_amount ?? 0) + $this->dueAmount;
+                    }
+                } else {
+                    // New customer: just add new due (only if exists)
+                    if ($this->dueAmount > 0) {
+                        $customer->due_amount = ($customer->due_amount ?? 0) + $this->dueAmount;
+                    }
+                }
+                $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                $customer->save();
 
                 // Update sale
                 $sale->update([

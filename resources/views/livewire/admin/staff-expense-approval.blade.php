@@ -80,21 +80,21 @@
         <div class="card-body">
             <!-- Filters -->
             <div class="row mb-3 g-2">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <input type="text" class="form-control" placeholder="Search..." wire:model.live="search">
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select class="form-select" wire:model.live="status_filter">
+                        <option value="all">All Status</option>
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
-                        <option value="all">All Status</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select class="form-select" wire:model.live="staff_filter">
                         <option value="">All Staff</option>
                         @foreach($staffList as $staff)
@@ -104,6 +104,27 @@
                             </option>
                         @endforeach
                     </select>
+                </div>
+                <div class="col-md-3">
+                    <select wire:model.live="perPage" class="form-select" title="Entries per page">
+                        <option value="10">10 per page</option>
+                        <option value="15">15 per page</option>
+                        <option value="25">25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Date Range Filters -->
+            <div class="row mb-3 g-2">
+                <div class="col-md-6">
+                    <label class="form-label small text-muted">From Date</label>
+                    <input type="date" class="form-control" wire:model.live="dateFrom" placeholder="From Date">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small text-muted">To Date</label>
+                    <input type="date" class="form-control" wire:model.live="dateTo" placeholder="To Date">
                 </div>
             </div>
 
@@ -192,7 +213,7 @@
 
             <!-- Pagination -->
             <div class="d-flex justify-content-center mt-3">
-                {{ $expenses->links() }}
+                {{ $expenses->links('livewire.custom-pagination') }}
             </div>
         </div>
     </div>

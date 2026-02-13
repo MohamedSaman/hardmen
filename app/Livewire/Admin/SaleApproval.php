@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Sale;
+use App\Models\User;
 use App\Models\ProductStock;
 use App\Services\FIFOStockService;
 use Livewire\Component;
@@ -12,6 +13,7 @@ use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 #[Title('Sale Approvals')]
 #[Layout('components.layouts.admin')]
@@ -20,7 +22,10 @@ class SaleApproval extends Component
     use WithPagination;
 
     public $search = '';
-    public $statusFilter = 'pending';
+    public $statusFilter = '';
+    public $staffFilter = '';
+    public $dateFrom = '';
+    public $dateTo = '';
     public $selectedSaleId = null;
     public $showDetailsModal = false;
     public $showRejectModal = false;
@@ -28,6 +33,12 @@ class SaleApproval extends Component
     public $rejectionReason = '';
     public $perPage = 10;
     public $isProcessing = false;
+
+    public function mount()
+    {
+        $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $this->dateTo = Carbon::now()->format('Y-m-d');
+    }
 
     // Computed property to get selected sale
     public function getSelectedSaleProperty()
@@ -42,7 +53,7 @@ class SaleApproval extends Component
         }])->find($this->selectedSaleId);
     }
 
-    protected $queryString = ['search', 'statusFilter'];
+    protected $queryString = ['search', 'statusFilter', 'staffFilter', 'dateFrom', 'dateTo'];
 
     public function updatedSearch()
     {
@@ -50,6 +61,21 @@ class SaleApproval extends Component
     }
 
     public function updatedStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStaffFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateFrom()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo()
     {
         $this->resetPage();
     }
@@ -339,6 +365,19 @@ class SaleApproval extends Component
             $query->where('user_id', Auth::id());
         }
 
+        // Apply staff filter
+        if ($this->staffFilter !== '') {
+            $query->where('user_id', $this->staffFilter);
+        }
+
+        // Apply date range filter
+        if ($this->dateFrom) {
+            $query->whereDate('created_at', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate('created_at', '<=', $this->dateTo);
+        }
+
         // Apply status filter - only if statusFilter is not empty
         if ($this->statusFilter !== '') {
             $query->where('status', $this->statusFilter);
@@ -355,6 +394,22 @@ class SaleApproval extends Component
         })
             ->orderBy('created_at', 'desc');
 
+        // Get staff users for the dropdown
+        $staffUsers = User::where('role', 'staff')->orderBy('name')->get(['id', 'name', 'staff_type']);
+
+        // Summary stats based on the same filtered query (without pagination)
+        // Only confirmed/approved sales have meaningful due & collected data
+        $statsQuery = (clone $query);
+        $totalSalesAmount = (clone $statsQuery)->sum('total_amount');
+
+        // Due amount only from confirmed sales (pending sales don't have due set yet)
+        $confirmedStatsQuery = (clone $query)->where('status', 'confirm');
+        $totalDueAmount = (clone $confirmedStatsQuery)->sum('due_amount');
+
+        // Collected amount from actual payment records for the filtered sales
+        $filteredSaleIds = (clone $confirmedStatsQuery)->pluck('id');
+        $totalCollectedAmount = \App\Models\Payment::whereIn('sale_id', $filteredSaleIds)->sum('amount');
+
         // Base query for counts - always exclude admin-created sales
         $baseCountQuery = Sale::query()->whereHas('user', function ($q) {
             $q->where('role', '!=', 'admin');
@@ -367,6 +422,10 @@ class SaleApproval extends Component
 
         return view('livewire.admin.sale-approval', [
             'sales' => $query->paginate($this->perPage),
+            'staffUsers' => $staffUsers,
+            'totalSalesAmount' => $totalSalesAmount,
+            'totalDueAmount' => $totalDueAmount,
+            'totalCollectedAmount' => $totalCollectedAmount,
             'pendingCount' => (clone $baseCountQuery)->where('status', 'pending')->count(),
             'approvedCount' => (clone $baseCountQuery)->where('status', 'confirm')->count(),
             'rejectedCount' => (clone $baseCountQuery)->where('status', 'rejected')->count(),

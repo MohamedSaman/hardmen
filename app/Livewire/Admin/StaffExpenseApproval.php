@@ -19,9 +19,12 @@ class StaffExpenseApproval extends Component
 {
     use WithPagination, WithDynamicLayout;
 
-    public $status_filter = 'pending';
+    public $status_filter = 'all';
     public $staff_filter = '';
     public $search = '';
+    public $dateFrom = '';
+    public $dateTo = '';
+    public $perPage = 15;
 
     // Modal states
     public $showApprovalModal = false;
@@ -154,6 +157,14 @@ class StaffExpenseApproval extends Component
             $query->where('staff_id', $this->staff_filter);
         }
 
+        // Apply date range filter
+        if ($this->dateFrom) {
+            $query->whereDate('expense_date', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate('expense_date', '<=', $this->dateTo);
+        }
+
         // Apply search filter
         if ($this->search) {
             $query->where(function ($q) {
@@ -165,8 +176,9 @@ class StaffExpenseApproval extends Component
             });
         }
 
-        $expenses = $query->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $expenses = $query->orderBy('expense_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->paginate($this->perPage);
 
         // Calculate totals
         $totalPending = StaffExpense::pending()->sum('amount');

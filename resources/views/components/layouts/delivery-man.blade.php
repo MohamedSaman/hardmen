@@ -350,6 +350,11 @@
                                     <i class="bi bi-collection"></i> <span>Collection</span>
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link py-2 {{ request()->routeIs('delivery.payment-list') ? 'active' : '' }}" href="{{ route('delivery.payment-list') }}">
+                                    <i class="bi bi-list-check"></i> <span>Payment List</span>
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </li>

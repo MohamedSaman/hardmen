@@ -57,6 +57,11 @@ class Payment extends Model
         return $this->hasMany(Cheque::class);
     }
 
+    public function cheque()
+    {
+        return $this->hasOne(Cheque::class);
+    }
+
     public function getStatusBadgeAttribute()
     {
         if ($this->status === null) {

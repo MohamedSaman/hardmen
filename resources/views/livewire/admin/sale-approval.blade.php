@@ -3,9 +3,52 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h3 class="fw-bold text-dark mb-2">
-                <i class="bi bi-clipboard-check text-primary me-2"></i> Sale Approvals
+                <i class="bi bi-clipboard-check text-primary me-2"></i> Staff Sales
             </h3>
-            <p class="text-muted mb-0">Review and approve/reject pending sales from salesmen</p>
+            <p class="text-muted mb-0">View all staff sales with filters and summary</p>
+        </div>
+    </div>
+
+    {{-- Summary Cards --}}
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                        <i class="bi bi-cash-stack text-primary fs-4"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-0 small">Total Sales Amount</p>
+                        <h4 class="fw-bold mb-0">Rs. {{ number_format($totalSalesAmount, 2) }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="rounded-circle bg-danger bg-opacity-10 p-3 me-3">
+                        <i class="bi bi-exclamation-circle text-danger fs-4"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-0 small">Total Due Amount</p>
+                        <h4 class="fw-bold mb-0 text-danger">Rs. {{ number_format($totalDueAmount, 2) }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+                        <i class="bi bi-check-circle text-success fs-4"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-0 small">Total Collected Amount</p>
+                        <h4 class="fw-bold mb-0 text-success">Rs. {{ number_format($totalCollectedAmount, 2) }}</h4>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -13,33 +56,43 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                        <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search by invoice, sale ID or customer...">
+                        <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search invoice, ID or customer...">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <select wire:model.live="staffFilter" class="form-select">
+                        <option value="">All Staff</option>
+                        @foreach($staffUsers as $staff)
+                            <option value="{{ $staff->id }}">{{ $staff->name }} ({{ ucfirst($staff->staff_type) }})</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <select wire:model.live="statusFilter" class="form-select">
+                        <option value="">All Status</option>
                         <option value="pending">Pending</option>
                         <option value="confirm">Approved</option>
                         <option value="rejected">Rejected</option>
-                        <option value="">All Status</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <div class="d-flex align-items-center gap-2">
-                        <label class="text-sm text-muted fw-medium">Show</label>
-                        <select wire:model.live="perPage" class="form-select form-select-sm" style="width: 80px;">
-                            <option value="10">10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="200">200</option>
-                            <option value="500">500</option>
-                        </select>
-                        <span class="text-sm text-muted">entries</span>
-                    </div>
+                <div class="col-md-2">
+                    <input type="date" wire:model.live="dateFrom" class="form-control" title="From Date">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" wire:model.live="dateTo" class="form-control" title="To Date">
+                </div>
+                <div class="col-md-1">
+                    <select wire:model.live="perPage" class="form-select form-select-sm" title="Entries per page">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -53,9 +106,11 @@
                     <thead class="table-light">
                         <tr>
                             <th class="ps-4">Invoice</th>
-                            <th>Salesman</th>
+                            <th>Staff</th>
                             <th>Customer</th>
                             <th class="text-end">Amount</th>
+                            <th class="text-end">Due</th>
+                            <th>Payment</th>
                             <th>Status</th>
                             <th>Date</th>
                             <th class="text-end pe-4">Actions</th>
@@ -71,6 +126,16 @@
                             <td>{{ $sale->user->name ?? 'N/A' }}</td>
                             <td>{{ $sale->customer->name ?? 'N/A' }}</td>
                             <td class="text-end fw-semibold">Rs. {{ number_format($sale->total_amount, 2) }}</td>
+                            <td class="text-end fw-semibold {{ $sale->due_amount > 0 ? 'text-danger' : 'text-success' }}">Rs. {{ number_format($sale->due_amount ?? 0, 2) }}</td>
+                            <td>
+                                @if(($sale->payment_status ?? 'pending') === 'paid')
+                                    <span class="badge bg-success">Paid</span>
+                                @elseif(($sale->payment_status ?? 'pending') === 'partial')
+                                    <span class="badge bg-info">Partial</span>
+                                @else
+                                    <span class="badge bg-secondary">Pending</span>
+                                @endif
+                            </td>
                             <td>
                                 @if($sale->status === 'pending')
                                     <span class="badge bg-warning"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
@@ -99,7 +164,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
+                            <td colspan="9" class="text-center py-5 text-muted">
                                 <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
                                 No sales to display.
                             </td>

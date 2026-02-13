@@ -6,7 +6,6 @@ use App\Models\Sale;
 use App\Models\Payment;
 use App\Models\Customer;
 use App\Models\Cheque;
-use App\Models\ReturnsProduct;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -72,9 +71,10 @@ class DeliveryManPaymentCollection extends Component
         $this->cheque['cheque_date'] = now()->format('Y-m-d');
         $this->bankTransfer['transfer_date'] = now()->format('Y-m-d');
 
-        // Auto-select customer if provided
-        if ($customer_id) {
-            $this->selectCustomer($customer_id);
+        // Auto-select customer if provided via route parameter or query string
+        $customerId = $customer_id ?? request('customer_id');
+        if ($customerId) {
+            $this->selectCustomer($customerId);
         }
     }
 
@@ -170,14 +170,6 @@ class DeliveryManPaymentCollection extends Component
     }
 
     /**
-     * Calculate return amount for a sale
-     */
-    private function calculateReturnAmount($saleId)
-    {
-        return ReturnsProduct::where('sale_id', $saleId)->sum('total_amount');
-    }
-
-    /**
      * Load customer sales with opening balance
      */
     private function loadCustomerSales()
@@ -185,6 +177,8 @@ class DeliveryManPaymentCollection extends Component
         if (!$this->selectedCustomer) return;
 
         // Get all pending (unapproved) payment allocations for this customer's sales
+        // Note: Now that payments are approved directly, pending allocations should not exist for delivery man payments
+        // But we still check for any pending payments from other sources
         $pendingAllocations = DB::table('payment_allocations')
             ->join('payments', 'payment_allocations.payment_id', '=', 'payments.id')
             ->where('payments.customer_id', $this->selectedCustomer->id)
@@ -213,7 +207,6 @@ class DeliveryManPaymentCollection extends Component
                 'sale_date' => 'N/A',
                 'total_amount' => $this->selectedCustomer->opening_balance,
                 'due_amount' => $effectiveOpeningBalance,
-                'return_amount' => 0,
                 'payment_status' => 'pending',
                 'is_opening_balance' => true,
             ];
@@ -229,18 +222,18 @@ class DeliveryManPaymentCollection extends Component
             ->get();
 
         $mappedSales = $sales->map(function ($sale) use ($pendingAllocations) {
-            $returnAmount = $this->calculateReturnAmount($sale->id);
+            // Note: due_amount is already adjusted by return processing in ReturnProduct component
+            // Do NOT calculate return amounts here to avoid double reduction
             $pendingAmount = floatval($pendingAllocations[$sale->id] ?? 0);
-            $adjustedDueAmount = max(0, $sale->due_amount - $returnAmount - $pendingAmount);
+            $adjustedDueAmount = max(0, $sale->due_amount - $pendingAmount);
 
             return [
                 'id' => $sale->id,
                 'invoice_number' => $sale->invoice_number,
                 'sale_id' => $sale->sale_id,
                 'sale_date' => $sale->created_at->format('M d, Y'),
-                'total_amount' => $sale->total_amount - $returnAmount,
+                'total_amount' => $sale->total_amount,
                 'due_amount' => $adjustedDueAmount,
-                'return_amount' => $returnAmount,
                 'pending_payment' => $pendingAmount,
                 'payment_status' => $adjustedDueAmount <= 0.01 ? 'paid' : $sale->payment_status,
                 'is_opening_balance' => false,
@@ -378,14 +371,17 @@ class DeliveryManPaymentCollection extends Component
         try {
             DB::beginTransaction();
 
-            // Create payment with PENDING status (requires admin approval)
+            // Create payment with APPROVED status (direct payment, no approval needed)
             $paymentData = [
                 'customer_id' => $this->selectedCustomer->id,
                 'amount' => $this->totalPaymentAmount,
                 'payment_method' => $this->paymentData['payment_method'],
                 'payment_reference' => $this->paymentData['reference_number'] ?? null,
                 'payment_date' => $this->paymentData['payment_date'] ?? now()->format('Y-m-d'),
-                'status' => 'pending', // Requires admin approval
+                'status' => 'approved', // Direct payment, no approval needed
+                'is_completed' => true,
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
                 'notes' => $this->paymentData['notes'] ?? null,
                 'collected_by' => Auth::id(),
                 'collected_at' => now(),
@@ -413,7 +409,7 @@ class DeliveryManPaymentCollection extends Component
                 ]);
             }
 
-            // Create allocations for all selected items
+            // Create allocations and update sale/customer amounts directly
             $allocationsCreated = 0;
             foreach ($this->allocations as $allocation) {
                 $paymentAmount = $allocation['payment_amount'];
@@ -435,12 +431,44 @@ class DeliveryManPaymentCollection extends Component
                     'updated_at' => now(),
                 ]);
 
+                // Update sale due amount if this is a sale payment
+                if ($saleId) {
+                    $sale = Sale::find($saleId);
+                    if ($sale) {
+                        $newDueAmount = max(0, $sale->due_amount - $paymentAmount);
+                        $paymentStatus = $newDueAmount > 0 ? 'partial' : 'paid';
+
+                        $sale->update([
+                            'due_amount' => $newDueAmount,
+                            'payment_status' => $paymentStatus,
+                            'payment_type' => $newDueAmount > 0 ? 'partial' : 'full',
+                        ]);
+                    }
+                } else {
+                    // Opening balance payment - reduce customer's opening balance
+                    $customer = $this->selectedCustomer;
+                    if ($customer) {
+                        $newOpeningBalance = max(0, $customer->opening_balance - $paymentAmount);
+                        $customer->opening_balance = $newOpeningBalance;
+                        $customer->save();
+                    }
+                }
+
                 $allocationsCreated++;
             }
 
             // Ensure at least one allocation was created
             if ($allocationsCreated === 0) {
                 throw new \Exception('No payment allocations were created.');
+            }
+
+            // Reduce customer's total due_amount
+            $customer = $this->selectedCustomer;
+            if ($customer) {
+                $newCustomerDueAmount = max(0, $customer->due_amount - $this->totalPaymentAmount);
+                $customer->update([
+                    'due_amount' => $newCustomerDueAmount,
+                ]);
             }
 
             DB::commit();
@@ -461,7 +489,7 @@ class DeliveryManPaymentCollection extends Component
                 $this->clearSelectedCustomer();
             }
 
-            $this->dispatch('show-toast', type: 'success', message: 'Payment collected! Awaiting admin approval.');
+            $this->dispatch('show-toast', type: 'success', message: 'Payment collected successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Payment collection error: ' . $e->getMessage());

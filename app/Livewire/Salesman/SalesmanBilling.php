@@ -903,6 +903,9 @@ class SalesmanBilling extends Component
                 // Update existing sale
                 $sale = Sale::findOrFail($this->editingSaleId);
 
+                // Store old due amount for customer update
+                $oldDueAmount = $sale->due_amount;
+
                 // Only restore stock if sale was previously approved (status = 'confirm')
                 // Pending sales never had stock deducted, so no need to restore
                 if ($sale->status === 'confirm') {
@@ -978,12 +981,30 @@ class SalesmanBilling extends Component
                     $discountToStoreEdit = $this->additionalDiscountAmount;
                 }
 
+                $newDueAmount = $this->grandTotal;
+
+                // Update customer due_amount: subtract old due, add new due
+                $customer = Customer::find($this->customerId);
+                if ($customer) {
+                    // Only subtract old due if it was actually added (>0)
+                    if ($oldDueAmount > 0) {
+                        $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $oldDueAmount);
+                    }
+                    // Only add new due if it exists (>0)
+                    if ($newDueAmount > 0) {
+                        $customer->due_amount = ($customer->due_amount ?? 0) + $newDueAmount;
+                    }
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    $customer->save();
+                }
+
                 $sale->update([
                     'customer_id' => $this->customerId,
                     'subtotal' => $this->subtotal,
                     'discount_amount' => $discountToStoreEdit,
                     'discount_type' => $this->additionalDiscountType,
                     'total_amount' => $this->grandTotal,
+                    'due_amount' => $newDueAmount,
                     'customer_type' => $this->selectedCustomer->type ?? 'distributor',
                     'notes' => $this->notes,
                 ]);
@@ -1060,12 +1081,15 @@ class SalesmanBilling extends Component
                     'discount_amount' => $discountToStore,
                     'discount_type' => $this->additionalDiscountType,
                     'total_amount' => $this->grandTotal,
-                    'status' => 'pending',
+                    'due_amount' => $this->grandTotal,
+                    'status' => 'confirm',
                     'payment_status' => 'pending',
+                    'approved_by' => Auth::id(),
+                    'approved_at' => now(),
                     'notes' => $this->notes,
                 ]);
 
-                // Create Sale Items (stock will be deducted when admin approves)
+                // Create Sale Items and deduct stock immediately (auto-approved)
                 foreach ($this->cart as $item) {
                     $baseProductId = $item['id'];
                     $variantId = $item['variant_id'] ?? null;
@@ -1086,14 +1110,32 @@ class SalesmanBilling extends Component
                         'variant_value' => $variantValue,
                     ]);
 
-                    // Note: Stock deduction is deferred until admin approval
-                    // This prevents double deduction when sale is approved
+                    // Deduct stock using FIFO method (sale is auto-approved)
+                    try {
+                        FIFOStockService::deductStock($baseProductId, $quantity, $variantId, $variantValue);
+                    } catch (\Exception $e) {
+                        Log::error('Stock deduction failed for product: ' . $baseProductId, [
+                            'error' => $e->getMessage(),
+                            'quantity' => $quantity,
+                            'variant_id' => $variantId,
+                            'variant_value' => $variantValue,
+                        ]);
+                        throw new \Exception('Failed to deduct stock for ' . $item['name'] . ': ' . $e->getMessage());
+                    }
+                }
+
+                // Update customer due_amount (sale is credit - full amount is due)
+                $customer = Customer::find($this->customerId);
+                if ($customer && $this->grandTotal > 0) {
+                    $customer->due_amount = ($customer->due_amount ?? 0) + $this->grandTotal;
+                    $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                    $customer->save();
                 }
 
                 DB::commit();
                 $this->createdSale = $sale->load(['customer', 'items.product']);
                 $this->showSaleModal = true;
-                session()->flash('success', 'Sale order created successfully! Pending admin approval.');
+                session()->flash('success', 'Sale created successfully! Stock has been updated.');
             }
         } catch (\Exception $e) {
             DB::rollback();

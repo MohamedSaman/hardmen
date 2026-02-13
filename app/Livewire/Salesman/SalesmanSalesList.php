@@ -4,6 +4,7 @@ namespace App\Livewire\Salesman;
 
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\Customer;
 use App\Models\ReturnsProduct;
 use App\Models\ProductStock;
 use Livewire\Component;
@@ -255,13 +256,30 @@ class SalesmanSalesList extends Component
             }
 
             $total = $subtotal - $discountRupees;
+            $newDueAmount = $total - ($this->editingSale->paid_amount ?? 0);
+
+            // Update customer due_amount: subtract old due, add new due
+            $customer = Customer::find($this->editingSale->customer_id);
+            if ($customer) {
+                $oldDueAmount = $this->editingSale->due_amount;
+                // Only subtract old due if it was actually added (>0)
+                if ($oldDueAmount > 0) {
+                    $customer->due_amount = max(0, ($customer->due_amount ?? 0) - $oldDueAmount);
+                }
+                // Only add new due if it exists (>0)
+                if ($newDueAmount > 0) {
+                    $customer->due_amount = ($customer->due_amount ?? 0) + $newDueAmount;
+                }
+                $customer->total_due = ($customer->opening_balance ?? 0) + $customer->due_amount;
+                $customer->save();
+            }
 
             $this->editingSale->update([
                 'subtotal' => $subtotal,
                 'discount_amount' => $discountToStore,
                 'discount_type' => $this->editDiscountType,
                 'total_amount' => $total,
-                'due_amount' => $total - ($this->editingSale->paid_amount ?? 0),
+                'due_amount' => $newDueAmount,
                 'notes' => $this->editNotes,
             ]);
 

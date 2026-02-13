@@ -1,6 +1,6 @@
 <div class="container-fluid py-3">
     {{-- Header --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <h3 class="fw-bold text-dark mb-2">
                 <i class="bi bi-box-seam text-primary me-2"></i> Pending Deliveries
@@ -16,7 +16,7 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-12">
                     <div class="input-group">
                         <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                         <input type="text" wire:model.live.debounce.300ms="search" class="form-control" placeholder="Search by invoice, customer name or phone...">
@@ -26,8 +26,8 @@
         </div>
     </div>
 
-    {{-- Deliveries List --}}
-    <div class="card border-0 shadow-sm">
+    {{-- Deliveries List - Desktop View --}}
+    <div class="card border-0 shadow-sm d-none d-md-block">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
@@ -80,6 +80,11 @@
                                         <i class="bi bi-truck"></i>
                                     </button>
                                     @endif
+                                    @if(in_array($sale->payment_status, ['pending', 'partial']))
+                                    <button wire:click="openEditDiscountModal({{ $sale->id }})" class="btn btn-sm btn-warning" title="Edit Discount">
+                                        <i class="bi bi-percent"></i>
+                                    </button>
+                                    @endif
                                     <button wire:click="showConfirmation('delivered', {{ $sale->id }})" class="btn btn-sm btn-success">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
@@ -100,9 +105,77 @@
         </div>
     </div>
 
+    {{-- Deliveries List - Mobile View --}}
+    <div class="d-md-none">
+        @forelse($sales as $sale)
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h6 class="fw-bold mb-1">{{ $sale->invoice_number }}</h6>
+                        <small class="text-muted"><i class="bi bi-calendar me-1"></i>{{ $sale->created_at->format('M d, Y') }}</small>
+                    </div>
+                    @if($sale->delivery_status === 'pending')
+                        <span class="badge bg-warning">Pending</span>
+                    @elseif($sale->delivery_status === 'in_transit')
+                        <span class="badge bg-info">In Transit</span>
+                    @endif
+                </div>
+                
+                <div class="mb-3">
+                    <p class="mb-1"><strong><i class="bi bi-person me-2"></i>{{ $sale->customer->name ?? 'N/A' }}</strong></p>
+                    @if($sale->customer->phone)
+                    <p class="mb-1 text-muted"><i class="bi bi-telephone me-2"></i>{{ $sale->customer->phone }}</p>
+                    @endif
+                    @if($sale->customer->address)
+                    <p class="mb-0 text-muted"><i class="bi bi-geo-alt me-2"></i>{{ $sale->customer->address }}</p>
+                    @endif
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <small class="text-muted d-block">Total Amount</small>
+                        <span class="fw-bold">Rs. {{ number_format($sale->total_amount, 2) }}</span>
+                    </div>
+                    @if($sale->due_amount > 0)
+                    <div class="col-6">
+                        <small class="text-muted d-block">Due Amount</small>
+                        <span class="fw-bold text-danger">Rs. {{ number_format($sale->due_amount, 2) }}</span>
+                    </div>
+                    @endif
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button wire:click="viewDetails({{ $sale->id }})" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye me-2"></i> View Details
+                    </button>
+                    @if($sale->delivery_status === 'pending')
+                    <button wire:click="showConfirmation('transit', {{ $sale->id }})" class="btn btn-sm btn-info text-white">
+                        <i class="bi bi-truck me-2"></i> Mark In Transit
+                    </button>
+                    @endif
+                    @if(in_array($sale->payment_status, ['pending', 'partial']))
+                    <button wire:click="openEditDiscountModal({{ $sale->id }})" class="btn btn-sm btn-warning">
+                        <i class="bi bi-percent me-2"></i> Edit Discount
+                    </button>
+                    @endif
+                    <button wire:click="showConfirmation('delivered', {{ $sale->id }})" class="btn btn-sm btn-success">
+                        <i class="bi bi-check-circle me-2"></i> Mark Delivered
+                    </button>
+                </div>
+            </div>
+        </div>
+        @empty
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+            <p>No pending deliveries! All caught up.</p>
+        </div>
+        @endforelse
+    </div>
+
     {{-- Pagination --}}
     <div class="mt-4">
-        {{ $sales->links() }}
+        {{ $sales->links('livewire.custom-pagination') }}
     </div>
 
     {{-- Details Modal --}}
@@ -246,6 +319,132 @@
                     </button>
                     <button type="button" class="btn btn-primary" wire:click="goToPayment">
                         <i class="bi bi-cash-coin me-2"></i>Collect Payment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Edit Discount Modal --}}
+    @if($showEditDiscountModal && $editDiscountSale)
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-percent me-2"></i>Edit Sale Discount
+                    </h5>
+                    <button type="button" class="btn-close" wire:click="closeEditDiscountModal"></button>
+                </div>
+                <div class="modal-body">
+                    {{-- Sale Information --}}
+                    <div class="bg-light rounded p-3 mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-2"><strong>Invoice:</strong> {{ $editDiscountSale->invoice_number }}</p>
+                                <p class="mb-0"><strong>Customer:</strong> {{ $editDiscountSale->customer->name ?? 'N/A' }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-2"><strong>Date:</strong> {{ $editDiscountSale->created_at->format('M d, Y') }}</p>
+                                <p class="mb-0"><strong>Status:</strong> 
+                                    @if($editDiscountSale->delivery_status === 'pending')
+                                        <span class="badge bg-warning">Pending</span>
+                                    @elseif($editDiscountSale->delivery_status === 'in_transit')
+                                        <span class="badge bg-info">In Transit</span>
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Current Amounts --}}
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0">
+                                <div class="card-body text-center">
+                                    <small class="text-muted d-block mb-1">Subtotal</small>
+                                    <h5 class="mb-0">Rs. {{ number_format($editDiscountSale->subtotal, 2) }}</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0">
+                                <div class="card-body text-center">
+                                    <small class="text-muted d-block mb-1">Current Discount</small>
+                                    <h5 class="mb-0">{{ $editDiscountSale->discount_amount ?? 0 }}%</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0">
+                                <div class="card-body text-center">
+                                    <small class="text-muted d-block mb-1">Current Total</small>
+                                    <h5 class="mb-0">Rs. {{ number_format($editDiscountSale->total_amount, 2) }}</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Edit Discount --}}
+                    <form wire:submit.prevent="updateDiscount">
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">New Discount Percentage</label>
+                            <div class="input-group input-group-lg">
+                                <input type="number" 
+                                       wire:model.live="newDiscountPercentage" 
+                                       class="form-control @error('newDiscountPercentage') is-invalid @enderror" 
+                                       min="0" 
+                                       max="100" 
+                                       step="0.01"
+                                       placeholder="Enter discount %">
+                                <span class="input-group-text"><i class="bi bi-percent"></i></span>
+                                @error('newDiscountPercentage')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <small class="text-muted">Enter a value between 0 and 100</small>
+                        </div>
+
+                        {{-- Preview New Amounts --}}
+                        @if($newDiscountPercentage !== null && $newDiscountPercentage >= 0)
+                        @php
+                            $subtotal = $editDiscountSale->subtotal;
+                            $newDiscountAmount = ($subtotal * $newDiscountPercentage) / 100;
+                            $newTotal = $subtotal - $newDiscountAmount;
+                            $paidAmount = $editDiscountSale->total_amount - $editDiscountSale->due_amount;
+                            $newDue = max(0, $newTotal - $paidAmount);
+                        @endphp
+                        <div class="alert alert-info">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-calculator me-2"></i>Preview New Amounts</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">Discount Amount</small>
+                                    <strong>Rs. {{ number_format($newDiscountAmount, 2) }}</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">New Total</small>
+                                    <strong class="text-primary">Rs. {{ number_format($newTotal, 2) }}</strong>
+                                </div>
+                                <div class="col-md-4">
+                                    <small class="text-muted d-block">New Due Amount</small>
+                                    <strong class="text-danger">Rs. {{ number_format($newDue, 2) }}</strong>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <small class="text-muted">
+                                <strong>Already Paid:</strong> Rs. {{ number_format($paidAmount, 2) }}
+                            </small>
+                        </div>
+                        @endif
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" wire:click="closeEditDiscountModal">
+                        <i class="bi bi-x-circle me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-warning" wire:click="updateDiscount">
+                        <i class="bi bi-check-circle me-2"></i>Update Discount
                     </button>
                 </div>
             </div>
